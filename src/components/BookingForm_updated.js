@@ -598,9 +598,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
           isComplete={recipientType === 'self' || (recipientType === 'other' && recipientInfo.name && recipientInfo.phone)}
         />
 
-        {/* 3-column layout: 1) Session or Wizard, 2) Address, 3) Single Duration if needed */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Session Configuration Panel */}
+        {/* Session Configuration and Address Sections */}
+        <div className="space-y-6">
+          {/* Session Configuration Panel - Now includes the summary card */}
           <SessionConfigurationPanel 
             onSessionConfigChange={(config) => {
               setNumSessions(config.numSessions);
@@ -634,8 +634,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
             googleMapsLoaded={googleMapsLoaded}
             isComplete={fullAddress !== ''}
           />
-
-          {/* Single-session Duration is handled within SessionConfigurationPanel */}
         </div>
 
         {/* Available Time Slots */}
@@ -645,6 +643,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
           onTimeSelected={setSelectedTime}
           hasValidDuration={selectedDuration !== null || (sessionDurations.length > 0 && sessionDurations.every(d => d))}
           isComplete={selectedTime !== null}
+          selectedDate={selectedDate}
         />
 
         {/* Booking Confirmation Modal */}

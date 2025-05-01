@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Users } from 'lucide-react';
-import SessionConfigWizard from '../SessionConfigWizard';
-import MassageSessionConfigurator from './MassageSessionConfigurator';
+import ProgressiveConfigPanel from './ProgressiveConfigPanel';
+import BookingSessionSummary from './BookingSessionSummary';
 
-// Main session configuration panel
+/**
+ * SessionConfigurationPanel
+ * 
+ * A wrapper component that orchestrates the new ProgressiveConfigPanel and BookingSessionSummary components.
+ * This component manages the state for session configuration and provides it to the child components.
+ */
 const SessionConfigurationPanel = ({
   onSessionConfigChange,
   availableDurations,
@@ -13,127 +17,81 @@ const SessionConfigurationPanel = ({
   selectedMassageType = 'focused',
   setSelectedMassageType = () => {}
 }) => {
-  // Internal state
-  const [numSessions, setNumSessions] = useState(1);
-  const [sessionDurations, setSessionDurations] = useState([]);
-  const [sessionNames, setSessionNames] = useState([]);
-  const [wizardStep, setWizardStep] = useState(0);
-  const [isConfiguringDurations, setIsConfiguringDurations] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState(null);
+  // Configuration step state
+  const [configStep, setConfigStep] = useState('sessions');
   
-  // Notify parent component when configuration changes
+  // Session configuration state
+  const [sessionConfigs, setSessionConfigs] = useState([]);
+  const [activeSessionIndex, setActiveSessionIndex] = useState(0);
+  
+  // Update the parent component when session configurations change
   useEffect(() => {
-    if (numSessions === 1) {
+    if (sessionConfigs.length === 0) return;
+    
+    if (sessionConfigs.length === 1) {
+      // Single session
+      const session = sessionConfigs[0];
       onSessionConfigChange({
         numSessions: 1,
-        selectedDuration,
+        selectedDuration: session.duration,
         sessionDurations: [],
         sessionNames: []
       });
-    } else if (sessionDurations.length === numSessions && sessionDurations.every(d => d)) {
+      
+      // Update the single session add-ons and massage type
+      if (session.addons) setSelectedAddons(session.addons);
+      if (session.massageType) setSelectedMassageType(session.massageType);
+    } else {
+      // Multi-session
       onSessionConfigChange({
-        numSessions,
+        numSessions: sessionConfigs.length,
         selectedDuration: null,
-        sessionDurations,
-        sessionNames
+        sessionDurations: sessionConfigs.map(s => s.duration),
+        sessionNames: sessionConfigs.map(s => s.recipient?.info?.name || '')
       });
     }
-  }, [numSessions, selectedDuration, sessionDurations, sessionNames, onSessionConfigChange]);
+  }, [sessionConfigs, onSessionConfigChange, setSelectedAddons, setSelectedMassageType]);
   
-  // Handle session type change
-  const handleSessionTypeChange = (num) => {
-    setNumSessions(num);
-    if (num === 1) {
-      setSessionDurations([]);
-      setSessionNames([]);
-      setIsConfiguringDurations(false);
-      setSelectedDuration(null);
-    } else {
-      setSessionDurations(Array(num).fill(null));
-      setSessionNames(Array(num).fill(''));
-      setIsConfiguringDurations(true);
-      setWizardStep(0);
+  // Update session configurations when single session props change
+  useEffect(() => {
+    if (sessionConfigs.length === 1) {
+      const updatedConfig = {
+        ...sessionConfigs[0],
+        addons: selectedAddons,
+        massageType: selectedMassageType
+      };
+      
+      setSessionConfigs([updatedConfig]);
     }
+  }, [selectedAddons, selectedMassageType]);
+  
+  // Handle editing a specific session from the summary card
+  const handleEditSession = (index) => {
+    setActiveSessionIndex(index);
+    setConfigStep('duration');
   };
+  
   return (
-    <>
-      {/* Session Configuration */}
-      {!isConfiguringDurations ? (
-        <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200 relative">
-          <CheckCircle className={`absolute top-2 right-2 w-6 h-6 ${
-            numSessions > 0 && (numSessions === 1 || sessionDurations.length === numSessions) 
-              ? 'text-green-500' 
-              : 'text-slate-300'
-          }`} />
-          <div className="flex items-center mb-3 border-b pb-2">
-            <Users className="w-5 h-5 text-blue-500 mr-2" />
-            <h2 className="font-medium">Number of Sessions</h2>
-          </div>
-          
-          {numSessions > 1 ? (
-            // Multi-session summary
-            <div>
-              <div className="p-3 bg-blue-50 rounded-md text-sm text-blue-700 mb-3">
-                <div className="font-medium mb-1">Multi-Session Confirmed:</div>
-                {sessionDurations.map((dur, idx) => (
-                  <div key={idx} className="text-blue-800 mb-1">
-                    {`Session ${idx + 1}: ${sessionNames[idx] || 'Unknown'} - ${dur} minutes`}
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => {
-                  setIsConfiguringDurations(true);
-                  setWizardStep(0);
-                }}
-                className="w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Edit Sessions
-              </button>
-            </div>
-          ) : (
-            // Single session dropdown
-            <select
-              value={numSessions}
-              onChange={(e) => handleSessionTypeChange(Number(e.target.value))}
-              className="w-full p-2 border border-slate-200 rounded-md hover:border-slate-300 transition-colors"
-            >
-              {[1, 2, 3, 4].map(num => (
-                <option key={num} value={num}>
-                  {num} {num === 1 ? 'Session' : 'Sessions'}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      ) : (
-        <SessionConfigWizard
-          numSessions={numSessions}
-          setNumSessions={setNumSessions}
-          sessionDurations={sessionDurations}
-          setSessionDurations={setSessionDurations}
-          sessionNames={sessionNames}
-          setSessionNames={setSessionNames}
-          wizardStep={wizardStep}
-          setWizardStep={setWizardStep}
-          isConfiguringDurations={isConfiguringDurations}
-          setIsConfiguringDurations={setIsConfiguringDurations}
-          durations={availableDurations}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="md:col-span-2">
+        <ProgressiveConfigPanel
+          configStep={configStep}
+          setConfigStep={setConfigStep}
+          sessionConfigs={sessionConfigs}
+          updateSessionConfig={setSessionConfigs}
+          activeSessionIndex={activeSessionIndex}
+          setActiveSessionIndex={setActiveSessionIndex}
         />
-      )}
-
-      {/* Single-session Configuration if numSessions === 1 */}
-      {numSessions === 1 && (
-        <MassageSessionConfigurator
-          selectedDuration={selectedDuration}
-          setSelectedDuration={setSelectedDuration}
-          selectedAddons={selectedAddons}
-          setSelectedAddons={setSelectedAddons}
-          selectedMassageType={selectedMassageType}
-          setSelectedMassageType={setSelectedMassageType}
+      </div>
+      
+      <div>
+        <BookingSessionSummary
+          sessionConfigs={sessionConfigs}
+          activeSessionIndex={activeSessionIndex}
+          onEditSession={handleEditSession}
         />
-      )}
-    </>
+      </div>
+    </div>
   );
 };
 

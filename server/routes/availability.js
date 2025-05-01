@@ -411,4 +411,140 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Update availability block
+router.put('/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    console.log('PUT /api/availability/:id - Request body:', req.body);
+    
+    // Find the availability block
+    const availability = await Availability.findById(req.params.id);
+
+    if (!availability) {
+      return res.status(404).json({ message: 'Availability not found' });
+    }
+
+    // Verify ownership
+    if (!availability.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Extract and validate the updated data
+    const { start, end } = req.body;
+    
+    if (!start || !end) {
+      return res.status(400).json({ message: 'Start and end times are required' });
+    }
+
+    // Create DateTime objects in LA timezone
+    const laDate = DateTime.fromJSDate(availability.date, { zone: 'UTC' })
+      .setZone(DEFAULT_TZ);
+    
+    const startLA = DateTime.fromFormat(
+      `${laDate.toFormat('yyyy-MM-dd')} ${start}`,
+      'yyyy-MM-dd HH:mm',
+      { zone: DEFAULT_TZ }
+    );
+    
+    const endLA = DateTime.fromFormat(
+      `${laDate.toFormat('yyyy-MM-dd')} ${end}`,
+      'yyyy-MM-dd HH:mm',
+      { zone: DEFAULT_TZ }
+    );
+
+    // Validate times
+    if (!startLA.isValid || !endLA.isValid) {
+      return res.status(400).json({ message: 'Invalid time format' });
+    }
+
+    if (endLA <= startLA) {
+      return res.status(400).json({ message: 'End time must be after start time' });
+    }
+
+    // Check for existing bookings that would conflict with the updated availability
+    const bookings = await Booking.find({
+      date: {
+        $gte: laDate.startOf('day').toUTC().toJSDate(),
+        $lt: laDate.endOf('day').toUTC().toJSDate()
+      }
+    });
+
+    // Check for conflicts with existing bookings
+    const conflicts = bookings.filter(booking => {
+      const bookingStart = DateTime.fromJSDate(booking.startTime, { zone: 'UTC' })
+        .setZone(DEFAULT_TZ);
+      const bookingEnd = DateTime.fromJSDate(booking.endTime, { zone: 'UTC' })
+        .setZone(DEFAULT_TZ);
+      
+      // If the booking starts before the new end time and ends after the new start time,
+      // there's a conflict
+      return (bookingStart < endLA && bookingEnd > startLA);
+    });
+
+    if (conflicts.length > 0) {
+      return res.status(400).json({
+        message: 'This modification conflicts with existing bookings',
+        conflicts: conflicts.map(booking => ({
+          id: booking._id,
+          time: DateTime.fromJSDate(booking.startTime)
+            .setZone(DEFAULT_TZ)
+            .toFormat(TIME_FORMATS.TIME_12H),
+          client: booking.clientName || 'Client'
+        }))
+      });
+    }
+
+    // Check for overlapping with other availability blocks
+    const existingBlocks = await Availability.find({
+      provider: req.user._id,
+      localDate: laDate.toFormat('yyyy-MM-dd'),
+      _id: { $ne: req.params.id }, // Exclude the current block
+      $or: [
+        // New block starts during existing block
+        {
+          start: { $lte: startLA.toJSDate() },
+          end: { $gt: startLA.toJSDate() }
+        },
+        // New block ends during existing block
+        {
+          start: { $lt: endLA.toJSDate() },
+          end: { $gte: endLA.toJSDate() }
+        },
+        // New block completely contains existing block
+        {
+          start: { $gte: startLA.toJSDate() },
+          end: { $lte: endLA.toJSDate() }
+        }
+      ]
+    });
+
+    if (existingBlocks.length > 0) {
+      return res.status(400).json({
+        message: 'This time block overlaps with existing availability',
+        conflicts: existingBlocks.map(block => ({
+          id: block._id,
+          start: DateTime.fromJSDate(block.start)
+            .setZone(DEFAULT_TZ)
+            .toFormat(TIME_FORMATS.TIME_12H),
+          end: DateTime.fromJSDate(block.end)
+            .setZone(DEFAULT_TZ)
+            .toFormat(TIME_FORMATS.TIME_12H),
+          type: block.type
+        }))
+      });
+    }
+
+    // Update the availability block
+    availability.start = startLA.toUTC().toJSDate();
+    availability.end = endLA.toUTC().toJSDate();
+    
+    // Save the updated block (this will trigger the pre-save middleware)
+    await availability.save();
+    
+    res.json(availability);
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

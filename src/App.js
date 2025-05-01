@@ -3,8 +3,10 @@ import React, { useContext, useState, useEffect } from 'react';
 import MyProfile from './components/MyProfile';
 
 
-// Google Maps Script Loader
+// Google Maps Script Loader with logging
 const loadGoogleMapsScript = () => {
+  console.log(`[GoogleMaps] ${new Date().toISOString()} | Loading Google Maps API script`);
+  
   const script = document.createElement('script');
   script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&libraries=places`;
   script.async = true;
@@ -12,8 +14,14 @@ const loadGoogleMapsScript = () => {
   document.head.appendChild(script);
   
   return new Promise((resolve, reject) => {
-    script.onload = resolve;
-    script.onerror = reject;
+    script.onload = () => {
+      console.log(`[GoogleMaps] ${new Date().toISOString()} | Google Maps API script loaded successfully`);
+      resolve();
+    };
+    script.onerror = (error) => {
+      console.error(`[GoogleMaps] ${new Date().toISOString()} | Error loading Google Maps API script:`, error);
+      reject(error);
+    };
   });
 };
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
@@ -88,7 +96,9 @@ function App() {
   useEffect(() => {
     loadGoogleMapsScript()
       .then(() => setGoogleMapsLoaded(true))
-      .catch((error) => console.error('Error loading Google Maps:', error));
+      .catch((error) => {
+        console.error(`[GoogleMaps] ${new Date().toISOString()} | Error loading Google Maps:`, error);
+      });
   }, []);
 
   if (loading) {

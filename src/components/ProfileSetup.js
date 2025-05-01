@@ -69,24 +69,38 @@ const ProfileSetup = () => {
   useEffect(() => {
     const loadGoogleMaps = () => {
       if (window.google?.maps?.places) {
+        console.log(`[GoogleMaps] ${new Date().toISOString()} | Google Maps API already loaded`);
         setGoogleMapsLoaded(true);
         return;
       }
 
+      // Use the environment variable for the API key
+      const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error(`[GoogleMaps] ${new Date().toISOString()} | Missing Google Maps API key`);
+        setLoadError('Missing Google Maps API key');
+        return;
+      }
+
+      console.log(`[GoogleMaps] ${new Date().toISOString()} | Loading Google Maps API script from ProfileSetup`);
+      
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       
       script.onload = () => {
         if (!window.google?.maps?.places) {
+          console.error(`[GoogleMaps] ${new Date().toISOString()} | Failed to load Google Maps API`);
           setLoadError('Failed to load Google Maps API');
           return;
         }
+        console.log(`[GoogleMaps] ${new Date().toISOString()} | Google Maps API script loaded successfully from ProfileSetup`);
         setGoogleMapsLoaded(true);
       };
 
-      script.onerror = () => {
+      script.onerror = (error) => {
+        console.error(`[GoogleMaps] ${new Date().toISOString()} | Failed to load Google Maps script:`, error);
         setLoadError('Failed to load Google Maps script');
       };
 

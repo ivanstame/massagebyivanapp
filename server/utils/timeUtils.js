@@ -249,8 +249,14 @@ async function validateSlots(
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
   
   const validSlots = [];
+  
+  // Limit the number of slots to validate to prevent excessive API calls
+  const MAX_SLOTS_TO_VALIDATE = 20;
+  const slotsToProcess = slots.slice(0, MAX_SLOTS_TO_VALIDATE);
+  
+  console.log(`Validating ${slotsToProcess.length} slots (limited from ${slots.length} total slots)`);
 
-  for (const slot of slots) {
+  for (const slot of slotsToProcess) {
     let isValid = true;
     const slotStart = DateTime.fromJSDate(slot);
     

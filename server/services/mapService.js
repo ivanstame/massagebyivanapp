@@ -3,6 +3,39 @@ const mongoose = require('mongoose');
 
 const TRAFFIC_THRESHOLD_KM = 40; // Adjust this value as needed
 
+// Geocoding cache to prevent redundant API calls
+const geocodeCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+// Rate limiting configuration
+// Enhanced rate limiting with production safeguards
+const RATE_LIMIT = {
+  maxCalls: 40,          // 20% below Google quota
+  perSeconds: 60,
+  burstProtection: 10,    // Max calls in first 5 seconds
+  emergencyThreshold: 35 // Trigger alerts at 87.5% capacity
+};
+let callCount = 0;
+let apiErrorCount = 0;
+const MAX_ERRORS = 5;
+let geocodingDisabled = false;
+let callRecords = []; // Tracks timestamps of recent API calls for burst protection
+
+// Reset call count periodically
+setInterval(() => {
+  callCount = 0;
+  console.log(`[Geocoding] ${new Date().toISOString()} | Rate limit counter reset`);
+}, RATE_LIMIT.perSeconds * 1000);
+
+// Reset error count and re-enable geocoding after a longer period
+setInterval(() => {
+  if (geocodingDisabled && apiErrorCount > 0) {
+    console.log(`[Geocoding] ${new Date().toISOString()} | Resetting error count and re-enabling geocoding`);
+    apiErrorCount = 0;
+    geocodingDisabled = false;
+  }
+}, 15 * 60 * 1000); // 15 minutes
+
 const isWithinServiceArea = (origin, destination, serviceArea) => {
   // Always return true - serviceArea functionality has been removed
   return true;
@@ -34,6 +67,24 @@ function getUserModel() {
   }
 }
 
+/**
+ * Get cache key for provider travel validation
+ * @param {Object} origin - Origin location
+ * @param {Object} destination - Destination location
+ * @param {string} providerId - Provider ID
+ * @returns {string} - Cache key
+ */
+function getProviderTravelCacheKey(origin, destination, providerId) {
+  return `provider_travel_${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}_to_${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}_provider_${providerId}`;
+}
+
+/**
+ * Validate if a provider can travel between two locations
+ * @param {Object} origin - Origin location with lat/lng
+ * @param {Object} destination - Destination location with lat/lng
+ * @param {string} providerId - Provider ID for validation
+ * @returns {Promise<boolean>} - Whether travel is valid
+ */
 async function validateProviderTravel(origin, destination, providerId) {
   // IMPORTANT: Since service area validation has been removed,
   // we can safely return true immediately to bypass all validation
@@ -53,6 +104,20 @@ async function validateProviderTravel(origin, destination, providerId) {
     if (typeof providerId !== 'string' && !(providerId instanceof Object)) {
       console.log('Invalid providerId type:', typeof providerId);
       return true; // Skip validation if providerId is not a string or object
+    }
+    
+    // Check cache first
+    const cacheKey = getProviderTravelCacheKey(origin, destination, providerId);
+    if (geocodeCache.has(cacheKey)) {
+      const cachedData = geocodeCache.get(cacheKey);
+      // Check if cache entry is still valid
+      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+        console.log(`[Geocoding] Cache hit for ${cacheKey}`);
+        return cachedData.isValid;
+      } else {
+        console.log(`[Geocoding] Cache expired for ${cacheKey}`);
+        geocodeCache.delete(cacheKey);
+      }
     }
     
     // Get the User model using Mongoose's global model lookup
@@ -95,7 +160,16 @@ async function validateProviderTravel(origin, destination, providerId) {
     }
 
     // ServiceArea validation has been removed
-    return true;
+    const isValid = true;
+    
+    // Cache the result
+    geocodeCache.set(cacheKey, {
+      isValid,
+      timestamp: Date.now()
+    });
+    console.log(`[Geocoding] Cached provider travel validation for ${cacheKey}`);
+    
+    return isValid;
   } catch (error) {
     console.error('Provider travel validation error:', error);
     console.log('Error occurred with providerId:', providerId);
@@ -104,6 +178,83 @@ async function validateProviderTravel(origin, destination, providerId) {
   }
 }
 
+/**
+ * Safe API call with rate limiting and circuit breaker
+ * @param {Function} apiCall - The API call function to execute
+ * @returns {Promise<any>} - The API response
+ */
+async function safeApiCall(apiCall) {
+  // Enhanced safety checks
+  if (geocodingDisabled) {
+    console.error(`[Geocoding][${new Date().toISOString()}] API disabled (${apiErrorCount}/${MAX_ERRORS} errors)`);
+    throw new Error('Geocoding temporarily unavailable - please try again later');
+  }
+
+  // Burst protection
+  const now = Date.now();
+  const recentCalls = callRecords.filter(ts => ts > now - 5000).length;
+  if (recentCalls > RATE_LIMIT.burstProtection) {
+    const delay = Math.min(5000, 100 * Math.pow(2, recentCalls - RATE_LIMIT.burstProtection));
+    console.warn(`[Geocoding] Burst protection delaying ${delay}ms`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+
+  // Rate limit enforcement
+  callRecords.push(now);
+  if (callRecords.length > RATE_LIMIT.maxCalls) {
+    const oldestAllowed = now - RATE_LIMIT.perSeconds * 1000;
+    callRecords = callRecords.filter(ts => ts > oldestAllowed);
+    
+    if (callRecords.length >= RATE_LIMIT.maxCalls) {
+      const msg = `Rate limit exceeded: ${callRecords.length}/${RATE_LIMIT.maxCalls} calls`;
+      console.error(`[Geocoding][${new Date().toISOString()}] ${msg}`);
+      throw new Error(msg);
+    }
+  }
+
+  // Emergency threshold alerting
+  if (callRecords.length >= RATE_LIMIT.emergencyThreshold) {
+    console.error(`[Geocoding][${new Date().toISOString()}] EMERGENCY: Reached ${callRecords.length}/${RATE_LIMIT.maxCalls} calls`);
+  }
+
+  console.log(`[Geocoding] ${new Date().toISOString()} | Calls: ${callCount}/${RATE_LIMIT.maxCalls}`);
+
+  try {
+    const result = await apiCall();
+    // Reset error count on success
+    apiErrorCount = 0;
+    return result;
+  } catch (error) {
+    // Increment error count
+    if (++apiErrorCount >= MAX_ERRORS) {
+      console.error(`[Geocoding] Error threshold reached (${apiErrorCount}/${MAX_ERRORS}). Disabling API calls.`);
+      geocodingDisabled = true;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get cache key for travel time calculation
+ * @param {Object} origin - Origin location
+ * @param {Object} destination - Destination location
+ * @param {Date} departureTime - Departure time
+ * @returns {string} - Cache key
+ */
+function getTravelTimeCacheKey(origin, destination, departureTime) {
+  // Round departure time to nearest 15 minutes for better cache hits
+  const roundedTime = new Date(Math.round(departureTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000));
+  return `travel_${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}_to_${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}_at_${roundedTime.toISOString()}`;
+}
+
+/**
+ * Calculate travel time between two locations
+ * @param {Object} origin - Origin location with lat/lng
+ * @param {Object} destination - Destination location with lat/lng
+ * @param {Date} departureTime - Departure time
+ * @param {string} providerId - Provider ID for validation
+ * @returns {Promise<number>} - Travel time in minutes
+ */
 async function calculateTravelTime(origin, destination, departureTime, providerId) {
   console.log('Calculating travel time:');
   console.log('Origin:', JSON.stringify(origin));
@@ -129,7 +280,22 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
       }
     }
 
-    const response = await axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
+    // Check cache first
+    const cacheKey = getTravelTimeCacheKey(origin, destination, departureTime);
+    if (geocodeCache.has(cacheKey)) {
+      const cachedData = geocodeCache.get(cacheKey);
+      // Check if cache entry is still valid
+      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+        console.log(`[Geocoding] Cache hit for ${cacheKey}`);
+        return cachedData.durationInMinutes;
+      } else {
+        console.log(`[Geocoding] Cache expired for ${cacheKey}`);
+        geocodeCache.delete(cacheKey);
+      }
+    }
+
+    // Make API call with rate limiting and circuit breaker
+    const response = await safeApiCall(() => axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
       params: {
         origins: `${origin.lat},${origin.lng}`,
         destinations: `${destination.lat},${destination.lng}`,
@@ -137,7 +303,7 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
         departure_time: Math.floor(departureTime.getTime() / 1000),
         key: process.env.GOOGLE_MAPS_API_KEY
       }
-    });
+    }));
 
     console.log('API Response:', JSON.stringify(response.data, null, 2));
 
@@ -157,6 +323,14 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
       const durationInMinutes = Math.ceil(durationInSeconds / 60);
       console.log('Calculated duration:', durationInMinutes, 'minutes');
       console.log('Distance:', distanceInKm.toFixed(2), 'km');
+      
+      // Cache the result
+      geocodeCache.set(cacheKey, {
+        durationInMinutes,
+        timestamp: Date.now()
+      });
+      console.log(`[Geocoding] Cached result for ${cacheKey}`);
+      
       return durationInMinutes;
     } else {
       throw new Error(`Unable to calculate travel time. API Status: ${response.data.status}, Element Status: ${response.data.rows[0].elements[0].status}`);
@@ -170,5 +344,6 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
 module.exports = {
   calculateTravelTime,
   validateProviderTravel,
-  isWithinServiceArea
+  isWithinServiceArea,
+  safeApiCall
 };

@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const { safeApiCall } = require('../services/mapService');
+
+// Geocoding cache to prevent redundant API calls
+const geocodeCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Get coordinates from address using Google Maps Geocoding API
 router.get('/', ensureAuthenticated, async (req, res) => {
@@ -16,7 +21,22 @@ router.get('/', ensureAuthenticated, async (req, res) => {
       throw new Error('Google Maps API key not configured');
     }
 
-    const response = await axios.get(
+    // Check cache first
+    const cacheKey = `geocode_${address}`;
+    if (geocodeCache.has(cacheKey)) {
+      const cachedData = geocodeCache.get(cacheKey);
+      // Check if cache entry is still valid
+      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+        console.log(`[Geocoding] ${new Date().toISOString()} | Cache hit for ${cacheKey}`);
+        return res.json(cachedData.data);
+      } else {
+        console.log(`[Geocoding] ${new Date().toISOString()} | Cache expired for ${cacheKey}`);
+        geocodeCache.delete(cacheKey);
+      }
+    }
+
+    // Make API call with rate limiting and circuit breaker
+    const response = await safeApiCall(() => axios.get(
       `https://maps.googleapis.com/maps/api/geocode/json`,
       {
         params: {
@@ -24,14 +44,25 @@ router.get('/', ensureAuthenticated, async (req, res) => {
           key: GOOGLE_MAPS_API_KEY
         }
       }
-    );
+    ));
+    
+    console.log(`[Geocoding] ${new Date().toISOString()} | Geocoding request for address: ${address}`);
 
     // Log the complete Google Maps API response for debugging
-    console.log('Google Maps API Response:', JSON.stringify(response.data, null, 2));
+    console.log(`[Geocoding] ${new Date().toISOString()} | Google Maps API Response:`, JSON.stringify(response.data, null, 2));
 
     if (response.data.status === 'OK' && response.data.results.length > 0) {
       const { lat, lng } = response.data.results[0].geometry.location;
-      res.json({ lat, lng });
+      const result = { lat, lng };
+      
+      // Cache the result
+      geocodeCache.set(cacheKey, {
+        data: result,
+        timestamp: Date.now()
+      });
+      console.log(`[Geocoding] ${new Date().toISOString()} | Cached result for ${cacheKey}`);
+      
+      res.json(result);
     } else {
       // Handle specific Google Maps API error status codes
       switch (response.data.status) {

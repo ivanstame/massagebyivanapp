@@ -1,5 +1,56 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin } from 'lucide-react';
+import { debounce } from 'lodash';
+
+// Rate limiting configuration for Google Places API
+const PLACES_RATE_LIMIT = {
+  maxCalls: 10,        // Maximum calls per minute
+  burstProtection: 3,  // Maximum calls in 5 seconds
+  callHistory: []      // Tracks API call timestamps
+};
+
+// Log Google Places API calls with timestamps
+const logPlacesApiCall = (action, details = {}) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[GooglePlaces] ${timestamp} | ${action}`, details);
+  
+  // Track call for rate limiting
+  PLACES_RATE_LIMIT.callHistory.push(Date.now());
+  
+  // Clean up old calls (older than 1 minute)
+  const oneMinuteAgo = Date.now() - 60000;
+  PLACES_RATE_LIMIT.callHistory = PLACES_RATE_LIMIT.callHistory.filter(
+    time => time > oneMinuteAgo
+  );
+};
+
+// Check if we should throttle API calls
+const shouldThrottlePlacesApi = () => {
+  // Check total calls in last minute
+  if (PLACES_RATE_LIMIT.callHistory.length >= PLACES_RATE_LIMIT.maxCalls) {
+    logPlacesApiCall('Rate limit exceeded', { 
+      calls: PLACES_RATE_LIMIT.callHistory.length,
+      limit: PLACES_RATE_LIMIT.maxCalls
+    });
+    return true;
+  }
+  
+  // Check burst protection (calls in last 5 seconds)
+  const fiveSecondsAgo = Date.now() - 5000;
+  const recentCalls = PLACES_RATE_LIMIT.callHistory.filter(
+    time => time > fiveSecondsAgo
+  ).length;
+  
+  if (recentCalls >= PLACES_RATE_LIMIT.burstProtection) {
+    logPlacesApiCall('Burst protection triggered', { 
+      recentCalls,
+      burstLimit: PLACES_RATE_LIMIT.burstProtection
+    });
+    return true;
+  }
+  
+  return false;
+};
 
 const AddressForm = ({ onAddressConfirmed, googleMapsLoaded }) => {
   const [address, setAddress] = useState('');
@@ -17,19 +68,37 @@ const AddressForm = ({ onAddressConfirmed, googleMapsLoaded }) => {
       window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
     }
 
-    autocompleteRef.current = new window.google.maps.places.Autocomplete(
-      inputRef.current,
-      {
-        componentRestrictions: { country: 'us' },
-        fields: ['address_components', 'geometry', 'formatted_address'],
-        types: ['address']
-      }
-    );
+    try {
+      logPlacesApiCall('Initializing Places Autocomplete');
+      
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        {
+          componentRestrictions: { country: 'us' },
+          fields: ['address_components', 'geometry', 'formatted_address'],
+          types: ['address']
+        }
+      );
 
-    autocompleteRef.current.addListener('place_changed', () => {
-      const place = autocompleteRef.current.getPlace();
-      handlePlaceSelect(place);
-    });
+      autocompleteRef.current.addListener('place_changed', () => {
+        if (shouldThrottlePlacesApi()) {
+          console.warn('[GooglePlaces] Throttling place selection due to rate limit');
+          return;
+        }
+        
+        try {
+          logPlacesApiCall('Place changed event');
+          const place = autocompleteRef.current.getPlace();
+          handlePlaceSelect(place);
+        } catch (error) {
+          console.error('[GooglePlaces] Error in place_changed event:', error);
+        }
+      });
+      
+      logPlacesApiCall('Places Autocomplete initialized successfully');
+    } catch (error) {
+      console.error('[GooglePlaces] Error initializing Places Autocomplete:', error);
+    }
   }, [googleMapsLoaded]);
 
   useEffect(() => {
@@ -46,34 +115,60 @@ const AddressForm = ({ onAddressConfirmed, googleMapsLoaded }) => {
     };
   }, []);
 
+  // Create a debounced version of the address input handler
+  const debouncedAddressChange = useCallback(
+    debounce((value) => {
+      if (value.length > 3) {
+        logPlacesApiCall('Address input changed', { length: value.length });
+      }
+    }, 300),
+    []
+  );
+  
+  // Handle address input changes
+  const handleAddressChange = (e) => {
+    const value = e.target.value;
+    setAddress(value);
+    debouncedAddressChange(value);
+  };
+
   const handlePlaceSelect = (place) => {
     if (!place.geometry) {
-      console.warn('No details available for this address');
+      console.warn('[GooglePlaces] No details available for this address');
       return;
     }
 
-    const addressComponents = {
-      street_number: '',
-      route: '',
-      locality: '',
-      administrative_area_level_1: '',
-      postal_code: ''
-    };
+    try {
+      logPlacesApiCall('Place selected', { 
+        address: place.formatted_address,
+        hasGeometry: !!place.geometry
+      });
+      
+      const addressComponents = {
+        street_number: '',
+        route: '',
+        locality: '',
+        administrative_area_level_1: '',
+        postal_code: ''
+      };
 
-    place.address_components.forEach(component => {
-      const type = component.types[0];
-      if (addressComponents.hasOwnProperty(type)) {
-        addressComponents[type] = component.long_name;
-      }
-    });
+      place.address_components.forEach(component => {
+        const type = component.types[0];
+        if (addressComponents.hasOwnProperty(type)) {
+          addressComponents[type] = component.long_name;
+        }
+      });
 
-    setAddressDetails({
-      formatted_address: place.formatted_address,
-      lat: place.geometry.location.lat(),
-      lng: place.geometry.location.lng(),
-      components: addressComponents
-    });
-    setShowUnitPrompt(true);
+      setAddressDetails({
+        formatted_address: place.formatted_address,
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+        components: addressComponents
+      });
+      setShowUnitPrompt(true);
+    } catch (error) {
+      console.error('[GooglePlaces] Error processing selected place:', error);
+    }
   };
 
   const handleUnitSubmit = () => {
@@ -123,7 +218,7 @@ const AddressForm = ({ onAddressConfirmed, googleMapsLoaded }) => {
               id="address-input"
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={handleAddressChange}
               placeholder="Start typing your address..."
               className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoComplete="off"
