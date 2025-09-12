@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../../utils/timeConstants';
 
@@ -35,9 +35,8 @@ const AvailableTimeSlots = ({
   // Time period tabs
   const timeTabs = ['Morning', 'Afternoon', 'Evening'];
   
-  // Calculate slot counts and determine initial tab (using useMemo to avoid recalculations)
+  // Calculate slot counts and determine initial tab
   const { initialTab, slotsByPeriod } = useMemo(() => {
-    // Default to Evening if no slots available
     let bestTab = 'Evening';
     const slotMap = {
       'Morning': [],
@@ -71,17 +70,14 @@ const AvailableTimeSlots = ({
     return { initialTab: bestTab, slotsByPeriod: slotMap };
   }, [availableSlots]);
   
-  // State for the selected tab (Morning, Afternoon, Evening)
+  // State for the selected tab
   const [selectedTimeTab, setSelectedTimeTab] = useState(initialTab);
 
-  // Handle tab selection - this is local to the component and won't trigger parent effects
-  const handleTimeTabSelect = (tab) => {
-    setSelectedTimeTab(tab);
-  };
-  
-  // Handle time selection - this will notify the parent component
-  const handleTimeSelect = (slot) => {
-    onTimeSelected(slot);
+  // Tab icons
+  const tabIcons = {
+    'Morning': Sunrise,
+    'Afternoon': Sun,
+    'Evening': Sunset
   };
 
   // Format date for display
@@ -89,165 +85,134 @@ const AvailableTimeSlots = ({
     if (!date) return '';
     return DateTime.fromJSDate(date)
       .setZone(DEFAULT_TZ)
-      .toFormat('cccc, MMMM d, yyyy');
+      .toFormat('cccc, MMMM d');
   };
 
+  if (!hasValidDuration) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+        <div className="flex items-center space-x-3">
+          <AlertCircle className="w-6 h-6 text-amber-600" />
+          <div>
+            <h3 className="font-medium text-amber-900">Duration Required</h3>
+            <p className="text-sm text-amber-700 mt-1">
+              Please select a massage duration to see available appointment times
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{
-      background: 'white',
-      borderRadius: '12px',
-      padding: '20px',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      maxWidth: '100%',
-      margin: '0 auto',
-      fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        marginBottom: '15px'
-      }}>
-        <span style={{
-          width: '24px',
-          height: '24px',
-          marginRight: '10px',
-          color: '#2e8b57',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <Clock className="w-5 h-5" />
-        </span>
-        <h2 style={{
-          fontSize: '18px',
-          margin: 0
-        }}>Available Times</h2>
-        {!selectedTime && availableSlots.length > 0 && (
-          <span style={{
-            marginLeft: '8px',
-            fontSize: '14px',
-            color: '#2e8b57'
-          }}>(Select a time to continue)</span>
-        )}
-      </div>
-      
-      <div style={{ marginTop: '15px' }}>
-        <div style={{
-          display: 'flex',
-          borderBottom: '1px solid #e0e0e0',
-          marginBottom: '15px'
-        }}>
-          {timeTabs.map(tab => (
-            <div
-              key={tab}
-              style={{
-                padding: '10px 15px',
-                cursor: 'pointer',
-                position: 'relative',
-                color: selectedTimeTab === tab ? '#2e8b57' : 'inherit',
-                fontWeight: selectedTimeTab === tab ? 600 : 'normal'
-              }}
-              onClick={() => handleTimeTabSelect(tab)}
-            >
-              {tab}
-              {selectedTimeTab === tab && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '-1px',
-                  left: 0,
-                  width: '100%',
-                  height: '2px',
-                  backgroundColor: '#2e8b57'
-                }}></div>
-              )}
-            </div>
-          ))}
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+      {/* Header with completion indicator */}
+      <div className="flex items-center mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="bg-teal-100 p-3 rounded-lg">
+            <Clock className="w-6 h-6 text-teal-700" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Select Appointment Time</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              {selectedDate ? formatDate(selectedDate) : 'Choose an available time slot'}
+            </p>
+          </div>
         </div>
-        
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '10px'
-        }}>
-          {!hasValidDuration ? (
-            // Show placeholders if no duration is selected
-            Array(6).fill(null).map((_, idx) => (
-              <div 
-                key={idx}
-                style={{
-                  textAlign: 'center',
-                  padding: '10px',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  backgroundColor: '#f5f5f5',
-                  color: '#aaa'
-                }}
-              />
-            ))
-          ) : !availableSlots.length ? (
-            // Show placeholders if no slots are available
-            Array(6).fill(null).map((_, idx) => (
-              <div 
-                key={idx}
-                style={{
-                  textAlign: 'center',
-                  padding: '10px',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  backgroundColor: '#f5f5f5',
-                  color: '#aaa'
-                }}
-              />
-            ))
-          ) : slotsByPeriod[selectedTimeTab].length === 0 ? (
-            // Show "No available times" message when the selected tab has no slots
-            <div 
-              style={{
-                gridColumn: '1 / span 3',
-                textAlign: 'center',
-                padding: '20px',
-                color: '#666'
-              }}
-            >
-              No available times in this period
-            </div>
-          ) : (
-            // Show actual time slots from the pre-calculated slots by period
-            slotsByPeriod[selectedTimeTab].map(slot => (
-                <div
-                  key={slot.iso}
-                  style={{
-                    textAlign: 'center',
-                    padding: '10px',
-                    border: `1px solid ${selectedTime?.iso === slot.iso ? '#2e8b57' : '#e0e0e0'}`,
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    backgroundColor: selectedTime?.iso === slot.iso ? '#f5f9f7' : 'transparent',
-                    fontWeight: selectedTime?.iso === slot.iso ? 600 : 'normal',
-                    color: selectedTime?.iso === slot.iso ? '#256d44' : 'inherit',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onClick={() => handleTimeSelect(slot)}
+      </div>
+
+      {availableSlots.length === 0 ? (
+        <div className="text-center py-12">
+          <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-500 text-lg">No available times for this date</p>
+          <p className="text-sm text-slate-400 mt-2">Please try selecting a different date</p>
+        </div>
+      ) : (
+        <>
+          {/* Time period tabs */}
+          <div className="flex space-x-1 mb-6 bg-slate-100 p-1 rounded-lg">
+            {timeTabs.map(tab => {
+              const Icon = tabIcons[tab];
+              const slotCount = slotsByPeriod[tab].length;
+              const isActive = selectedTimeTab === tab;
+              
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedTimeTab(tab)}
+                  disabled={slotCount === 0}
+                  className={`
+                    flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md
+                    transition-all duration-200 font-medium
+                    ${isActive 
+                      ? 'bg-white text-teal-700 shadow-sm' 
+                      : slotCount === 0
+                        ? 'text-slate-400 cursor-not-allowed'
+                        : 'text-slate-600 hover:text-teal-600'
+                    }
+                  `}
                 >
-                  {slot.display || slot.local}
-                  <div style={{ fontSize: '12px', color: '#666' }}>
-                    {DateTime.fromISO(slot.iso).toFormat('ZZ')}
+                  <Icon className="w-5 h-5" />
+                  <span>{tab}</span>
+                  {slotCount > 0 && (
+                    <span className={`
+                      text-xs px-2 py-0.5 rounded-full
+                      ${isActive ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}
+                    `}>
+                      {slotCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Time slots grid */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+            {slotsByPeriod[selectedTimeTab].length === 0 ? (
+              <div className="col-span-full text-center py-8">
+                <p className="text-slate-500">No available times in this period</p>
+              </div>
+            ) : (
+              slotsByPeriod[selectedTimeTab].map(slot => (
+                <button
+                  key={slot.iso}
+                  onClick={() => onTimeSelected(slot)}
+                  className={`
+                    min-h-touch p-3 rounded-lg border-2 transition-all duration-200
+                    hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                    ${selectedTime?.iso === slot.iso
+                      ? 'border-teal-600 bg-teal-50 shadow-md'
+                      : 'border-slate-200 bg-white hover:border-teal-300'
+                    }
+                  `}
+                >
+                  <div className={`
+                    text-lg font-medium
+                    ${selectedTime?.iso === slot.iso ? 'text-teal-700' : 'text-slate-900'}
+                  `}>
+                    {slot.display || slot.local}
                   </div>
-                </div>
+                  {selectedTime?.iso === slot.iso && (
+                    <Check className="w-4 h-4 text-teal-600 mx-auto mt-1" />
+                  )}
+                </button>
               ))
+            )}
+          </div>
+
+          {/* Selected time confirmation */}
+          {selectedTime && selectedDate && (
+            <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
+              <div className="flex items-center space-x-2">
+                <Check className="w-5 h-5 text-teal-600" />
+                <p className="text-teal-900 font-medium">
+                  Selected: {selectedTime.display || selectedTime.local} on {formatDate(selectedDate)}
+                </p>
+              </div>
+            </div>
           )}
-        </div>
-      </div>
-      
-      {selectedTime && selectedDate && (
-        <div style={{
-          marginTop: '20px',
-          fontSize: '14px',
-          color: '#666'
-        }}>
-          Selected time: <span style={{ fontWeight: 'bold', color: '#2e8b57' }}>{selectedTime.display || selectedTime.local}</span> on 
-          <span style={{ fontWeight: 'bold' }}> {formatDate(selectedDate)}</span>
-        </div>
+        </>
       )}
     </div>
   );

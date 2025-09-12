@@ -4,8 +4,7 @@ import { AuthContext } from '../AuthContext';
 import { Calendar, Users, Clock, Settings, CreditCard, Map, Mail } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from "luxon";
-
-
+import { SkeletonCard } from './ui/Skeleton';
 
 const StatCard = ({ icon: Icon, label, value, description }) => (
   <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
@@ -17,8 +16,8 @@ const StatCard = ({ icon: Icon, label, value, description }) => (
           <p className="mt-1 text-sm text-slate-500">{description}</p>
         )}
       </div>
-      <div className="bg-[#387c7e]/10 p-3 rounded-lg">
-        <Icon className="w-6 h-6 text-[#387c7e]" />
+      <div className="bg-[#009ea5]/10 p-3 rounded-lg">
+        <Icon className="w-6 h-6 text-[#009ea5]" />
       </div>
     </div>
   </div>
@@ -35,34 +34,82 @@ const ProviderDashboard = () => {
   }
 
   // Add the stats state and fetching
-const [stats, setStats] = useState({ total: 0, completed: 0, upcoming: 0 });
-const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, completed: 0, upcoming: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [clientStats, setClientStats] = useState({ active: 0, newThisMonth: 0 });
+  const [clientStatsLoading, setClientStatsLoading] = useState(true);
+  const [mileageStats, setMileageStats] = useState({ thisMonth: 0 });
+  const [mileageStatsLoading, setMileageStatsLoading] = useState(true);
+  const [revenueStats, setRevenueStats] = useState({ thisMonth: 0 });
+  const [revenueStatsLoading, setRevenueStatsLoading] = useState(true);
 
-useEffect(() => {
-  const fetchStats = async () => {
-    try {
-      const response = await api.get('/api/bookings?stats=today');
-      setStats(response.data);
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await api.get('/api/bookings?stats=today');
+        setStats(response.data);
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
 
-  fetchStats();
-}, []);
+    const fetchClientStats = async () => {
+      try {
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await api.get('/api/users/provider/clients/stats');
+        // setClientStats(response.data);
+        setClientStats({ active: 0, newThisMonth: 0 });
+      } catch (err) {
+        console.error('Failed to fetch client stats:', err);
+      } finally {
+        setClientStatsLoading(false);
+      }
+    };
+
+    const fetchMileageStats = async () => {
+      try {
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await api.get('/api/bookings/mileage/stats');
+        // setMileageStats(response.data);
+        setMileageStats({ thisMonth: 0 });
+      } catch (err) {
+        console.error('Failed to fetch mileage stats:', err);
+      } finally {
+        setMileageStatsLoading(false);
+      }
+    };
+
+    const fetchRevenueStats = async () => {
+      try {
+        // TODO: Replace with actual API endpoint when backend is ready
+        // const response = await api.get('/api/bookings/revenue/stats');
+        // setRevenueStats(response.data);
+        setRevenueStats({ thisMonth: 0 });
+      } catch (err) {
+        console.error('Failed to fetch revenue stats:', err);
+      } finally {
+        setRevenueStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+    fetchClientStats();
+    fetchMileageStats();
+    fetchRevenueStats();
+  }, []);
   
 
   return (
     <div className="pt-16">
       <div className="max-w-7xl mx-auto p-4">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               Welcome back, {user.providerProfile?.businessName || user.profile?.fullName}
             </h1>
-            <p className="mt-1 text-slate-500">
+            <p className="mt-1 text-sm sm:text-base text-slate-500">
               Manage your appointments and business settings
             </p>
           </div>
@@ -70,33 +117,49 @@ useEffect(() => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-  icon={Calendar}
-  label="Today's Appointments"
-  value={statsLoading ? '...' : stats.total}
-  description={statsLoading ? 
-    'Loading...' : 
-    `${stats.completed} completed, ${stats.upcoming} upcoming`
-  }
-/>
-          <StatCard
-            icon={Users}
-            label="Active Clients"
-            value="28"
-            description="3 new this month"
-          />
-          <StatCard
-            icon={Map}
-            label="Total Miles"
-            value="127"
-            description="This month"
-          />
-          <StatCard
-            icon={CreditCard}
-            label="Revenue"
-            value="$2,450"
-            description="This month"
-          />
+          {statsLoading ? (
+            <SkeletonCard />
+          ) : (
+            <StatCard
+              icon={Calendar}
+              label="Today's Appointments"
+              value={stats.total}
+              description={`${stats.completed} completed, ${stats.upcoming} upcoming`}
+            />
+          )}
+          
+          {clientStatsLoading ? (
+            <SkeletonCard />
+          ) : (
+            <StatCard
+              icon={Users}
+              label="Active Clients"
+              value={clientStats.active}
+              description={`${clientStats.newThisMonth} new this month`}
+            />
+          )}
+          
+          {mileageStatsLoading ? (
+            <SkeletonCard />
+          ) : (
+            <StatCard
+              icon={Map}
+              label="Total Miles"
+              value={mileageStats.thisMonth}
+              description="This month"
+            />
+          )}
+          
+          {revenueStatsLoading ? (
+            <SkeletonCard />
+          ) : (
+            <StatCard
+              icon={CreditCard}
+              label="Revenue"
+              value={`$${revenueStats.thisMonth.toFixed(2)}`}
+              description="This month"
+            />
+          )}
         </div>
 
         {/* Quick Actions */}
@@ -104,10 +167,10 @@ useEffect(() => {
           <Link
             to="/provider/availability"
             className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 
-              hover:border-[#387c7e] hover:shadow-md transition-all duration-200"
+              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-center mb-4">
-              <Calendar className="w-5 h-5 text-[#387c7e] mr-2" />
+              <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
               <h3 className="font-medium text-slate-900">Manage Calendar</h3>
             </div>
             <p className="text-slate-500 text-sm">

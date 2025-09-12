@@ -140,17 +140,27 @@ const ProviderProfile = () => {
               </h1>
             </div>
             <div className="mt-4 md:mt-0 space-x-4">
+              {provider.profile?.phoneNumber && (
+                <button
+                  onClick={() => window.location.href = `tel:${provider.profile.phoneNumber}`}
+                  className="inline-flex items-center px-3 py-1.5 border border-slate-300
+                    rounded-md text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                >
+                  <Phone className="w-4 h-4 mr-1.5" />
+                  Call
+                </button>
+              )}
               <button
                 onClick={() => window.location.href = `mailto:${provider.email}`}
-                className="inline-flex items-center px-4 py-2 border border-slate-300 
-                  rounded-md text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center px-3 py-1.5 border border-slate-300
+                  rounded-md text-slate-700 hover:bg-slate-50 text-sm font-medium"
               >
-                <Mail className="w-4 h-4 mr-2" />
-                Contact
+                <Mail className="w-4 h-4 mr-1.5" />
+                Email
               </button>
               <button
                 onClick={() => navigate('/book')}
-                className="inline-flex items-center px-4 py-2 bg-[#387c7e] 
+                className="inline-flex items-center px-4 py-2 bg-[#387c7e]
                   text-white rounded-md hover:bg-[#2c5f60]"
               >
                 <Calendar className="w-4 h-4 mr-2" />

@@ -1,13 +1,3 @@
-// routes/availability.js
-// const express = require('express');
-// const router = express.Router();
-// const Availability = require('../models/Availability');
-// const Booking = require('../models/Booking');
-// const { ensureAuthenticated } = require('../middleware/passportMiddleware');
-// const { validateAvailabilityInput } = require('../middleware/validation');
-// const { DateTime } = require('luxon');
-// const { DEFAULT_TZ, TIME_FORMATS } = require('../utils/timeConstants');
-// const LuxonService = require('../utils/LuxonService');
 const express = require('express');
 const router = express.Router();
 const Availability = require('../models/Availability');
@@ -219,9 +209,26 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
     res.json(formattedSlots);
   } catch (error) {
     console.error('Error in /available/:date route:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message
+    
+    // Enhanced error feedback based on error type
+    let errorMessage = 'Server error';
+    let statusCode = 500;
+    
+    if (error.message.includes('travel time calculation')) {
+      errorMessage = 'Unable to calculate travel times. Please try a different location or time.';
+      statusCode = 400;
+    } else if (error.message.includes('Google Maps')) {
+      errorMessage = 'Maps service temporarily unavailable. Please try again shortly.';
+      statusCode = 503;
+    } else if (error.message.includes('geocoding')) {
+      errorMessage = 'Unable to process location. Please verify the address and try again.';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      message: errorMessage,
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

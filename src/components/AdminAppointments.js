@@ -198,7 +198,7 @@ const AdminAppointments = () => {
               <button
                 onClick={() => setShowPastAppointments(!showPastAppointments)}
                 className="inline-flex items-center px-4 py-2 bg-slate-600 text-white rounded-md
-                  hover:bg-slate-700 transition-colors duration-200 ease-in-out focus:outline-none
+                  hover:bg-cyan-900 transition-colors duration-200 ease-in-out focus:outline-none
                   focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
               >
                 {showPastAppointments ? 'Hide Past Appointments' : 'Show Past Appointments'}

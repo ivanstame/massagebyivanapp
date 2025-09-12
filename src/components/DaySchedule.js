@@ -52,7 +52,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
   const HourMarker = ({ hour }) => {
     const displayTime = DateTime.now()
       .setZone(DEFAULT_TZ)
-      .set({ hour })
+      .set({ hour, minute: 0 })
       .toFormat('h:mm a');
 
     return (
@@ -84,7 +84,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {/* Schedule header */}
-      <div className="bg-slate-700 py-1.5 px-3">  
+      <div className="bg-cyan-900 py-1.5 px-3">  
         <h2 className="text-white text-sm">                  
           {DateTime.fromJSDate(date)
             .setZone(DEFAULT_TZ)
@@ -148,9 +148,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                 <div
                   key={`booking-${index}`}
                   onClick={() => handleAppointmentClick(booking._id)}
-                  className="absolute left-1 right-1 bg-blue-50 border border-blue-200 
-                    rounded-md shadow-sm cursor-pointer transition-all duration-200 
-                    hover:shadow-md hover:bg-blue-100 z-20"
+                  className="absolute left-1 right-1 bg-[#f8f4ef] border border-[#009ea5]
+                   rounded-md shadow-sm cursor-pointer transition-all duration-200
+                   hover:shadow-md hover:bg-[#f0e8e0] z-20"
                   style={{
                     top: `${bookingStart}px`,
                     height: `${bookingEnd - bookingStart}px`,
@@ -162,7 +162,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                         <span className="text-sm font-medium text-slate-700">
                           {`${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`}
                         </span>
-                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                        <span className="text-xs px-2 py-1 bg-[#f8f4ef] text-[#8b6b47] rounded-full">
                           {`${booking.duration} min`}
                         </span>
                       </div>

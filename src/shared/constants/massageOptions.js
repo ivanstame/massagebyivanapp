@@ -47,22 +47,14 @@ export const MASSAGE_ADDONS = [
     price: 30, 
     description: 'Heated bamboo for deep relaxation',
     extraTime: 0
-  },
-  { 
-    id: 'stretching', 
-    name: 'Dynamic Stretching', 
-    price: 25, 
-    description: 'Guided stretches to boost flexibility', 
-    extra: '+30 minutes',
-    extraTime: 30
   }
 ];
 
 // Duration options
 export const DURATION_OPTIONS = [
-  { id: '60', minutes: 60, label: '60 min', price: 100 },
-  { id: '90', minutes: 90, label: '90 min', price: 150 },
-  { id: '120', minutes: 120, label: '120 min', price: 200 }
+  { id: '60', minutes: 60, label: '60 min', price: 125 },
+  { id: '90', minutes: 90, label: '90 min', price: 180 },
+  { id: '120', minutes: 120, label: '120 min', price: 250 }
 ];
 
 // Helper functions

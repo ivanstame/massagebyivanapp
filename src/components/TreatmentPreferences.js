@@ -727,14 +727,14 @@ const handleAreaSelect = useCallback((areaId, updates) => {
 
               <button
                 type="submit"
-                disabled={isLoading || Object.keys(selectedAreas).length === 0}
+                disabled={isLoading || (user.accountType === 'CLIENT' && Object.keys(selectedAreas).length === 0)}
                 className={`
                   flex-1 py-3 px-4 rounded-md
                   bg-[#387c7e] hover:bg-[#2c5f60]
                   text-white font-medium
                   transition duration-150 ease-in-out
                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
-                  ${(isLoading || Object.keys(selectedAreas).length === 0) ? 'opacity-50 cursor-not-allowed' : ''}
+                  ${(isLoading || (user.accountType === 'CLIENT' && Object.keys(selectedAreas).length === 0)) ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
               >
                 {isLoading ? 'Saving...' : (isRegistrationComplete ? 'Save Changes' : 'Complete Setup')}

@@ -11,27 +11,17 @@ const Header = () => {
   const [showDebug, setShowDebug] = useState(false);
 
   const handleLogout = async () => {
-    setDebugInfo(`Logout attempt starting...`);
-    
     try {
-      const hostname = window.location.hostname;
-      const logoutUrl = `http://${hostname}:5000/api/auth/logout`;
-      
-      setDebugInfo(prev => `${prev}\nTrying logout at: ${logoutUrl}`);
-      
-      const response = await fetch(logoutUrl, {
+      const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
       });
-  
-      setDebugInfo(prev => `${prev}\nResponse status: ${response.status}`);
   
       if (response.ok) {
         setUser(null);
         window.location.replace('/login');
       }
     } catch (error) {
-      setDebugInfo(prev => `${prev}\nError: ${error.message}`);
       console.error('Logout failed:', error);
     }
   };
@@ -46,7 +36,7 @@ const Header = () => {
 
     if (user.accountType === 'PROVIDER') {
       return [
-        { href: '/provider/dashboard', label: 'Dashboard' },
+        { href: '/provider', label: 'Dashboard' },
         { href: '/provider/appointments', label: 'Appointments' },
         { href: '/provider/availability', label: 'Availability' },
         { href: '/provider/clients', label: 'Clients' },
@@ -109,7 +99,7 @@ const Header = () => {
                 )}
                 <button
                   onClick={handleLogout}
-                  className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-cyan-900"
                 >
                   Logout
                 </button>

@@ -11,6 +11,7 @@ import { CheckCircle, Users, HourglassIcon, Clock, MapPin, AlertCircle, Check, C
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
+import ProviderBanner from './BookingFormComponents/ProviderBanner';
 
 
 // Use LuxonService for time formatting
@@ -39,44 +40,43 @@ const BookingForm = ({ googleMapsLoaded }) => {
       if (user.accountType === 'CLIENT') {
         // Check if providerId exists and is valid
         if (!user.providerId) {
-          console.warn('Client user has no providerId assigned');
           // Set default values to allow booking to continue
-          setProvider({
+          const fallbackProvider = {
             _id: user._id, // Use client ID as fallback
             providerProfile: {
               businessName: 'Your Provider'
             }
-          });
+          };
+          setProvider(fallbackProvider);
           return;
         }
         
         try {
-          console.log(`Fetching provider info for providerId: ${user.providerId}`);
           const response = await api.get(`/api/users/provider/${user.providerId}`);
+          
           
           if (response.data) {
             setProvider(response.data);
           } else {
-            console.warn('Provider data is empty or invalid');
             // Set default values
-            setProvider({
+            const fallbackProvider = {
               _id: user.providerId,
               providerProfile: {
                 businessName: 'Your Provider'
               }
-            });
+            };
+            setProvider(fallbackProvider);
           }
         } catch (error) {
-          console.error('Error fetching provider info:', error);
-          console.error('Provider ID that caused error:', user.providerId);
           
           // Set default values to allow booking to continue
-          setProvider({
+          const fallbackProvider = {
             _id: user.providerId || user._id,
             providerProfile: {
               businessName: 'Your Provider'
             }
-          });
+          };
+          setProvider(fallbackProvider);
         }
       }
     };
@@ -192,7 +192,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
         
         // If we still don't have a providerId, show an error
         if (!providerId) {
-          console.error('No valid providerId found for client');
           setError('Unable to find your provider. Please contact support.');
           setLoading(false);
           setAvailableSlots([]);
@@ -202,7 +201,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
         providerId = user._id;
       }
       
-      console.log(`Using providerId for availability: ${providerId}`);
       
       // First get coordinates from address
       let lat, lng;
@@ -355,7 +353,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
           throw new Error('Failed to format time correctly');
         }
         
-        console.log('Submitting booking with ISO time:', selectedTime.iso, 'formatted as:', formattedTime);
         
         const bookingData = {
           date: bookingDateStr,
@@ -392,7 +389,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
           throw new Error('Failed to format time correctly for multi-session booking');
         }
         
-        console.log('Starting multi-session booking with ISO time:', selectedTime.iso, 'formatted as:', formattedTime);
         
         let currentSessionStart = formattedTime;
         const bookingDataArray = sessionDurations.map((dur, i) => {
@@ -619,16 +615,9 @@ const renderBookingConfirmation = () => (
   return (
     <div className="pt-16">
       <div className="max-w-3xl mx-auto p-4 space-y-6">
-        {/* Provider Information Card */}
+        {/* Provider Banner */}
         {provider ? (
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200 relative">
-            <CheckCircle className={`absolute top-2 right-2 w-6 h-6 ${
-              selectedTime ? 'text-green-500' : 'text-slate-300'
-            }`} />
-            <h2 className="text-lg font-medium text-slate-900">
-              Booking with {provider.providerProfile.businessName}
-            </h2>
-          </div>
+          <ProviderBanner provider={provider} />
         ) : (
           <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg mb-4">
             <div className="flex items-center">
@@ -698,7 +687,7 @@ const renderBookingConfirmation = () => (
                       setIsConfiguringDurations(true);
                       setWizardStep(0);
                     }}
-                    className="w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-cyan-900 transition-colors"
                   >
                     Edit Sessions
                   </button>
@@ -897,7 +886,7 @@ const renderBookingConfirmation = () => (
                 <div className="space-y-3">
                   <button
                     onClick={() => navigate('/my-bookings')}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-cyan-900 transition-colors"
                   >
                     View My Bookings
                   </button>

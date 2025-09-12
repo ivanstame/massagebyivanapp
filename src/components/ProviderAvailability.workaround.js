@@ -299,9 +299,9 @@ const ProviderAvailability = () => {
           </p>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="mt-4 inline-flex items-center px-4 py-2 bg-[#387c7e] hover:bg-[#2c5f60] text-white rounded-md
-              transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 
-              focus:ring-[#387c7e] shadow-sm"
+            className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#a5825d] text-white rounded-md
+              transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
+              focus:ring-[#009ea5] shadow-sm"
           >
             <Clock className="w-5 h-5 mr-2" />
             Add First Availability Block
@@ -379,9 +379,9 @@ const ProviderAvailability = () => {
         
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="w-full flex items-center justify-center px-4 py-3 bg-[#387c7e] text-white
-            rounded-md hover:bg-[#2c5f60] transition-colors duration-200 ease-in-out 
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
+          className="w-full flex items-center justify-center px-4 py-3 bg-[#009ea5] text-white
+            rounded-md hover:bg-[#a5825d] transition-colors duration-200 ease-in-out
+            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
             shadow-sm"
         >
           <Clock className="w-5 h-5 mr-2" />
@@ -416,8 +416,8 @@ const ProviderAvailability = () => {
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-[#387c7e] text-white 
-              rounded-md hover:bg-[#2c5f60] transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white
+              rounded-md hover:bg-[#a5825d] transition-colors"
           >
             <Clock className="w-5 h-5 mr-2" />
             Add Availability
@@ -477,9 +477,9 @@ const ProviderAvailability = () => {
           <div className="fixed bottom-4 right-4 z-50">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#387c7e] text-white p-3 rounded-full shadow-lg flex items-center justify-center"
+              className="bg-[#009ea5] text-white p-3 rounded-full shadow-lg flex items-center justify-center"
             >
-              <span className="absolute -top-2 -right-2 bg-[#2c5f60] text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 bg-[#a5825d] text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
                 {availabilityBlocks.length}
               </span>
               <Clock className="w-6 h-6" />

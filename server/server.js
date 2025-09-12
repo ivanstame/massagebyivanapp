@@ -1,5 +1,29 @@
 // server/server.js
 require('dotenv').config();
+
+// Validate critical environment variables before proceeding
+function validateEnvironment() {
+  const requiredVars = ['MONGODB_URI', 'SESSION_SECRET'];
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env file or deployment configuration.`;
+    console.error('Environment Validation Error:', errorMessage);
+    
+    // In production, exit if critical variables are missing
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    } else {
+      console.warn('WARNING: Running with missing environment variables. This may cause issues.');
+      if (missingVars.includes('MONGODB_URI')) {
+        console.warn('Falling back to local MongoDB - this will cause database switching issues during builds');
+      }
+    }
+  }
+}
+
+validateEnvironment();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
@@ -14,26 +38,33 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const availabilityRoutes = require('./routes/availability');
 const geocodeRoutes = require('./routes/geocode');
-const { 
-  ensureProvider, 
+const {
+  ensureProvider,
   ensureProviderOrAdmin,
   validateProviderClient,
-  providerRateLimit 
+  providerRateLimit
 } = require('./middleware/passportMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Updated MongoDB connection with modern options
-mongoose.connect('mongodb://localhost:27017/massage_booking_app', {
+// MongoDB Atlas connection - environment variable is required
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
+console.log('Using MongoDB Atlas URI:', MONGODB_URI);
+
+mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   useCreateIndex: true, // This fixes the ensureIndex deprecation warning
   autoIndex: true // Make sure indexes are created
 }).then(() => {
-  console.log('Connected to MongoDB');
+  console.log('Connected to MongoDB Atlas');
 }).catch(err => {
-  console.error('MongoDB connection error:', err);
+  console.error('MongoDB Atlas connection error:', err);
+  process.exit(1); // Exit process on connection failure
 });
 
 app.use((req, res, next) => {
@@ -83,6 +114,11 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // In production, allow the current host if it's localhost
+    if (process.env.NODE_ENV === 'production' && origin && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
     // Default to localhost:3000 in development or massagebyivan.com in production
     const defaultOrigin = process.env.NODE_ENV === 'production'
       ? 'https://massagebyivan.com'
@@ -99,24 +135,26 @@ app.use(cors({
 app.options('*', cors());
 
 // Session middleware MUST come before passport
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Create MongoStore instance first with explicit configuration
+const store = MongoStore.create({
+  mongoUrl: MONGODB_URI,
+  collectionName: 'sessions',
+  ttl: 24 * 60 * 60, // 24 hours in seconds
+  autoRemove: 'native' // Use MongoDB's TTL index for automatic removal
+});
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: 'mongodb://localhost:27017/massage_booking_app',
-    collectionName: 'sessions'
-  }),
+  store: store,
   cookie: {
-    // In production, secure should be true when sameSite is 'none'
-    // In development, we need to allow non-secure cookies
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction, // Use secure cookies in production only
     httpOnly: true,
-    // Use 'lax' for same-site requests, 'none' for cross-site
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000,
-    // Allow cookies from any domain in development
-    domain: process.env.NODE_ENV === 'production' ? undefined : ''
+    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production, 'lax' for development
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
@@ -172,6 +210,17 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Serve static files from the React build directory in production
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  app.use(express.static(path.join(__dirname, '../build')));
+  
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+  });
+}
+
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is reachable!' });
 });
@@ -181,4 +230,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Server is accessible at http://localhost:${PORT}`);
   console.log(`For local network access, use your computer's IP address`);
+  
+  // Log environment for debugging
+  console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`MONGODB_URI: ${process.env.MONGODB_URI ? 'Set' : 'Not set'}`);
 });

@@ -1,11 +1,8 @@
 const axios = require('axios');
 const mongoose = require('mongoose');
+const cacheManager = require('./cacheManager');
 
 const TRAFFIC_THRESHOLD_KM = 40; // Adjust this value as needed
-
-// Geocoding cache to prevent redundant API calls
-const geocodeCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Rate limiting configuration
 // Enhanced rate limiting with production safeguards
@@ -75,7 +72,7 @@ function getUserModel() {
  * @returns {string} - Cache key
  */
 function getProviderTravelCacheKey(origin, destination, providerId) {
-  return `provider_travel_${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}_to_${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}_provider_${providerId}`;
+  return cacheManager.getProviderTravelKey(origin, destination, providerId);
 }
 
 /**
@@ -234,18 +231,6 @@ async function safeApiCall(apiCall) {
   }
 }
 
-/**
- * Get cache key for travel time calculation
- * @param {Object} origin - Origin location
- * @param {Object} destination - Destination location
- * @param {Date} departureTime - Departure time
- * @returns {string} - Cache key
- */
-function getTravelTimeCacheKey(origin, destination, departureTime) {
-  // Round departure time to nearest 15 minutes for better cache hits
-  const roundedTime = new Date(Math.round(departureTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000));
-  return `travel_${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}_to_${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}_at_${roundedTime.toISOString()}`;
-}
 
 /**
  * Calculate travel time between two locations
@@ -280,18 +265,12 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
       }
     }
 
-    // Check cache first
-    const cacheKey = getTravelTimeCacheKey(origin, destination, departureTime);
-    if (geocodeCache.has(cacheKey)) {
-      const cachedData = geocodeCache.get(cacheKey);
-      // Check if cache entry is still valid
-      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
-        console.log(`[Geocoding] Cache hit for ${cacheKey}`);
-        return cachedData.durationInMinutes;
-      } else {
-        console.log(`[Geocoding] Cache expired for ${cacheKey}`);
-        geocodeCache.delete(cacheKey);
-      }
+    // Check cache first using centralized cache manager
+    const cacheKey = cacheManager.getTravelTimeKey(origin, destination, departureTime);
+    const cachedDuration = cacheManager.get('travelTime', cacheKey);
+    if (cachedDuration !== null) {
+      console.log(`[Cache] Travel time cache hit for ${cacheKey}: ${cachedDuration} mins`);
+      return cachedDuration;
     }
 
     // Make API call with rate limiting and circuit breaker

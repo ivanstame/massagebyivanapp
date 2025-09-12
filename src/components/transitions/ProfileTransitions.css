@@ -1,4 +1,4 @@
-// components/transitions/ProfileTransitions.css
+/* components/transitions/ProfileTransitions.css */
 .section-enter {
   opacity: 0;
   transform: translateY(10px);

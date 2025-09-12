@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Booking = require('../models/Booking');
+const Availability = require('../models/Availability');
+const Invitation = require('../models/Invitation');
 const { ensureAuthenticated, ensureAdmin } = require('../middleware/passportMiddleware');
 
 // @route   GET /api/users/profile
@@ -49,10 +52,24 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
         };
       }
     } else {
-      // Client profile updates
+      // Client profile updates - handle both old format (flat structure) and new format
+      const updateData = req.body;
+      
       user.profile = {
         ...user.profile,
-        ...req.body
+        fullName: updateData.fullName || user.profile.fullName,
+        phoneNumber: updateData.phoneNumber || updateData.profile?.phoneNumber || user.profile.phoneNumber,
+        address: {
+          ...user.profile.address,
+          street: updateData.street || updateData.address?.street || user.profile.address?.street || '',
+          unit: updateData.unit || updateData.address?.unit || user.profile.address?.unit || '',
+          city: updateData.city || updateData.address?.city || user.profile.address?.city || '',
+          state: updateData.state || updateData.address?.state || user.profile.address?.state || '',
+          zip: updateData.zip || updateData.address?.zip || user.profile.address?.zip || '',
+          formatted: updateData.formatted || updateData.address?.formatted || user.profile.address?.formatted || ''
+        },
+        allergies: updateData.allergies || user.profile.allergies,
+        medicalConditions: updateData.medicalConditions || user.profile.medicalConditions
       };
     }
 
@@ -239,10 +256,24 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     
+    // Update provider profile settings
     user.providerProfile = {
       ...user.providerProfile,
       ...req.body.settings
     };
+
+    // Clean up: remove bufferTime from scheduling if it exists (since we removed it from UI)
+    if (user.providerProfile.scheduling) {
+      delete user.providerProfile.scheduling.bufferTime;
+    }
+
+    // Update phone number if provided in settings
+    if (req.body.settings.phoneNumber !== undefined) {
+      user.profile = {
+        ...user.profile,
+        phoneNumber: req.body.settings.phoneNumber
+      };
+    }
 
     await user.save();
     res.json({
@@ -255,6 +286,33 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Get provider info for booking (accessible route)
+router.get('/provider/:providerId', async (req, res) => {
+  try {
+    console.log('Fetching provider info for providerId:', req.params.providerId);
+    
+    const provider = await User.findOne({
+      _id: req.params.providerId,
+      accountType: 'PROVIDER'
+    }).select('-password'); // Exclude password but include everything else
+
+    if (!provider) {
+      console.log('Provider not found for ID:', req.params.providerId);
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    console.log('Provider found with full data');
+    console.log('Provider business name:', provider.providerProfile?.businessName);
+    console.log('Full providerProfile:', provider.providerProfile);
+    
+    // Return the full provider object (minus password)
+    res.json(provider);
+  } catch (error) {
+    console.error('Error fetching provider info:', error);
+    res.status(500).json({ message: 'Error fetching provider info' });
+  }
+});
+
 // Get provider public profile
 router.get('/provider/:providerId/profile', async (req, res) => {
   try {
@@ -263,7 +321,7 @@ router.get('/provider/:providerId/profile', async (req, res) => {
     const provider = await User.findOne({
       _id: req.params.providerId,
       accountType: 'PROVIDER'
-    }).select('providerProfile email');
+    }).select('-password'); // Exclude password but include everything else
 
     if (!provider) {
       console.log('Provider not found for ID:', req.params.providerId);
@@ -271,26 +329,11 @@ router.get('/provider/:providerId/profile', async (req, res) => {
     }
 
     console.log('Provider found:', provider);
-    console.log('Provider profile:', provider.providerProfile);
+    console.log('Provider business name:', provider.providerProfile?.businessName);
+    console.log('Full providerProfile:', JSON.stringify(provider.providerProfile, null, 2));
     
-    // Check if businessName exists
-    if (!provider.providerProfile || !provider.providerProfile.businessName) {
-      console.log('Business name not found in provider profile');
-      return res.json({
-        providerId: provider._id,
-        businessName: 'No business name available',
-        email: provider.email
-      });
-    }
-
-    const response = {
-      providerId: provider._id,
-      businessName: provider.providerProfile.businessName,
-      email: provider.email
-    };
-    
-    console.log('Sending provider profile response:', response);
-    res.json(response);
+    // Return the full provider object (minus password)
+    res.json(provider);
   } catch (error) {
     console.error('Error fetching provider profile:', error);
     res.status(500).json({ message: 'Error fetching provider profile' });
@@ -352,6 +395,99 @@ router.put('/treatment-preferences', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error updating treatment preferences:', error);
     res.status(500).json({ message: 'Error updating treatment preferences' });
+  }
+});
+
+// @route   PUT /api/users/provider/preferences
+// @desc    Update provider business preferences
+// @access  Private
+router.put('/provider/preferences', ensureAuthenticated, async (req, res) => {
+  try {
+    console.log('Provider preferences update request received:', req.body);
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    // Update provider preferences
+    user.providerProfile = {
+      ...user.providerProfile,
+      ...req.body.preferences
+    };
+
+    // Clean up: remove bufferTime from scheduling if it exists (since we removed it from UI)
+    if (user.providerProfile.scheduling) {
+      delete user.providerProfile.scheduling.bufferTime;
+    }
+
+    // Update registration step to complete onboarding
+    if (req.body.registrationStep) {
+      user.registrationStep = req.body.registrationStep;
+    }
+
+    await user.save();
+
+    res.json({ 
+      message: 'Provider preferences updated successfully',
+      user: user.getPublicProfile()
+    });
+  } catch (error) {
+    console.error('Error updating provider preferences:', error);
+    res.status(500).json({ message: 'Error updating provider preferences' });
+  }
+});
+
+// @route   DELETE /api/users/account
+// @desc    Delete user account
+// @access  Private
+router.delete('/account', ensureAuthenticated, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Provider-specific cleanup
+    if (user.accountType === 'PROVIDER') {
+      // Delete all bookings for this provider
+      await Booking.deleteMany({ provider: req.user.id });
+      
+      // Delete all availability blocks for this provider
+      await Availability.deleteMany({ provider: req.user.id });
+      
+      // Delete all invitations from this provider
+      await Invitation.deleteMany({ provider: req.user.id });
+      
+      // Remove provider association from all clients
+      await User.updateMany(
+        { providerId: req.user.id },
+        { $set: { providerId: null } }
+      );
+    } else if (user.accountType === 'CLIENT') {
+      // Client-specific cleanup (if any)
+      // For now, just remove any bookings for this client
+      await Booking.deleteMany({ client: req.user.id });
+    }
+
+    // Delete the user
+    await User.findByIdAndDelete(req.user.id);
+
+    // Logout the user
+    req.logout((err) => {
+      if (err) {
+        console.error('Error during logout after account deletion:', err);
+      }
+    });
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    res.status(500).json({ message: 'Error deleting account' });
   }
 });
 

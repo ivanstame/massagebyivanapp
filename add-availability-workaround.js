@@ -1,12 +1,13 @@
 // add-availability-workaround.js
 // This script directly adds availability to the database
 
+require('dotenv').config();
 const mongoose = require('mongoose');
 const { DateTime } = require('luxon');
 const { DEFAULT_TZ } = require('./src/utils/timeConstants');
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/massage_booking_app', {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })

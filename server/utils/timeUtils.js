@@ -350,7 +350,10 @@ async function validateSlots(
           prevBooking.location,
           clientLocation,
           prevBookingEnd.plus({ minutes: effectiveBufferMinutes }).toJSDate()
-        );
+        ).catch(error => {
+          console.error(`[Single-Session] Error calculating travel time from previous booking: ${error.message}`);
+          throw new Error(`Travel time calculation failed: ${error.message}`);
+        });
 
         const requiredArrivalTime = slotStart.minus({ minutes: 15 });
         const actualArrivalTime = prevBookingEnd.plus({
@@ -382,7 +385,10 @@ async function validateSlots(
             clientLocation,
             nextBooking.location,
             slotEndWithBuffer.toJSDate()
-          );
+          ).catch(error => {
+            console.error(`[Single-Session] Error calculating travel time to next booking: ${error.message}`);
+            throw new Error(`Travel time calculation failed: ${error.message}`);
+          });
           const actualDepartureTime = slotEndWithBuffer.plus({ minutes: travelTimeToNext });
           if (actualDepartureTime > requiredDepartureTime) {
             console.log('[Single-Session] Slot invalid: not enough time to reach next booking 15 mins before');
@@ -538,7 +544,10 @@ async function getAvailableTimeSlots(
     requestedGroupId,
     extraDepartureBuffer,
     providerId
-  );
+  ).catch(error => {
+    console.error('Error validating slots:', error);
+    throw error; // Re-throw to be handled by the caller
+  });
 
   console.log('DEBUG: validSlots after travel time check:', validSlots.map(s => s.toTimeString().slice(0,5)));
 

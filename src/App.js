@@ -28,6 +28,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 // import Header from './components/Navigation/Header';
 import TreatmentPreferences from './components/TreatmentPreferences';
+import ClientPreferences from './components/ClientPreferences';
 
 // Import original components
 import Header from './components/Navigation/Header';
@@ -60,7 +61,14 @@ const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const currentStep = user?.registrationStep || 1;
   if (currentStep < requiredStep) {
     if (currentStep === 1) return <Navigate to="/profile-setup" />;
-    if (currentStep === 2) return <Navigate to="/treatment-preferences" />;
+    if (currentStep === 2) {
+      // For providers, skip preferences and go to dashboard
+      if (user?.accountType === 'PROVIDER') {
+        return <Navigate to="/dashboard" />;
+      } else {
+        return <Navigate to="/client-preferences" />;
+      }
+    }
   }
 
   return children;
@@ -135,11 +143,20 @@ function App() {
             }
           />
 
-          <Route 
-            path="/treatment-preferences" 
+          <Route
+            path="/treatment-preferences"
             element={
               <RegistrationProtectedRoute requiredStep={2}>
                 <TreatmentPreferences />
+              </RegistrationProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/client-preferences"
+            element={
+              <RegistrationProtectedRoute requiredStep={2}>
+                <ClientPreferences />
               </RegistrationProtectedRoute>
             }
           />
@@ -158,7 +175,7 @@ function App() {
             path="/book" 
             element={
               <ProtectedRoute>
-                <BookingForm googleMapsLoaded={googleMapsLoaded} />
+                <BookingFormUpdated googleMapsLoaded={googleMapsLoaded} />
               </ProtectedRoute>
             }
           />
@@ -167,7 +184,7 @@ function App() {
             path="/book2" 
             element={
               <ProtectedRoute>
-                <BookingFormUpdated googleMapsLoaded={googleMapsLoaded} />
+                <BookingForm googleMapsLoaded={googleMapsLoaded} />
               </ProtectedRoute>
             }
           />

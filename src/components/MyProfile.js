@@ -376,7 +376,7 @@ const [provider, setProvider] = useState(null);
                 >
                   Save Changes
                 </button>
-              </div>
+                </div>
             </form>
           }
         />
@@ -494,53 +494,61 @@ const [provider, setProvider] = useState(null);
       </ProfileSection>
 
       <ProfileSection
-  title="My Massage Provider"
-  isEditing={false}
-  isExpanded={expandedSections.provider}
-  onToggle={() => handleSectionToggle('provider')}
->
-  <div className="space-y-4">
-    {user?.providerId ? (
-      <div className="bg-white rounded-lg p-4 border border-slate-200">
-        <div className="flex justify-between items-center py-2 border-b border-slate-100">
-          <span className="text-slate-500">Business Name</span>
-          <span className="text-slate-900 font-medium">
-            {provider?.error ? 'Error loading data' : (provider?.businessName || 'Loading...')}
-          </span>
+        title="My Massage Provider"
+        isEditing={false}
+        isExpanded={expandedSections.provider}
+        onToggle={() => handleSectionToggle('provider')}
+      >
+        <div className="space-y-4">
+          {user?.providerId ? (
+            <div className="bg-white rounded-lg p-4 border border-slate-200">
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-500">Business Name</span>
+                <span className="text-slate-900 font-medium">
+                  {provider?.error ? 'Error loading data' : (provider?.providerProfile?.businessName || 'Loading...')}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-500">Contact Email</span>
+                <span className="text-slate-900">
+                  {provider?.error ? 'Error loading data' : (provider?.email || 'Loading...')}
+                </span>
+              </div>
+            
+              {/* Communication Buttons */}
+              <div className="flex gap-3 mt-4">
+                {provider?.profile?.phoneNumber && (
+                  <a
+                    href={`tel:${provider.profile.phoneNumber}`}
+                    className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                      hover:bg-[#2c5f60] transition-colors text-center"
+                  >
+                    Call Provider
+                  </a>
+                )}
+                <a
+                  href={`sms:${provider?.profile?.phoneNumber}`}
+                  className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                    hover:bg-[#2c5f60] transition-colors text-center"
+                >
+                  Text Provider
+                </a>
+                <a
+                  href={`mailto:${provider?.email}`}
+                  className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                    hover:bg-[#2c5f60] transition-colors text-center"
+                >
+                  Email Provider
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="text-slate-500 italic">
+              No provider information available
+            </div>
+          )}
         </div>
-        <div className="flex justify-between items-center py-2 border-b border-slate-100">
-          <span className="text-slate-500">Contact Email</span>
-          <span className="text-slate-900">
-            {provider?.error ? 'Error loading data' : (provider?.email || 'Loading...')}
-          </span>
-        </div>
-        
-        {/* Communication Buttons */}
-        <div className="flex gap-3 mt-4">
-          <a
-            href={`sms:${provider?.phoneNumber}`}
-            className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md 
-              hover:bg-[#2c5f60] transition-colors text-center"
-          >
-            Text Provider
-          </a>
-          <a
-            href={`mailto:${provider?.email}`}
-            className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md 
-              hover:bg-[#2c5f60] transition-colors text-center"
-          >
-            Email Provider
-          </a>
-        </div>
-      </div>
-    ) : (
-      <div className="text-slate-500 italic">
-        No provider information available
-      </div>
-    )}
-  </div>
-</ProfileSection>
-
+      </ProfileSection>
 
       {/* Medical Information Section */}
       <ProfileSection
@@ -615,30 +623,73 @@ const [provider, setProvider] = useState(null);
         />
       </ProfileSection>
 
-{/* Treatment Preferences Section */}
-<div className="mt-8">
-  <h2 className="text-xl font-bold text-slate-900 mb-4">Treatment Preferences</h2>
-  {formData.treatmentPreferences?.bodyAreas && Object.keys(formData.treatmentPreferences.bodyAreas).length > 0 ? (
-    Object.entries(formData.treatmentPreferences.bodyAreas).map(([areaId, areaData]) => (
-      <div key={areaId} className="border p-4 rounded mb-4">
-        <h4 className="font-medium text-slate-900 capitalize">{areaId.replace(/_/g, ' ')}</h4>
-        <p className="text-sm text-slate-500">Pressure: {areaData.pressure ?? 50}</p>
-        <p className="text-sm text-slate-500">Note: {areaData.note ?? 'No note provided'}</p>
-        <p className="text-sm text-slate-500">
-          Conditions: {areaData.conditions && areaData.conditions.length > 0 ? areaData.conditions.join(', ') : 'None'}
-        </p>
-        <p className="text-sm text-slate-500">
-          Patterns: {areaData.patterns && areaData.patterns.length > 0 ? areaData.patterns.join(', ') : 'None'}
-        </p>
+      {/* Treatment Preferences Section */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Treatment Preferences</h2>
+        {formData.treatmentPreferences?.bodyAreas?.general ? (
+          <div className="border p-4 rounded mb-4">
+            <h4 className="font-medium text-slate-900 mb-3">General Preferences</h4>
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">
+                <span className="font-medium">Primary Area of Concern:</span>
+                {formData.treatmentPreferences.bodyAreas.general.conditions && formData.treatmentPreferences.bodyAreas.general.conditions.length > 0 ?
+                  formData.treatmentPreferences.bodyAreas.general.conditions.join(', ').replace(/_/g, ' ') :
+                  'Not specified'}
+              </p>
+              <p className="text-sm text-slate-500">
+                <span className="font-medium">Pressure Level:</span>
+                {formData.treatmentPreferences.bodyAreas.general.pressure === 30 ? 'Gentle' :
+                 formData.treatmentPreferences.bodyAreas.general.pressure === 50 ? 'Medium' :
+                 formData.treatmentPreferences.bodyAreas.general.pressure === 70 ? 'Firm' :
+                 'Not specified'}
+              </p>
+              <p className="text-sm text-slate-500">
+                <span className="font-medium">Additional Notes:</span>
+                {formData.treatmentPreferences.bodyAreas.general.note || 'No additional notes provided'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 italic">No treatment preferences found.</p>
+        )}
       </div>
-    ))
-  ) : (
-    <p className="text-sm text-slate-500 italic">No treatment preferences found.</p>
-  )}
-</div>
 
-
-
+      {/* Account Management Section */}
+      <div className="mt-8 border-t border-slate-200 pt-8">
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Account Management</h2>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-red-800 mb-2">Danger Zone</h3>
+          <p className="text-red-700 mb-4">
+            Once you delete your account, there is no going back. Please be certain.
+          </p>
+          <button
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                try {
+                  const response = await fetch('/api/users/account', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                  });
+                  
+                  if (response.ok) {
+                    alert('Account deleted successfully. You will be logged out.');
+                    window.location.href = '/login';
+                  } else {
+                    const errorData = await response.json();
+                    alert(`Error deleting account: ${errorData.message}`);
+                  }
+                } catch (error) {
+                  console.error('Error deleting account:', error);
+                  alert('An error occurred while deleting your account.');
+                }
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            Delete My Account
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

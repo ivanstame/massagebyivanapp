@@ -1,10 +1,11 @@
 // src/services/api.js
 import axios from 'axios';
 
-const currentHost = window.location.hostname;
-const baseURL = currentHost === 'localhost' 
-  ? `http://localhost:5000`
-  : `http://192.168.1.26:5000`;
+// Use environment variable for API URL or fallback to local development
+const baseURL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000'
+    : 'http://192.168.1.26:5000');
 
 const api = axios.create({
   baseURL,
@@ -16,7 +17,7 @@ const api = axios.create({
 });
 
 // Log the API configuration
-console.log('API Service initialized with:', { baseURL, currentHost });
+console.log('API Service initialized with baseURL:', baseURL);
 
 // Add request interceptor
 api.interceptors.request.use(

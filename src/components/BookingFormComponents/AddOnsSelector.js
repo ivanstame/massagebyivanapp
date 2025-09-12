@@ -1,0 +1,101 @@
+import React from 'react';
+import { Plus, Check, Info } from 'lucide-react';
+import { MASSAGE_ADDONS } from '../../shared/constants/massageOptions';
+
+const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete }) => {
+  const toggleAddon = (addonId) => {
+    if (selectedAddons.includes(addonId)) {
+      onAddonsChange(selectedAddons.filter(id => id !== addonId));
+    } else {
+      onAddonsChange([...selectedAddons, addonId]);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+      {/* Header */}
+      <div className="flex items-center mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="bg-teal-100 p-3 rounded-lg">
+            <Plus className="w-6 h-6 text-teal-700" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Optional Enhancements</h3>
+            <p className="text-sm text-slate-600 mt-1">Add extras to customize your experience</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Add-ons Grid */}
+      <div className="space-y-3">
+        {MASSAGE_ADDONS.map((addon) => {
+          const isSelected = selectedAddons.includes(addon.id);
+
+          return (
+            <button
+              key={addon.id}
+              onClick={() => toggleAddon(addon.id)}
+              className={`
+                w-full min-h-touch p-4 rounded-lg border-2 transition-all duration-200
+                hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                ${isSelected
+                  ? 'border-teal-600 bg-teal-50'
+                  : 'border-slate-200 bg-white hover:border-teal-300'
+                }
+              `}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {/* Toggle indicator */}
+                  <div className={`
+                    w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
+                    ${isSelected
+                      ? 'border-teal-600 bg-teal-600'
+                      : 'border-slate-300 bg-white'
+                    }
+                  `}>
+                    {isSelected && <Check className="w-4 h-4 text-white" />}
+                  </div>
+
+                  {/* Add-on details */}
+                  <div className="text-left">
+                    <div className="font-medium text-lg text-slate-900">
+                      {addon.name}
+                    </div>
+                    <div className="text-sm text-slate-600 mt-1">
+                      {addon.description}
+                    </div>
+                    {addon.extraTime > 0 && (
+                      <div className="text-xs text-teal-600 mt-1 font-medium">
+                        +{addon.extraTime} minutes added to session
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="text-right">
+                  <div className={`text-lg font-semibold ${isSelected ? 'text-teal-700' : 'text-slate-700'}`}>
+                    +${addon.price}
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Info message */}
+      <div className="mt-4 p-3 bg-cream-50 rounded-lg border border-cream-200">
+        <div className="flex items-start space-x-2">
+          <Info className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-slate-600">
+            All add-ons are optional. Your therapist will discuss these with you before your session.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AddOnsSelector;

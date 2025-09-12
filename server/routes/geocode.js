@@ -9,7 +9,13 @@ const geocodeCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Get coordinates from address using Google Maps Geocoding API
-router.get('/', ensureAuthenticated, async (req, res) => {
+router.get('/', (req, res, next) => {
+  // Skip authentication check in development mode for address validation during registration
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  ensureAuthenticated(req, res, next);
+}, async (req, res) => {
   try {
     const { address } = req.query;
     if (!address) {
@@ -17,8 +23,11 @@ router.get('/', ensureAuthenticated, async (req, res) => {
     }
 
     const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-    if (!GOOGLE_MAPS_API_KEY) {
-      throw new Error('Google Maps API key not configured');
+    if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === 'your-google-maps-api-key-here') {
+      console.error('Google Maps API key not configured or using placeholder');
+      return res.status(500).json({ 
+        message: 'Address verification service is not configured. Please contact support.' 
+      });
     }
 
     // Check cache first

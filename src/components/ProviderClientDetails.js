@@ -178,7 +178,7 @@ const ProviderClientDetails = () => {
           </button>
           <button
             onClick={handleUpdateNotes}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-cyan-900"
           >
             Save Notes
           </button>
@@ -248,18 +248,27 @@ const ProviderClientDetails = () => {
             </div>
             
             <div className="flex items-center space-x-2">
-              <button
-                onClick={() => window.location.href = `tel:${client?.profile?.phoneNumber}`}
-                className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
-              >
-                <Phone className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => window.location.href = `sms:${client?.profile?.phoneNumber}`}
-                className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
+              {client?.profile?.phoneNumber && (
+                <button
+                  onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  title="Call client"
+                >
+                  <Phone className="w-5 h-5" />
+                </button>
+              )}
+              {client?.profile?.phoneNumber && (
+                <button
+                  onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  title="Text client"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                </button>
+              )}
+              {!client?.profile?.phoneNumber && (
+                <span className="text-sm text-slate-400 italic">No phone number available</span>
+              )}
               <div className="relative">
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
@@ -276,12 +285,12 @@ const ProviderClientDetails = () => {
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
           <h2 className="text-lg font-medium text-slate-900 mb-4">Client Statistics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-[#009ea5]/10 p-4 rounded-lg">
               <div className="flex items-center mb-2">
-                <Calendar className="w-5 h-5 text-blue-500 mr-2" />
-                <h3 className="text-sm font-medium text-blue-700">Total Sessions</h3>
+                <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
+                <h3 className="text-sm font-medium text-[#8b6b47]">Total Sessions</h3>
               </div>
-              <p className="text-2xl font-bold text-blue-900">{stats.totalAppointments}</p>
+              <p className="text-2xl font-bold text-[#8b6b47]">{stats.totalAppointments}</p>
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">

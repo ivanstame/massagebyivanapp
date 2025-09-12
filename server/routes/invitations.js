@@ -89,7 +89,13 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       status: 'PENDING'
     });
     if (existingInvite) {
-      return res.status(400).json({ message: 'Pending invitation already exists' });
+      return res.status(200).json({
+        status: 'exists',
+        email: existingInvite.email,
+        code: existingInvite.token,
+        expiresAt: existingInvite.expires,
+        message: 'Invitation already exists for this email'
+      });
     }
 
     // Create invitation with debugging info
@@ -109,11 +115,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     
     // Return invitation details for testing
     res.status(201).json({
+      status: 'created',
       email,
       code: invitation.token,
       expiresAt: invitation.expires,
       providerId: req.user._id,
-      status: invitation.status
+      message: 'Invitation created successfully'
     });
   } catch (error) {
     console.error('Error creating test invitation:', error);
@@ -128,8 +135,11 @@ router.get('/provider', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Provider access required' });
     }
 
-    const invitations = await Invitation.find({ provider: req.user._id })
-      .select('email token status expires _debug')
+    const invitations = await Invitation.find({
+      provider: req.user._id,
+      status: 'PENDING'  // Only show pending invitations
+    })
+      .select('email token status expires createdAt _debug')
       .sort('-createdAt');
 
     res.json(invitations);

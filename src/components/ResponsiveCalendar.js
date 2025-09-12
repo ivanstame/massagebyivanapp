@@ -101,7 +101,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200">
       <div className="flex items-center mb-3 border-b pb-2">
-        <Calendar className="w-5 h-5 text-blue-500 mr-2" />
+        <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
         <h2 className="font-medium">Select Date</h2>
       </div>
       
@@ -153,19 +153,19 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
     transition-all duration-200 ease-in-out
     border
     ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-slate-100' : 
-      hasSlots ? 'hover:bg-blue-50 hover:border-blue-200 border-slate-200' : 
+      hasSlots ? 'hover:bg-[#f8f4ef] hover:border-[#009ea5] border-slate-200' :
       'text-slate-400 hover:bg-slate-50 border-slate-100'}
-    ${isSelected ? 
-      'bg-blue-100 border-blue-500 text-blue-700 shadow-md ring-2 ring-blue-500 ring-opacity-50' : ''}
+    ${isSelected ?
+      'bg-[#f8f4ef] border-[#009ea5] text-[#8b6b47] shadow-md ring-2 ring-[#009ea5] ring-opacity-50' : ''}
   `}
 >
   <span className={`text-xs font-medium mb-1 
-    ${isSelected ? 'text-blue-600' : 'text-slate-500'}`}>
+    ${isSelected ? 'text-[#8b6b47]' : 'text-slate-500'}`}>
     {dayNames[date.getDay()]}
   </span>
   <div className="relative flex flex-col items-center gap-1">
     <span className={`text-lg font-semibold
-      ${isToday ? 'text-blue-600' : ''}`}>
+      ${isToday ? 'text-[#8b6b47]' : ''}`}>
       {date.getDate()}
     </span>
     {!isPast && hasSlots && (

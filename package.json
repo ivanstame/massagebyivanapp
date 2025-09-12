@@ -9,8 +9,13 @@
     "client": "react-app-rewired start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "react-app-rewired build",
+    "heroku-postbuild": "npm run build",
     "test": "jest",
     "eject": "react-scripts eject"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.2",

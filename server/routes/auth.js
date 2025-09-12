@@ -165,6 +165,16 @@ router.post('/register', ensureGuest, async (req, res) => {
       return res.status(400).json({ message: 'Invalid account type' });
     }
 
+    // Validate provider password for provider sign-ups
+    if (accountType === 'PROVIDER') {
+      const providerPassword = req.body.providerPassword;
+      const expectedPassword = process.env.PROVIDER_SIGNUP_PASSWORD;
+      
+      if (!providerPassword || providerPassword !== expectedPassword) {
+        return res.status(400).json({ message: 'Invalid provider access password' });
+      }
+    }
+
     // Check for existing user
     let user = await User.findByEmail(email);
     if (user) {

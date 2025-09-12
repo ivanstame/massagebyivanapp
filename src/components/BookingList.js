@@ -235,7 +235,7 @@ const BookingList = () => {
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
                   text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
-                onClick={() => window.location.href = `tel:${provider.phoneNumber}`}
+                onClick={() => window.location.href = `tel:${provider.profile?.phoneNumber}`}
               >
                 <Phone className="w-4 h-4 mr-1.5" />
                 Call Provider
@@ -243,7 +243,7 @@ const BookingList = () => {
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
                   text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
-                onClick={() => window.location.href = `sms:${provider.phoneNumber}`}
+                onClick={() => window.location.href = `sms:${provider.profile?.phoneNumber}`}
               >
                 <MessageSquare className="w-4 h-4 mr-1.5" />
                 Text Provider
