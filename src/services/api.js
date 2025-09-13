@@ -1,11 +1,11 @@
 // src/services/api.js
 import axios from 'axios';
 
-// Use environment variable for API URL or fallback to local development
-const baseURL = process.env.REACT_APP_API_URL || 
-  (window.location.hostname === 'localhost' 
+// Use environment variable for API URL or fallback to same origin in production
+const baseURL = process.env.REACT_APP_API_URL ||
+  (window.location.hostname === 'localhost'
     ? 'http://localhost:5000'
-    : 'http://192.168.1.26:5000');
+    : window.location.origin);
 
 const api = axios.create({
   baseURL,
