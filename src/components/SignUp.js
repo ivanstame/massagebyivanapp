@@ -39,7 +39,6 @@ const SignUp = () => {
     confirmPassword: '',
     accountType: '',  // 'PROVIDER' or 'CLIENT'
     invitationToken: '',  // for invited clients
-    providerPassword: ''  // for provider sign-up security
   });
 
   const [step, setStep] = useState(1);  // 1: Type Selection, 2: Provider Password Gate, 3: Details
@@ -52,6 +51,7 @@ const SignUp = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [providerAccessPassword, setProviderAccessPassword] = useState('');
   const [isVerifyingProviderAccess, setIsVerifyingProviderAccess] = useState(false);
+  const [verifiedProviderPassword, setVerifiedProviderPassword] = useState(''); // Store the verified password separately
   const { setUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -74,9 +74,10 @@ const SignUp = () => {
       errors.invitationToken = 'Invitation code is required';
     }
     
-    if (formData.accountType === 'PROVIDER' && !formData.providerPassword.trim()) {
-      errors.providerPassword = 'Provider password is required';
-    }
+    // Provider password is now set automatically during verification, no longer user input
+    // if (formData.accountType === 'PROVIDER' && !formData.providerPassword.trim()) {
+    //   errors.providerPassword = 'Provider password is required';
+    // }
     
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -86,6 +87,12 @@ const SignUp = () => {
     e.preventDefault();
     setError('');
     
+    // Additional validation for provider accounts
+    if (formData.accountType === 'PROVIDER' && !verifiedProviderPassword) {
+      setError('Provider access password verification is required');
+      return;
+    }
+    
     if (!validateForm()) {
       return;
     }
@@ -93,13 +100,13 @@ const SignUp = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/register', 
+      const response = await axios.post('/api/auth/register',
         {
           email: formData.email,
           password: formData.password,
           accountType: formData.accountType,
           invitationToken: formData.invitationToken,
-          providerPassword: formData.providerPassword,
+          ...(formData.accountType === 'PROVIDER' && { providerPassword: verifiedProviderPassword }),
         },
         {
           withCredentials: true,
@@ -134,10 +141,14 @@ const SignUp = () => {
     setIsVerifyingProviderAccess(true);
     setError('');
     
+    // Trim the input to handle accidental spaces
+    const trimmedPassword = providerAccessPassword.trim();
+    
     // Simulate a quick check (in real scenario, this could be an API call)
     setTimeout(() => {
-      if (providerAccessPassword === 'B@ckstreetsback0222') {
+      if (trimmedPassword === 'B@ckstreetsback0222') {
         setFormData(prev => ({ ...prev, accountType: 'PROVIDER' }));
+        setVerifiedProviderPassword(trimmedPassword); // Store the verified password
         setStep(3); // Move to actual sign-up form
       } else {
         setError('Invalid provider access password');
@@ -286,27 +297,6 @@ const SignUp = () => {
         </div>
       )}
 
-      {formData.accountType === 'PROVIDER' && (
-        <div>
-          <label htmlFor="providerPassword" className="block text-sm font-medium text-slate-600 mb-2">
-            Provider Access Password
-          </label>
-          <input
-            id="providerPassword"
-            name="providerPassword"
-            type="password"
-            required
-            value={formData.providerPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-md
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
-            placeholder="Enter provider access password"
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Contact support to obtain the provider access password
-          </p>
-        </div>
-      )}
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-slate-600 mb-2">

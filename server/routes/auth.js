@@ -170,6 +170,12 @@ router.post('/register', ensureGuest, async (req, res) => {
       const providerPassword = req.body.providerPassword;
       const expectedPassword = process.env.PROVIDER_SIGNUP_PASSWORD;
       
+      console.log('Provider sign-up attempt:', {
+        providedPassword: providerPassword,
+        expectedPassword: expectedPassword,
+        envVarSet: !!process.env.PROVIDER_SIGNUP_PASSWORD
+      });
+      
       if (!providerPassword || providerPassword !== expectedPassword) {
         return res.status(400).json({ message: 'Invalid provider access password' });
       }
