@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import AddressForm from './AddressForm';
+import api from '../services/api';
 import { AlertCircle, User, Phone, Briefcase, MapPin, AlertTriangle } from 'lucide-react';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 
@@ -145,21 +146,9 @@ const ProfileSetup = () => {
         requestBody.businessName = formData.businessName?.trim() || '';
       }
 
-      const response = await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(requestBody)
-      });
+      const response = await api.put('/api/users/profile', requestBody);
+      const userData = response.data;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Profile update failed');
-      }
-
-      const userData = await response.json();
       setUser({
         ...user,
         ...userData.user,
@@ -179,7 +168,7 @@ const ProfileSetup = () => {
 
     } catch (err) {
       console.error('Submission Error:', err);
-      setError(err.message || 'An error occurred while saving your profile');
+      setError(err.response?.data?.message || 'An error occurred while saving your profile');
     } finally {
       setIsLoading(false);
     }
