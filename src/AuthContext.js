@@ -7,14 +7,15 @@ axios.defaults.withCredentials = true;
 axios.defaults.headers.common['Accept'] = 'application/json';
 axios.defaults.headers.post['Content-Type'] = 'application/json';
 
-const currentHost = window.location.hostname;
-const baseURL = currentHost === 'localhost' 
-  ? `http://localhost:5000`
-  : `http://192.168.1.26:5000`;
+// Use environment variable for API URL or fallback to same origin in production
+const baseURL = process.env.REACT_APP_API_URL ||
+  (window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
+    : window.location.origin);
 
 axios.defaults.baseURL = baseURL;
 
-console.log('Auth Context initialized with:', { baseURL, currentHost });
+console.log('Auth Context initialized with:', { baseURL, currentHost: window.location.hostname });
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
