@@ -66,6 +66,13 @@ router.get('/', async (req, res) => {
       
       res.json(result);
     } else {
+      // Log detailed Google API response for debugging
+      console.error(`[Geocoding] ${new Date().toISOString()} | Google Maps API Error:`, {
+        status: response.data.status,
+        error_message: response.data.error_message,
+        results: response.data.results
+      });
+      
       // Handle specific Google Maps API error status codes
       switch (response.data.status) {
         case 'ZERO_RESULTS':
@@ -76,16 +83,20 @@ router.get('/', async (req, res) => {
           res.status(429).json({ message: 'Service temporarily unavailable. Please try again later.' });
           break;
         case 'REQUEST_DENIED':
-          console.error('Google Maps API request denied - likely an API key issue');
-          res.status(403).json({ message: 'Address verification service is currently unavailable.' });
+          console.error('Google Maps API request denied - check API key configuration and restrictions');
+          res.status(403).json({
+            message: 'Address verification service is currently unavailable.',
+            details: response.data.error_message || 'API key may have restrictions'
+          });
           break;
         case 'INVALID_REQUEST':
           res.status(400).json({ message: 'Invalid address format. Please check all address fields.' });
           break;
         default:
-          res.status(404).json({ 
+          res.status(404).json({
             message: 'Could not verify address',
-            status: response.data.status
+            status: response.data.status,
+            details: response.data.error_message
           });
       }
     }

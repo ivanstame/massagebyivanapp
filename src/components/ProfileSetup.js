@@ -148,8 +148,7 @@ const ProfileSetup = () => {
       const response = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify(requestBody)
