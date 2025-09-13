@@ -101,6 +101,8 @@ const allowedOrigins = [
   /^http:\/\/192\.168\.\d+\.\d+:(3000|5000)$/,
   'https://massagebyivan.com',
   'https://api.massagebyivan.com',
+  'https://massagebyivan-9420304df681.herokuapp.com',
+  /\.herokuapp\.com$/,
 ];
 
 app.use(cors({
