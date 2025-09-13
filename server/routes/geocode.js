@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { safeApiCall } = require('../services/mapService');
 
 // Geocoding cache to prevent redundant API calls
@@ -9,13 +8,7 @@ const geocodeCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Get coordinates from address using Google Maps Geocoding API
-router.get('/', (req, res, next) => {
-  // Skip authentication check in development mode for address validation during registration
-  if (process.env.NODE_ENV === 'development') {
-    return next();
-  }
-  ensureAuthenticated(req, res, next);
-}, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { address } = req.query;
     if (!address) {
