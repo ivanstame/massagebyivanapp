@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import axios from 'axios'; 
+import api from '../services/api';
 import ProviderConfirmationModal from './ProviderConfirmationModal';
 import { Eye, EyeOff, AlertCircle, CheckCircle, UserPlus, Users } from 'lucide-react';
 
@@ -100,20 +100,13 @@ const SignUp = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/register',
+      const response = await api.post('/api/auth/register',
         {
           email: formData.email,
           password: formData.password,
           accountType: formData.accountType,
           invitationToken: formData.invitationToken,
           ...(formData.accountType === 'PROVIDER' && { providerPassword: verifiedProviderPassword }),
-        },
-        {
-          withCredentials: true,
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
         }
       );
 
