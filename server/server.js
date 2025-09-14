@@ -44,6 +44,7 @@ const {
   validateProviderClient,
   providerRateLimit
 } = require('./middleware/passportMiddleware');
+const { requestLogger, responseLogger, debugSession, dbConnectionChecker } = require('./middleware/debugMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -76,6 +77,11 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Add debug logging middleware
+app.use(requestLogger);
+app.use(responseLogger);
+app.use(dbConnectionChecker);
 
 // Middleware setup - ORDER IS IMPORTANT
 app.use(express.json({ limit: '10mb' }));
@@ -163,6 +169,9 @@ app.use(session({
 // Passport middleware MUST come after session
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add debug endpoint
+app.get('/api/debug/session', debugSession);
 
 // Routes come after all middleware
 app.use('/api/auth', authRoutes);
