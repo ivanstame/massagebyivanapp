@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
-import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, X, Trash2 } from 'lucide-react';
 
 const ProviderAppointments = () => {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -116,6 +116,37 @@ const ProviderAppointments = () => {
     }
   };
 
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      console.log('Cancelling appointment:', appointmentId);
+      
+      const response = await axios.delete(`/api/bookings/${appointmentId}`, {
+        withCredentials: true
+      });
+      
+      console.log('Cancel response:', response.data);
+      
+      // Refresh the appointments list
+      await fetchAppointments();
+      
+      // Show success message (you could add a toast notification here)
+      alert('Appointment cancelled successfully');
+      
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      
+      if (error.response) {
+        alert(`Failed to cancel appointment: ${error.response.data?.message || 'Unknown error'}`);
+      } else {
+        alert('Failed to cancel appointment. Please try again.');
+      }
+    }
+  };
+
   const renderAppointment = (appointment) => (
     <div
       key={appointment._id}
@@ -124,7 +155,7 @@ const ProviderAppointments = () => {
     >
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-medium text-slate-900">
               {appointment.client?.profile?.fullName || appointment.client?.email || 'Unknown Client'}
             </h3>
@@ -145,6 +176,18 @@ const ProviderAppointments = () => {
                 <span>{appointment.location?.address || 'No address provided'}</span>
               </div>
             </div>
+          </div>
+          <div className="ml-4">
+            <button
+              onClick={() => handleCancelAppointment(appointment._id)}
+              className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200
+                text-sm font-medium rounded-md text-red-700 hover:bg-red-100 hover:border-red-300
+                transition-colors duration-200"
+              title="Cancel appointment"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              Cancel
+            </button>
           </div>
         </div>
 

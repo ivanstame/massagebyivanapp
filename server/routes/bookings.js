@@ -479,25 +479,39 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 // DELETE /:id (Cancel a booking)
 router.delete('/:id', ensureAuthenticated, async (req, res) => {
   try {
+    console.log('=== CANCELLING BOOKING ===');
+    console.log('Booking ID:', req.params.id);
+    console.log('User:', req.user.email, 'Type:', req.user.accountType);
+    
     const booking = await Booking.findById(req.params.id);
     
     if (!booking) {
+      console.log('Booking not found');
       return res.status(404).json({ message: 'Booking not found' });
     }
 
+    console.log('Found booking:', booking);
+    console.log('Booking provider:', booking.provider);
+    console.log('Booking client:', booking.client);
+
     // Check authorization
     if (req.user.accountType === 'PROVIDER' && !booking.provider.equals(req.user._id)) {
+      console.log('Provider not authorized');
       return res.status(403).json({ message: 'Not authorized to cancel this booking' });
     }
     
     if (req.user.accountType === 'CLIENT' && !booking.client.equals(req.user._id)) {
+      console.log('Client not authorized');
       return res.status(403).json({ message: 'Not authorized to cancel this booking' });
     }
 
-    await booking.remove();
+    // Use deleteOne instead of deprecated remove()
+    await Booking.findByIdAndDelete(req.params.id);
+    console.log('✅ Booking deleted successfully');
+    
     res.json({ message: 'Booking cancelled successfully' });
   } catch (error) {
-    console.error('Error cancelling booking:', error);
+    console.error('❌ Error cancelling booking:', error);
     res.status(500).json({ message: 'Server error while cancelling booking' });
   }
 });
