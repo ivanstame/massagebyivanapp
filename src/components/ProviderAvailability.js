@@ -473,27 +473,39 @@ const formatTime = useCallback((time) => {
 
         {/* Mobile View */}
         <div className="lg:hidden relative h-[calc(100vh-6rem)] flex flex-col">
-          <div className="sticky top-0 z-10 bg-white pb-4">
+          <div className="sticky top-0 z-10 bg-white pb-4 shadow-sm">
             <ResponsiveCalendar 
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               events={availabilityBlocks}
             />
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <DaySchedule
-              date={selectedDate}
-              availabilityBlocks={availabilityBlocks}
-              bookings={bookings}
-              onModify={handleModifyAvailability}
-            />
+          <div className="flex-1 overflow-y-auto pb-20">
+            {/* Availability Details Section for Mobile */}
+            <div className="px-4 py-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold mb-3">Availability Details</h2>
+              {renderAvailabilityDetails()}
+            </div>
+            
+            {/* Day Schedule Section */}
+            <div className="px-4 py-4">
+              <h2 className="text-lg font-semibold mb-3">Day Schedule</h2>
+              <DaySchedule
+                date={selectedDate}
+                availabilityBlocks={availabilityBlocks}
+                bookings={bookings}
+                onModify={handleModifyAvailability}
+              />
+            </div>
           </div>
           
           {/* Floating Button for Add Availability */}
           <div className="fixed bottom-4 right-4 z-50">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#009ea5] text-white p-3 rounded-full shadow-lg flex items-center justify-center"
+              className="bg-[#009ea5] text-white p-3 rounded-full shadow-lg flex items-center justify-center
+                hover:bg-[#008a91] transition-colors duration-200"
+              aria-label="Add Availability"
             >
               <Clock className="w-6 h-6" />
             </button>
