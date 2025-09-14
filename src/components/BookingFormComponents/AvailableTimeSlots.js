@@ -130,7 +130,7 @@ const AvailableTimeSlots = ({
       ) : (
         <>
           {/* Time period tabs */}
-          <div className="flex space-x-1 mb-6 bg-slate-100 p-1 rounded-lg">
+          <div className="flex space-x-1 mb-6 bg-slate-100 p-1 rounded-lg overflow-hidden">
             {timeTabs.map(tab => {
               const Icon = tabIcons[tab];
               const slotCount = slotsByPeriod[tab].length;
@@ -142,8 +142,10 @@ const AvailableTimeSlots = ({
                   onClick={() => setSelectedTimeTab(tab)}
                   disabled={slotCount === 0}
                   className={`
-                    flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md
-                    transition-all duration-200 font-medium
+                    flex-1 flex items-center justify-center space-x-1 sm:space-x-2 
+                    py-2 sm:py-3 px-2 sm:px-4 rounded-md
+                    transition-all duration-200 font-medium text-sm sm:text-base
+                    min-w-0 overflow-hidden
                     ${isActive 
                       ? 'bg-white text-teal-700 shadow-sm' 
                       : slotCount === 0
@@ -152,11 +154,11 @@ const AvailableTimeSlots = ({
                     }
                   `}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span>{tab}</span>
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  <span className="truncate">{tab}</span>
                   {slotCount > 0 && (
                     <span className={`
-                      text-xs px-2 py-0.5 rounded-full
+                      text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0
                       ${isActive ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-600'}
                     `}>
                       {slotCount}
