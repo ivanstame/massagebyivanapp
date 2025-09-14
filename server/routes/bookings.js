@@ -21,12 +21,17 @@ const calculatePrice = (duration) => {
 
 // POST / (Create a new booking)
 router.post('/', ensureAuthenticated, async (req, res) => {
+  console.log('=== BOOKING CREATION DEBUG ===');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  console.log('User:', req.user.email, 'ID:', req.user._id, 'Type:', req.user.accountType);
+  
   try {
     const { date, time, duration, location } = req.body;
     
     // Validate time format
     const timeFormat24h = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeFormat24h.test(time)) {
+      console.error('Invalid time format:', time);
       return res.status(400).json({ message: 'Invalid time format. Use 24-hour format (HH:mm)' });
     }
 
@@ -128,6 +133,17 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
     
     // Create booking
+    console.log('Creating booking object with data:', {
+      provider: providerId,
+      client: clientId,
+      date: bookingDate,
+      localDate: bookingDateLA.toFormat('yyyy-MM-dd'),
+      startTime: time,
+      endTime: endTime,
+      duration,
+      location
+    });
+
     const booking = new Booking({
       provider: providerId,
       client: clientId,
@@ -178,12 +194,40 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       })
     });
 
-    await booking.save();
-    res.status(201).json(booking);
+    console.log('Booking object created, attempting to save to MongoDB...');
+    console.log('Booking object ID (pre-save):', booking._id);
+    
+    try {
+      const savedBooking = await booking.save();
+      console.log('✅ BOOKING SAVED SUCCESSFULLY!');
+      console.log('Saved booking ID:', savedBooking._id);
+      console.log('Saved booking data:', JSON.stringify(savedBooking.toObject(), null, 2));
+      
+      // Verify it was actually saved by trying to find it
+      const verifyBooking = await Booking.findById(savedBooking._id);
+      console.log('Verification - booking found in DB:', verifyBooking ? 'YES' : 'NO');
+      
+      res.status(201).json(savedBooking);
+    } catch (saveError) {
+      console.error('❌ FAILED TO SAVE BOOKING TO MONGODB!');
+      console.error('Save error details:', saveError);
+      console.error('Error name:', saveError.name);
+      console.error('Error message:', saveError.message);
+      if (saveError.errors) {
+        console.error('Validation errors:', saveError.errors);
+      }
+      throw saveError;
+    }
 
   } catch (error) {
-    console.error('Error creating booking:', error);
-    res.status(500).json({ message: 'Booking creation failed' });
+    console.error('❌ ERROR IN BOOKING CREATION PROCESS!');
+    console.error('Full error object:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Booking creation failed',
+      error: error.message,
+      details: error.errors || error.toString()
+    });
   }
 });
 
