@@ -8,6 +8,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
   const [startTime, setStartTime] = useState('09:00 AM');
   const [endTime, setEndTime] = useState('05:00 PM');
   const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Convert 24h to 12h format for initial values
@@ -42,9 +43,10 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
     return options;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
 
     // Convert back to 24-hour format for backend
     const to24Hour = (time) => {
@@ -56,11 +58,37 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
       return `${hours.toString().padStart(2, '0')}:${minutes}`;
     };
 
-    onModify({
-      ...block,
-      start: to24Hour(startTime),
-      end: to24Hour(endTime)
-    });
+    const start24 = to24Hour(startTime);
+    const end24 = to24Hour(endTime);
+
+    // Validate times before submitting
+    const startHour = parseInt(start24.split(':')[0]);
+    const startMin = parseInt(start24.split(':')[1]);
+    const endHour = parseInt(end24.split(':')[0]);
+    const endMin = parseInt(end24.split(':')[1]);
+    
+    const startTotalMinutes = startHour * 60 + startMin;
+    const endTotalMinutes = endHour * 60 + endMin;
+    
+    if (endTotalMinutes <= startTotalMinutes) {
+      setError('End time must be after start time');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await onModify({
+        ...block,
+        start: start24,
+        end: end24
+      });
+      // Success handled by parent component
+    } catch (err) {
+      // Error is handled by parent component, but we stop the loading state
+      console.error('Modification error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -112,17 +140,30 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md 
-                transition-colors"
+                transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60] 
-                transition-colors"
+                transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center justify-center min-w-[120px]"
             >
-              Save Changes
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </button>
           </div>
         </form>

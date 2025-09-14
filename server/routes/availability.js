@@ -410,11 +410,66 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Convert availability times to LA timezone for checking
+    const availStart = DateTime.fromJSDate(availability.start, { zone: 'UTC' })
+      .setZone(DEFAULT_TZ);
+    const availEnd = DateTime.fromJSDate(availability.end, { zone: 'UTC' })
+      .setZone(DEFAULT_TZ);
+    
+    // Check for existing bookings that would be affected by deletion
+    const laDate = DateTime.fromJSDate(availability.date, { zone: 'UTC' })
+      .setZone(DEFAULT_TZ);
+    
+    const bookings = await Booking.find({
+      provider: req.user._id,
+      date: {
+        $gte: laDate.startOf('day').toUTC().toJSDate(),
+        $lt: laDate.endOf('day').toUTC().toJSDate()
+      },
+      status: { $nin: ['cancelled'] }
+    }).populate('client', 'name email');
+
+    // Check if any bookings fall within this availability block
+    const affectedBookings = bookings.filter(booking => {
+      // Parse booking times
+      const bookingStart = DateTime.fromFormat(
+        `${laDate.toFormat('yyyy-MM-dd')} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      const bookingEnd = DateTime.fromFormat(
+        `${laDate.toFormat('yyyy-MM-dd')} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      
+      // Check if booking overlaps with the availability being deleted
+      return (bookingStart >= availStart && bookingEnd <= availEnd);
+    });
+
+    if (affectedBookings.length > 0) {
+      console.log(`Cannot delete availability - ${affectedBookings.length} bookings would be affected`);
+      return res.status(400).json({
+        message: 'Cannot delete this availability block as it contains existing bookings',
+        conflicts: affectedBookings.map(booking => ({
+          id: booking._id,
+          time: `${booking.startTime} - ${booking.endTime}`,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          client: booking.client ? booking.client.name || booking.recipientInfo?.name || 'Client' : 'Client',
+          clientEmail: booking.client ? booking.client.email : booking.recipientInfo?.email,
+          status: booking.status
+        }))
+      });
+    }
+
+    // Safe to delete - no bookings affected
     await availability.remove();
-    res.json({ message: 'Availability removed' });
+    console.log(`Availability block ${req.params.id} deleted successfully`);
+    res.json({ message: 'Availability removed successfully' });
   } catch (error) {
     console.error('Error deleting availability:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
