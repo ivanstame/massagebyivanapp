@@ -49,6 +49,9 @@ const { requestLogger, responseLogger, debugSession, dbConnectionChecker } = req
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy for Heroku to handle secure cookies properly
+app.set('trust proxy', 1);
+
 // MongoDB Atlas connection - environment variable is required
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -59,7 +62,7 @@ console.log('Using MongoDB Atlas URI:', MONGODB_URI);
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  useCreateIndex: true, // This fixes the ensureIndex deprecation warning
+  useCreateIndex: true, // This fixes the ensureIndex depercation warning
   autoIndex: true // Make sure indexes are created
 }).then(() => {
   console.log('Connected to MongoDB Atlas');
@@ -103,7 +106,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
   'http://192.168.1.26:3000', // Explicit entry for the IP
-  'http://192.168.1.26:5000', // Explicit entry for the IP
+  'http://192.168.1.26:50 00', // Explicit entry for the IP
   /^http:\/\/192\.168\.\d+\.\d+:(3000|5000)$/,
   'https://massagebyivan.com',
   'https://api.massagebyivan.com',
@@ -235,7 +238,6 @@ if (process.env.NODE_ENV === 'production') {
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is reachable!' });
 });
-
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
