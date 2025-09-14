@@ -422,6 +422,25 @@ router.get('/', ensureAuthenticated, async (req, res) => {
       return res.json(stats);
     }
 
+    // Check if a specific date filter is provided
+    let dateFilter = {};
+    if (req.query.date) {
+      const requestedDate = new Date(req.query.date);
+      requestedDate.setHours(0, 0, 0, 0);
+      const nextDay = new Date(requestedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      dateFilter = {
+        date: {
+          $gte: requestedDate,
+          $lt: nextDay
+        }
+      };
+      
+      console.log('Date filter applied:', req.query.date);
+      console.log('Date range:', requestedDate, 'to', nextDay);
+    }
+
     // Existing booking list logic with clientId filter support
     let bookings;
     
@@ -445,25 +464,43 @@ router.get('/', ensureAuthenticated, async (req, res) => {
         .populate('client', 'email profile.fullName clientProfile')
         .sort({ date: 1, startTime: 1 });
       } else {
-        // Get all bookings for this provider's clients (past and future)
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1); // Include bookings up to 1 year in future
-        
-        console.log('Fetching bookings for provider:', req.user._id);
-        console.log('Date range: from', new Date(0), 'to', futureDate);
-        
-        bookings = await Booking.findForProvider(req.user._id, new Date(0), futureDate)
+        // Apply date filter if provided, otherwise get all bookings
+        if (req.query.date) {
+          // Get bookings for specific date only
+          bookings = await Booking.find({
+            provider: req.user._id,
+            ...dateFilter
+          })
           .populate('client', 'email profile.fullName')
-          .exec();
+          .sort({ startTime: 1 });
           
-        console.log('Found bookings:', bookings.length);
-        if (bookings.length > 0) {
-          console.log('First booking:', JSON.stringify(bookings[0], null, 2));
+          console.log('Fetching bookings for specific date:', req.query.date);
+          console.log('Found bookings:', bookings.length);
+        } else {
+          // Get all bookings for this provider's clients (past and future)
+          const futureDate = new Date();
+          futureDate.setFullYear(futureDate.getFullYear() + 1); // Include bookings up to 1 year in future
+          
+          console.log('Fetching all bookings for provider:', req.user._id);
+          console.log('Date range: from', new Date(0), 'to', futureDate);
+          
+          bookings = await Booking.findForProvider(req.user._id, new Date(0), futureDate)
+            .populate('client', 'email profile.fullName')
+            .exec();
+            
+          console.log('Found bookings:', bookings.length);
+          if (bookings.length > 0) {
+            console.log('First booking:', JSON.stringify(bookings[0], null, 2));
+          }
         }
       }
     } else if (req.user.accountType === 'CLIENT') {
-      // Get only client's own bookings
-      bookings = await Booking.find({ client: req.user._id })
+      // Get only client's own bookings with date filter if provided
+      const clientQuery = { 
+        client: req.user._id,
+        ...dateFilter
+      };
+      bookings = await Booking.find(clientQuery)
         .populate('provider', 'providerProfile.businessName');
     } else {
       return res.status(403).json({ message: 'Invalid account type' });
