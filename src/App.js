@@ -51,6 +51,8 @@ import ProviderSettings from './components/ProviderSettings';
 import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
 import TestInvitationManager from './components/TestInvitationManager';
+import ProviderSelection from './components/ProviderSelection';
+import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -59,17 +61,18 @@ const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   if (user?.isAdmin) return <Navigate to="/admin" />;
   
   const currentStep = user?.registrationStep || 1;
-  if (currentStep < requiredStep) {
-    if (currentStep === 1) return <Navigate to="/profile-setup" />;
-    if (currentStep === 2) {
-      // For providers, skip preferences and go to dashboard
-      if (user?.accountType === 'PROVIDER') {
-        return <Navigate to="/dashboard" />;
-      } else {
-        return <Navigate to="/client-preferences" />;
+    if (currentStep < requiredStep) {
+      if (currentStep === 1) return <Navigate to="/profile-setup" />;
+      if (currentStep === 2) {
+        // For providers, skip preferences and go to dashboard
+        if (user?.accountType === 'PROVIDER') {
+          return <Navigate to="/dashboard" />;
+        } else {
+          // For clients, redirect to provider selection instead of preferences
+          return <Navigate to="/provider-selection" />;
+        }
       }
     }
-  }
 
   return children;
 };
@@ -161,6 +164,15 @@ function App() {
             }
           />
 
+          <Route
+            path="/provider-selection"
+            element={
+              <RegistrationProtectedRoute requiredStep={2}>
+                <ProviderSelection />
+              </RegistrationProtectedRoute>
+            }
+          />
+
           {/* Protected Routes (require completed registration) */}
           <Route 
             path="/my-profile" 
@@ -244,6 +256,15 @@ function App() {
             element={
               <ProtectedRoute providerOnly>
                 <ProviderAnalytics />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route 
+            path="/provider/assignment-requests" 
+            element={
+              <ProtectedRoute providerOnly>
+                <ProviderAssignmentRequests />
               </ProtectedRoute>
             }
           />

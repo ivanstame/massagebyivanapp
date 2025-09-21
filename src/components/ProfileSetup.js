@@ -160,9 +160,8 @@ const ProfileSetup = () => {
           replace: true
         });
       } else {
-        navigate('/client-preferences', {
-          replace: true,
-          state: { forceReload: true }
+        navigate('/provider-selection', {
+          replace: true
         });
       }
 

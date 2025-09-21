@@ -39,24 +39,15 @@ router.post('/register', ensureGuest, async (req, res) => {
 
     let providerId = null;
 
-    if (accountType === 'CLIENT') {
-      const isTestRegistration = process.env.NODE_ENV === 'development' && !invitationToken;
-      
-      if (!isTestRegistration) {
-        if (!invitationToken) {
-          return res.status(400).json({ message: 'Invitation code required for client registration' });
-        }
+    if (accountType === 'CLIENT' && invitationToken) {
+      // Handle invitation if provided, but it's no longer required
+      const invitation = await Invitation.findOne({
+        token: invitationToken,
+        status: 'PENDING',
+        expires: { $gt: new Date() }
+      });
 
-        const invitation = await Invitation.findOne({
-          token: invitationToken,
-          status: 'PENDING',
-          expires: { $gt: new Date() }
-        });
-
-        if (!invitation) {
-          return res.status(400).json({ message: 'Invalid or expired invitation code' });
-        }
-
+      if (invitation) {
         if (process.env.NODE_ENV !== 'development' && 
             invitation.email.toLowerCase() !== email.toLowerCase()) {
           return res.status(400).json({ message: 'Email does not match invitation' });
@@ -64,6 +55,7 @@ router.post('/register', ensureGuest, async (req, res) => {
 
         providerId = invitation.provider;
       }
+      // If no invitation token provided or invalid, providerId remains null
     }
 
     user = new User({ 

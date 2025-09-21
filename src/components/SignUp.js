@@ -70,10 +70,6 @@ const SignUp = () => {
       errors.confirmPassword = 'Passwords do not match';
     }
     
-    if (formData.accountType === 'CLIENT' && !formData.invitationToken.trim()) {
-      errors.invitationToken = 'Invitation code is required';
-    }
-    
     // Provider password is now set automatically during verification, no longer user input
     // if (formData.accountType === 'PROVIDER' && !formData.providerPassword.trim()) {
     //   errors.providerPassword = 'Provider password is required';
@@ -182,7 +178,7 @@ const SignUp = () => {
         >
           <h4 className="text-lg font-medium text-slate-900">Client</h4>
           <p className="mt-2 text-slate-600">
-            I have an invitation from my massage therapist
+            I want to book massage services
           </p>
         </button>
       </div>
