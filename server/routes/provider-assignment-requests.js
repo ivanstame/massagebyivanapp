@@ -80,7 +80,8 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating provider assignment request:', error);
-    res.status(500).json({ message: 'Error creating provider assignment request' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ message: `Error creating provider assignment request: ${error.message}` });
   }
 });
 

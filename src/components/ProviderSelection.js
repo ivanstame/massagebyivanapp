@@ -55,7 +55,8 @@ const ProviderSelection = () => {
     try {
       setIsLoading(true);
       const response = await api.post('/api/provider-requests', {
-        providerId: provider.id
+        providerId: provider.id,
+        clientMessage: 'I would like to request assignment to this provider'
       });
 
       setCurrentRequest(response.data.request);
