@@ -2,7 +2,6 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import api from '../services/api';
-import ProviderConfirmationModal from './ProviderConfirmationModal';
 import { Eye, EyeOff, AlertCircle, CheckCircle, UserPlus, Users } from 'lucide-react';
 
 const ProgressIndicator = ({ currentStep, accountType }) => {
@@ -110,13 +109,8 @@ const SignUp = () => {
 
       if (response.data.user) {
         localStorage.setItem('registrationStep', '1');
-        if (response.data.user.accountType === 'CLIENT') {
-          setVerifiedProvider(response.data.provider);
-          setShowProviderConfirmation(true);
-        } else {
-          setUser({ ...response.data.user, registrationStep: 1 });
-          navigate('/profile-setup');
-        }
+        setUser({ ...response.data.user, registrationStep: 1 });
+        navigate('/profile-setup');
       }
     } catch (err) {
       console.error('Registration error:', err);
@@ -271,7 +265,7 @@ const SignUp = () => {
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-slate-600 mb-2">
-          Password
+          Create Password
         </label>
         <div className="relative">
           <input
