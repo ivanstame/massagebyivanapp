@@ -4,7 +4,6 @@
   "description": "My Massage Booking App",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js",
     "server": "nodemon server/server.js",
     "client": "react-app-rewired start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
