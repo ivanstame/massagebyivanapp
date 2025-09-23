@@ -267,24 +267,6 @@ const SignUp = () => {
       </div>
 
 
-      {formData.accountType === 'CLIENT' && (
-        <div>
-          <label htmlFor="invitationToken" className="block text-sm font-medium text-slate-600 mb-2">
-            Invitation Code
-          </label>
-          <input
-            id="invitationToken"
-            name="invitationToken"
-            type="text"
-            required
-            value={formData.invitationToken}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-md
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
-            placeholder="Enter your invitation code"
-          />
-        </div>
-      )}
 
 
       <div>

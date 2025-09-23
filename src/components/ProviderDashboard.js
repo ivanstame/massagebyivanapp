@@ -226,7 +226,7 @@ const ProviderDashboard = () => {
               hover:border-[#387c7e] hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-center mb-4">
-              <User className="w-5 h-5 text-[#387c7e] mr-2" />
+              <Users className="w-5 h-5 text-[#387c7e] mr-2" />
               <h3 className="font-medium text-slate-900">Assignment Requests</h3>
             </div>
             <p className="text-slate-500 text-sm">
