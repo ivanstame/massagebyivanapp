@@ -69,7 +69,43 @@ const ProviderSelection = () => {
       }));
     } catch (err) {
       console.error('Error submitting provider request:', err);
-      setError(err.response?.data?.message || 'Failed to submit provider request');
+      console.error('Error details:', err.response?.data);
+      
+      // Check if this is a duplicate request error (MongoDB duplicate key error)
+      const errorMessage = err.response?.data?.message || 'Failed to submit provider request';
+      
+      if (errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
+        // This might be a case where the request succeeded but we got an error response
+        // Let's check the current status to confirm
+        try {
+          const statusResponse = await api.get('/api/provider-requests/client/status');
+          if (statusResponse.data.hasPendingRequest) {
+            // Request actually succeeded, update UI accordingly
+            setCurrentRequest(statusResponse.data.request);
+            setRequestStatus('PENDING');
+            setUser(prev => ({
+              ...prev,
+              hasPendingProviderRequest: true
+            }));
+            
+            // Show success message instead of error
+            setError('');
+            return; // Exit early since request was successful
+          }
+        } catch (statusErr) {
+          console.error('Error checking request status:', statusErr);
+        }
+      }
+      
+      // For other errors, provide more specific messages
+      let displayError = errorMessage;
+      if (errorMessage.includes('failed to fetch') || errorMessage.includes('network')) {
+        displayError = 'Network error. Please check your connection and try again.';
+      } else if (err.response?.status === 500) {
+        displayError = 'Server error. Please try again in a moment.';
+      }
+      
+      setError(displayError);
       setSelectedProvider(null);
     } finally {
       setIsLoading(false);

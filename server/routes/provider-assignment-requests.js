@@ -50,7 +50,21 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     // Check if client already has a pending request for this provider
     const existingRequest = await ProviderAssignmentRequest.hasPendingRequest(req.user._id, providerId);
     if (existingRequest) {
-      return res.status(400).json({ message: 'You already have a pending request for this provider' });
+      // Return success response instead of error for duplicate requests
+      await existingRequest.populate('provider', 'email providerProfile.businessName');
+      return res.status(200).json({
+        message: 'You already have a pending request for this provider',
+        request: {
+          id: existingRequest._id,
+          provider: {
+            id: existingRequest.provider._id,
+            businessName: existingRequest.provider.providerProfile.businessName,
+            email: existingRequest.provider.email
+          },
+          status: existingRequest.status,
+          createdAt: existingRequest.createdAt
+        }
+      });
     }
 
     // Create new request
@@ -81,6 +95,33 @@ router.post('/', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error creating provider assignment request:', error);
     console.error('Error details:', error.message, error.stack);
+    
+    // Handle MongoDB duplicate key error specifically
+    if (error.code === 11000 || error.message.includes('duplicate')) {
+      // This is a duplicate request, check if it exists and return success
+      try {
+        const existingRequest = await ProviderAssignmentRequest.hasPendingRequest(req.user._id, req.body.providerId);
+        if (existingRequest) {
+          await existingRequest.populate('provider', 'email providerProfile.businessName');
+          return res.status(200).json({
+            message: 'Provider assignment request already exists',
+            request: {
+              id: existingRequest._id,
+              provider: {
+                id: existingRequest.provider._id,
+                businessName: existingRequest.provider.providerProfile.businessName,
+                email: existingRequest.provider.email
+              },
+              status: existingRequest.status,
+              createdAt: existingRequest.createdAt
+            }
+          });
+        }
+      } catch (lookupError) {
+        console.error('Error looking up duplicate request:', lookupError);
+      }
+    }
+    
     res.status(500).json({ message: `Error creating provider assignment request: ${error.message}` });
   }
 });
