@@ -3,6 +3,8 @@ const router = express.Router();
 const ProviderAssignmentRequest = require('../models/ProviderAssignmentRequest');
 const User = require('../models/User');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const smsService = require('../services/smsService');
+const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
 
 // @route   GET /api/provider-requests/available-providers
 // @desc    Get all available providers for client selection
@@ -75,6 +77,19 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     });
 
     await assignmentRequest.save();
+
+    // Send SMS notification to provider
+    try {
+      const provider = await User.findById(providerId).select('profile.phoneNumber profile.fullName');
+      if (provider && provider.profile.phoneNumber) {
+        const formattedPhone = formatPhoneNumber(provider.profile.phoneNumber);
+        const clientName = req.user.profile.fullName || req.user.email;
+        const message = `New client request: ${clientName} has sent you an assignment request.`;
+        await smsService.sendSms(formattedPhone, message);
+      }
+    } catch (smsError) {
+      console.error('Error sending SMS notification for assignment request:', smsError);
+    }
 
     // Populate provider info for response
     await assignmentRequest.populate('provider', 'email providerProfile.businessName');

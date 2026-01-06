@@ -5,7 +5,7 @@
  * @param {string} phoneNumber - The raw phone number string
  * @returns {string} Formatted phone number
  */
-export const formatPhoneNumber = (phoneNumber) => {
+const formatPhoneNumber = (phoneNumber) => {
   // Remove all non-digit characters
   const cleaned = phoneNumber.replace(/\D/g, '');
   
@@ -24,7 +24,7 @@ export const formatPhoneNumber = (phoneNumber) => {
  * @param {Event} e - The input change event
  * @param {Function} setValue - The state setter function
  */
-export const handlePhoneNumberChange = (e, setValue) => {
+const handlePhoneNumberChange = (e, setValue) => {
   const input = e.target.value;
   // Remove all non-digit characters except parentheses, spaces, and dashes for backspacing
   const cleaned = input.replace(/[^\d\(\)\s\-]/g, '');
@@ -51,7 +51,13 @@ export const handlePhoneNumberChange = (e, setValue) => {
  * @param {string} phoneNumber - The phone number to validate
  * @returns {boolean} True if valid, false otherwise
  */
-export const isValidPhoneNumber = (phoneNumber) => {
+const isValidPhoneNumber = (phoneNumber) => {
   const digits = phoneNumber.replace(/\D/g, '');
   return digits.length >= 10;
+};
+
+module.exports = {
+  formatPhoneNumber,
+  handlePhoneNumberChange,
+  isValidPhoneNumber
 };

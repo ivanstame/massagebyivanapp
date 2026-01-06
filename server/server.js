@@ -1,29 +1,6 @@
 // server/server.js
 require('dotenv').config();
 
-// Validate critical environment variables before proceeding
-function validateEnvironment() {
-  const requiredVars = ['MONGODB_URI', 'SESSION_SECRET'];
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
-  
-  if (missingVars.length > 0) {
-    const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env file or deployment configuration.`;
-    console.error('Environment Validation Error:', errorMessage);
-    
-    // In production, exit if critical variables are missing
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
-    } else {
-      console.warn('WARNING: Running with missing environment variables. This may cause issues.');
-      if (missingVars.includes('MONGODB_URI')) {
-        console.warn('Falling back to local MongoDB - this will cause database switching issues during builds');
-      }
-    }
-  }
-}
-
-validateEnvironment();
-
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
@@ -53,19 +30,22 @@ const PORT = process.env.PORT || 5000;
 app.set('trust proxy', 1);
 
 // MongoDB Atlas connection - environment variable is required
-const MONGODB_URI = process.env.MONGODB_URI;
-if (!MONGODB_URI) {
+if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI environment variable is required');
 }
-console.log('Using MongoDB Atlas URI:', MONGODB_URI);
+console.log('Using MongoDB Atlas URI:', process.env.MONGODB_URI);
 
-mongoose.connect(MONGODB_URI, {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   useCreateIndex: true, // This fixes the ensureIndex depercation warning
   autoIndex: true // Make sure indexes are created
 }).then(() => {
   console.log('Connected to MongoDB Atlas');
+  
+  // Start the reminder scheduler
+  const { startReminderScheduler } = require('./services/reminderScheduler');
+  startReminderScheduler();
 }).catch(err => {
   console.error('MongoDB Atlas connection error:', err);
   process.exit(1); // Exit process on connection failure
@@ -150,7 +130,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Create MongoStore instance first with explicit configuration
 const store = MongoStore.create({
-  mongoUrl: MONGODB_URI,
+  mongoUrl: process.env.MONGODB_URI,
   collectionName: 'sessions',
   ttl: 24 * 60 * 60, // 24 hours in seconds
   autoRemove: 'native' // Use MongoDB's TTL index for automatic removal

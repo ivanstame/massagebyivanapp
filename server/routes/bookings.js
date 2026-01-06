@@ -7,6 +7,8 @@ const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime } = require('../services/mapService');
 const { DateTime } = require('luxon');
+const smsService = require('../services/smsService');
+const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
 
 // Valid massage types and add-ons for validation
 const VALID_MASSAGE_TYPES = ['focused', 'deep', 'relaxation'];
@@ -206,6 +208,40 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       // Verify it was actually saved by trying to find it
       const verifyBooking = await Booking.findById(savedBooking._id);
       console.log('Verification - booking found in DB:', verifyBooking ? 'YES' : 'NO');
+      
+      // Send SMS notifications
+      try {
+        // Get provider details
+        const provider = await User.findById(savedBooking.provider);
+        const providerName = provider.profile.fullName || provider.email;
+        
+        // Determine recipient details
+        let recipientPhone, recipientName;
+        if (savedBooking.recipientType === 'self') {
+          const client = await User.findById(savedBooking.client);
+          recipientPhone = client.profile.phoneNumber;
+          recipientName = client.profile.fullName || client.email;
+        } else {
+          recipientPhone = savedBooking.recipientInfo.phone;
+          recipientName = savedBooking.recipientInfo.name;
+        }
+        
+        // Format phone numbers
+        const formattedRecipientPhone = formatPhoneNumber(recipientPhone);
+        const formattedProviderPhone = formatPhoneNumber(provider.profile.phoneNumber);
+        
+        // Construct messages
+        const recipientMessage = `Hi ${recipientName}, your massage with ${providerName} is confirmed on ${savedBooking.localDate} at ${savedBooking.startTime}.`;
+        const providerMessage = `New booking: ${recipientName} on ${savedBooking.localDate} at ${savedBooking.startTime}.`;
+        
+        // Send SMS
+        await smsService.sendSms(formattedRecipientPhone, recipientMessage);
+        await smsService.sendSms(formattedProviderPhone, providerMessage);
+        
+        console.log('✅ SMS notifications sent successfully');
+      } catch (smsError) {
+        console.error('❌ Error sending SMS notifications:', smsError);
+      }
       
       res.status(201).json(savedBooking);
     } catch (saveError) {

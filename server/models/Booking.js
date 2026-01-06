@@ -121,6 +121,10 @@ const BookingSchema = new mongoose.Schema({
     type: String, 
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
     default: 'pending'
+  },
+  reminders: {
+    sent24h: { type: Boolean, default: false },
+    sent1h: { type: Boolean, default: false }
   }
 }, {
   timestamps: true,
