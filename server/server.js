@@ -178,6 +178,11 @@ app.use('/api/provider', providerApiLimiter);
 app.use('/api/provider/availability', require('./routes/availability'));
 app.use('/api/provider/bookings', require('./routes/bookings'));
 
+// Explicit route for SMS consent policy
+app.get('/sms-consent-policy.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/sms-consent-policy.html'));
+});
+
 // Global error handler
 // Enhanced error handling middleware
 app.use((err, req, res, next) => {
@@ -206,8 +211,12 @@ app.use((err, req, res, next) => {
 });
 
 // Serve static files from the React build directory in production
+// Serve static files from public directory in all environments
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../public')));
+
 if (process.env.NODE_ENV === 'production') {
-  const path = require('path');
+  // Also serve static files from build directory in production
   app.use(express.static(path.join(__dirname, '../build')));
   
   // Handle React routing, return all requests to React app

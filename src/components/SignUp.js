@@ -51,6 +51,7 @@ const SignUp = () => {
   const [providerAccessPassword, setProviderAccessPassword] = useState('');
   const [isVerifyingProviderAccess, setIsVerifyingProviderAccess] = useState(false);
   const [verifiedProviderPassword, setVerifiedProviderPassword] = useState(''); // Store the verified password separately
+  const [smsConsent, setSmsConsent] = useState(false); // State for SMS consent
   const { setUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -102,6 +103,7 @@ const SignUp = () => {
           accountType: formData.accountType,
           invitationToken: formData.invitationToken,
           ...(formData.accountType === 'PROVIDER' && { providerPassword: verifiedProviderPassword }),
+          smsConsent: smsConsent, // Include SMS consent
         }
       );
 
@@ -325,18 +327,42 @@ const SignUp = () => {
         {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
           <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
         )}
-      </div>
+        </div>
+        
+        {/* SMS Consent Checkbox */}
+        <div className="mt-4 flex items-start">
+          <div className="flex items-center h-5">
+            <input
+              id="sms-consent"
+              type="checkbox"
+              checked={smsConsent}
+              onChange={() => setSmsConsent(!smsConsent)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+          </div>
+          <div className="ml-3 text-sm">
+            <label htmlFor="sms-consent" className="font-medium text-gray-700">
+              I agree to receive automated SMS messages for appointment-related communications.
+            </label>
+            <p className="text-gray-500">
+              Standard message and data rates may apply. You can opt out at any time.
+              <a href="/sms-consent-policy.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 ml-1">
+                View our SMS consent policy.
+              </a>
+            </p>
+          </div>
+        </div>
 
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full py-3 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60] 
-          text-white font-medium transition duration-150 ease-in-out
-          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
-          disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isLoading ? 'Creating Account...' : 'Continue'}
-      </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-3 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60] 
+            text-white font-medium transition duration-150 ease-in-out
+            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
+            disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Creating Account...' : 'Continue'}
+        </button>
     </form>
   );
 

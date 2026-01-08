@@ -1,5 +1,6 @@
 const twilio = require('twilio');
 const logger = require('../utils/logger');
+const User = require('../models/User');
 
 // Initialize Twilio client with credentials from environment variables
 const twilioClient = twilio(
@@ -8,13 +9,29 @@ const twilioClient = twilio(
 );
 
 /**
- * Send SMS message using Twilio
+ * Send SMS message using Twilio only if recipient has given consent
  * @param {string} to - Recipient phone number in E.164 format
  * @param {string} body - Message content
- * @returns {Promise<Object>} Twilio message object
+ * @param {Object} [user] - Optional user object to check SMS consent
+ * @returns {Promise<Object|null>} Twilio message object or null if not sent
  */
-const sendSms = async (to, body) => {
+const sendSms = async (to, body, user = null) => {
   try {
+    // Check if we have a user reference and if they've given consent
+    if (user && !user.smsConsent) {
+      logger.info(`Skipping SMS to ${to}: user has not consented to SMS messages`);
+      return null;
+    }
+    
+    // If no user reference, try to find user by phone number
+    if (!user) {
+      const userByPhone = await User.findOne({ 'profile.phoneNumber': to });
+      if (userByPhone && !userByPhone.smsConsent) {
+        logger.info(`Skipping SMS to ${to}: user found in DB has not consented to SMS messages`);
+        return null;
+      }
+    }
+    
     const message = await twilioClient.messages.create({
       body: body,
       from: process.env.TWILIO_PHONE_NUMBER,

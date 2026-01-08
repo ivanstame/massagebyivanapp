@@ -3,6 +3,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
+  smsConsent: {
+    type: Boolean,
+    default: false
+  },
   email: {
     type: String,
     required: true,

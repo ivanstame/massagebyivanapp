@@ -32,19 +32,19 @@ const startReminderScheduler = () => {
         startTime: oneHourLater.toFormat('HH:mm')
       }).populate('provider client');
       
-      // Process 24-hour reminders
-      for (const booking of bookingsFor24hReminder) {
-        await sendReminder(booking, '24-hour');
-        booking.reminders.sent24h = true;
-        await booking.save();
-      }
-      
-      // Process 1-hour reminders
-      for (const booking of bookingsFor1hReminder) {
-        await sendReminder(booking, '1-hour');
-        booking.reminders.sent1h = true;
-        await booking.save();
-      }
+    // Process 24-hour reminders
+    for (const booking of bookingsFor24hReminder) {
+      await sendReminder(booking, '24-hour');
+      booking.reminders.sent24h = true;
+      await booking.save();
+    }
+    
+    // Process 1-hour reminders
+    for (const booking of bookingsFor1hReminder) {
+      await sendReminder(booking, '1-hour');
+      booking.reminders.sent1h = true;
+      await booking.save();
+    }
       
       logger.info(`Sent ${bookingsFor24hReminder.length} 24h reminders and ${bookingsFor1hReminder.length} 1h reminders`);
     } catch (error) {
@@ -73,9 +73,9 @@ const sendReminder = async (booking, reminderType) => {
     const recipientMessage = `Reminder: Your massage with ${booking.provider.profile.fullName} is in ${reminderType} (${booking.localDate} at ${booking.startTime}).`;
     const providerMessage = `Reminder: ${recipientName}'s appointment is in ${reminderType} (${booking.localDate} at ${booking.startTime}).`;
     
-    // Send SMS
-    await smsService.sendSms(formattedRecipientPhone, recipientMessage);
-    await smsService.sendSms(formattedProviderPhone, providerMessage);
+    // Send SMS with consent checks
+    await smsService.sendSms(formattedRecipientPhone, recipientMessage, booking.client);
+    await smsService.sendSms(formattedProviderPhone, providerMessage, booking.provider);
     
     logger.info(`Sent ${reminderType} reminder for booking ${booking._id}`);
   } catch (error) {
