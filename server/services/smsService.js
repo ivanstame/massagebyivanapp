@@ -12,17 +12,18 @@ const User = require('../models/User');
  */
 const sendSms = async (to, body, user = null) => {
   try {
-    // Check if we have a user reference and if they've given consent
-    if (user && !user.smsConsent) {
-      logger.info(`Skipping SMS to ${to}: user has not consented to SMS messages`);
+    // Check consent - only block if EXPLICITLY set to false (opt-out)
+    // Undefined/null means grandfathered consent (existing users before feature)
+    if (user && user.smsConsent === false) {
+      logger.info(`Skipping SMS to ${to}: user has explicitly opted out of SMS messages`);
       return null;
     }
     
     // If no user reference, try to find user by phone number
     if (!user) {
       const userByPhone = await User.findOne({ 'profile.phoneNumber': to });
-      if (userByPhone && !userByPhone.smsConsent) {
-        logger.info(`Skipping SMS to ${to}: user found in DB has not consented to SMS messages`);
+      if (userByPhone && userByPhone.smsConsent === false) {
+        logger.info(`Skipping SMS to ${to}: user found in DB has explicitly opted out of SMS messages`);
         return null;
       }
     }
