@@ -62,7 +62,6 @@
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "tough-cookie": "^6.0.0",
-    "twilio": "^5.11.1",
     "winston": "^3.15.0"
   },
   "devDependencies": {
