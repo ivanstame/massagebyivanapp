@@ -36,12 +36,25 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
     );
     const endDate = startDate.endOf('month');
 
-    const availabilityBlocks = await Availability.find({
+    // Build query - filter by provider if user is a provider, or by providerId param for clients
+    const query = {
       date: {
         $gte: startDate.toUTC().toJSDate(),
         $lte: endDate.toUTC().toJSDate()
       }
-    }).sort({ date: 1 });
+    };
+    
+    // If user is a provider, show only their availability
+    if (req.user.accountType === 'PROVIDER') {
+      query.provider = req.user._id;
+    } 
+    // If providerId is specified (e.g., client viewing specific provider), use that
+    else if (req.query.providerId) {
+      query.provider = req.query.providerId;
+    }
+    // Otherwise show all availability (for admins or general view)
+
+    const availabilityBlocks = await Availability.find(query).sort({ date: 1 });
 
     res.json(availabilityBlocks);
   } catch (error) {
@@ -115,16 +128,30 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
     console.log('Processing availability request:', {
       appointmentDuration,
       isMultiSession,
-      date: laDate.toFormat(TIME_FORMATS.ISO_DATE)
+      date: laDate.toFormat(TIME_FORMATS.ISO_DATE),
+      providerId: req.query.providerId
     });
 
-    // Find availability block for the day
-    const availability = await Availability.findOne({ 
+    // Build query for availability block - must filter by provider
+    const availQuery = {
       date: {
         $gte: startOfDay.toUTC().toJSDate(),
         $lt: endOfDay.toUTC().toJSDate()
       }
-    });
+    };
+    
+    // If providerId is specified (from client booking form), use that
+    if (req.query.providerId) {
+      availQuery.provider = req.query.providerId;
+    }
+    // If user is authenticated and is a provider, use their ID
+    else if (req.user && req.user.accountType === 'PROVIDER') {
+      availQuery.provider = req.user._id;
+    }
+    // Otherwise, find ANY availability (for backward compatibility, but this should ideally require providerId)
+
+    // Find availability block for the day
+    const availability = await Availability.findOne(availQuery);
 
     if (!availability) {
       console.log(`No availability blocks found for date: ${laDate.toFormat(TIME_FORMATS.ISO_DATE)}`);
