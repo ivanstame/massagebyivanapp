@@ -118,10 +118,13 @@ async function validateSlots(slots, bookings, clientLocation, appointmentDuratio
 
     if (prevBooking) {
       const prevBookingEnd = DateTime.fromISO(`${prevBooking.date.toISOString().split('T')[0]}T${prevBooking.endTime}`);
+      // Use 'pessimistic' traffic model for arrival validation - better to be conservative
       const travelTimeFromPrev = await calculateTravelTime(
         prevBooking.location,
         clientLocation,
-        prevBookingEnd.plus({ minutes: bufferMinutes }).toJSDate()
+        prevBookingEnd.plus({ minutes: bufferMinutes }).toJSDate(),
+        undefined,  // providerId not available in this context
+        'pessimistic'
       );
 
       console.log('Travel time from previous booking:', travelTimeFromPrev, 'minutes');
@@ -148,10 +151,13 @@ async function validateSlots(slots, bookings, clientLocation, appointmentDuratio
       });
 
       try {
+        // Use 'best_guess' traffic model for departure validation - realistic but not overly conservative
         const travelTimeToNext = await calculateTravelTime(
           clientLocation,
           nextBooking.location,
-          slotEndWithBreakdown.toJSDate()
+          slotEndWithBreakdown.toJSDate(),
+          undefined,  // providerId not available in this context
+          'best_guess'
         );
 
         console.log('Travel time to next booking:', travelTimeToNext, 'minutes');

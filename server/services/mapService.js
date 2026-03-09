@@ -2,7 +2,7 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const cacheManager = require('./cacheManager');
 
-const TRAFFIC_THRESHOLD_KM = 40; // Adjust this value as needed
+// TRAFFIC_THRESHOLD_KM removed - we now always use traffic-aware duration when available
 
 // Rate limiting configuration
 // Enhanced rate limiting with production safeguards
@@ -238,9 +238,10 @@ async function safeApiCall(apiCall) {
  * @param {Object} destination - Destination location with lat/lng
  * @param {Date} departureTime - Departure time
  * @param {string} providerId - Provider ID for validation
+ * @param {string} trafficModel - Traffic model: 'best_guess', 'pessimistic', or 'optimistic' (default: 'pessimistic')
  * @returns {Promise<number>} - Travel time in minutes
  */
-async function calculateTravelTime(origin, destination, departureTime, providerId) {
+async function calculateTravelTime(origin, destination, departureTime, providerId, trafficModel = 'pessimistic') {
   console.log('Calculating travel time:');
   console.log('Origin:', JSON.stringify(origin));
   console.log('Destination:', JSON.stringify(destination));
@@ -266,7 +267,7 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
     }
 
     // Check cache first using centralized cache manager
-    const cacheKey = cacheManager.getTravelTimeKey(origin, destination, departureTime);
+    const cacheKey = cacheManager.getTravelTimeKey(origin, destination, departureTime, trafficModel);
     const cachedDuration = cacheManager.get('travelTime', cacheKey);
     if (cachedDuration !== null) {
       console.log(`[Cache] Travel time cache hit for ${cacheKey}: ${cachedDuration} mins`);
@@ -280,6 +281,7 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
         destinations: `${destination.lat},${destination.lng}`,
         mode: 'driving',
         departure_time: Math.floor(departureTime.getTime() / 1000),
+        traffic_model: trafficModel, // Use specified traffic model for predictive accuracy
         key: process.env.GOOGLE_MAPS_API_KEY
       }
     }));
@@ -287,28 +289,22 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
     console.log('API Response:', JSON.stringify(response.data, null, 2));
 
     if (response.data.status === 'OK' && response.data.rows[0].elements[0].status === 'OK') {
-      const distanceInMeters = response.data.rows[0].elements[0].distance.value;
+      const element = response.data.rows[0].elements[0];
+      const distanceInMeters = element.distance.value;
       const distanceInKm = distanceInMeters / 1000;
       
-      let durationInSeconds;
-      if (distanceInKm > TRAFFIC_THRESHOLD_KM) {
-        durationInSeconds = response.data.rows[0].elements[0].duration_in_traffic.value;
-        console.log('Using traffic-aware duration for long distance');
-      } else {
-        durationInSeconds = response.data.rows[0].elements[0].duration.value;
-        console.log('Using standard duration for short distance');
-      }
-
+      // Always prefer traffic-aware duration when available for accuracy
+      // This is especially critical for urban routes where traffic significantly impacts travel time
+      const durationInSeconds = element.duration_in_traffic?.value || element.duration.value;
+      const durationSource = element.duration_in_traffic ? 'traffic-aware' : 'standard';
+      
       const durationInMinutes = Math.ceil(durationInSeconds / 60);
-      console.log('Calculated duration:', durationInMinutes, 'minutes');
+      console.log(`Calculated duration: ${durationInMinutes} minutes (${durationSource}, ${trafficModel} model)`);
       console.log('Distance:', distanceInKm.toFixed(2), 'km');
       
-      // Cache the result
-      geocodeCache.set(cacheKey, {
-        durationInMinutes,
-        timestamp: Date.now()
-      });
-      console.log(`[Geocoding] Cached result for ${cacheKey}`);
+      // Cache the result using centralized cache manager
+      cacheManager.set('travelTime', cacheKey, durationInMinutes);
+      console.log(`[Cache] Stored travel time for ${cacheKey}: ${durationInMinutes} mins`);
       
       return durationInMinutes;
     } else {

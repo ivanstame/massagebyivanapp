@@ -82,9 +82,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden h-full flex flex-col">
       {/* Schedule header */}
-      <div className="bg-cyan-900 py-1.5 px-3">  
+      <div className="bg-cyan-900 py-1.5 px-3 flex-shrink-0">
         <h2 className="text-white text-sm">                  
           {DateTime.fromJSDate(date)
             .setZone(DEFAULT_TZ)
@@ -93,7 +93,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
       </div>
 
       {/* Scrollable container for schedule grid */}
-      <div className="overflow-y-auto" style={{ height: "500px" }}>
+      <div className="overflow-y-auto h-full min-h-0 pb-20">
         {/* Schedule grid */}
         <div className="relative h-[1920px] mx-4 mt-4">
           {/* Time markers and grid lines */}
@@ -118,8 +118,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
               return (
                 <div
                   key={`availability-${index}`}
-                  className="absolute left-0 right-0 bg-green-50 border-green-200 
-                    border rounded-md transition-all duration-200 hover:shadow-md"
+                  onClick={() => onModify && onModify(block)}
+                  className="absolute left-0 right-0 bg-green-50 border-green-200
+                    border rounded-md transition-all duration-200 hover:shadow-md cursor-pointer hover:bg-green-100"
                   style={{
                     top: `${blockStart}px`,
                     height: `${blockEnd - blockStart}px`,

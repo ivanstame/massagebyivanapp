@@ -2323,3 +2323,8 @@
 {"level":"info","message":"SMS sent to (714) 725-0314: SM9a0331696194ca73739779283fbf20aa","service":"travel-time-service","timestamp":"2026-01-06T08:47:05.331Z"}
 {"level":"info","message":"SMS sent to (714) 725-0314: SM10eddcba90f17e2f4edbf87ca5d2a84b","service":"travel-time-service","timestamp":"2026-01-06T08:48:41.328Z"}
 {"level":"info","message":"SMS sent to (714) 725-0314: SM6913f2cf57bc86487a266477838f2898","service":"travel-time-service","timestamp":"2026-01-06T08:48:41.550Z"}
+{"level":"error","message":"Failed to send SMS to +16579448295: Operation `users.findOne()` buffering timed out after 10000ms","service":"travel-time-service","timestamp":"2026-01-31T00:01:58.547Z"}
+{"level":"info","message":"Skipping SMS to (657) 944-8295: user found in DB has explicitly opted out of SMS messages","service":"travel-time-service","timestamp":"2026-03-08T08:49:27.372Z"}
+{"level":"info","message":"Skipping SMS to (714) 725-0314: user found in DB has explicitly opted out of SMS messages","service":"travel-time-service","timestamp":"2026-03-08T08:49:27.418Z"}
+{"level":"info","message":"Running reminder scheduler at 2026-03-09T00:01:31.477-07:00","service":"travel-time-service","timestamp":"2026-03-09T07:01:31.478Z"}
+{"level":"info","message":"Sent 0 24h reminders and 0 1h reminders","service":"travel-time-service","timestamp":"2026-03-09T07:01:31.977Z"}

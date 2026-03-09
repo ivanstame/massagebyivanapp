@@ -24,15 +24,24 @@ class CacheManager {
 
   /**
    * Get cache key for travel time calculation
+   * Uses day-of-week and hour buckets for better cache reuse
    * @param {Object} origin - Origin location
-   * @param {Object} destination - Destination location  
+   * @param {Object} destination - Destination location
    * @param {Date} departureTime - Departure time
+   * @param {string} trafficModel - Traffic model used ('best_guess', 'pessimistic', 'optimistic')
    * @returns {string} - Cache key
    */
-  getTravelTimeKey(origin, destination, departureTime) {
-    // Round departure time to nearest 15 minutes for better cache hits
-    const roundedTime = new Date(Math.round(departureTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000));
-    return `travel_${this.getLocationKey(origin)}_to_${this.getLocationKey(destination)}_at_${roundedTime.toISOString()}`;
+  getTravelTimeKey(origin, destination, departureTime, trafficModel = 'pessimistic') {
+    // Convert to LA timezone for consistent bucketing
+    const dt = DateTime.fromJSDate(departureTime, { zone: 'America/Los_Angeles' });
+    
+    // Create day-of-week + hour bucket: "Mon_14", "Fri_17", etc.
+    // This creates 168 possible buckets (7 days × 24 hours) instead of infinite timestamps
+    // Traffic patterns are consistent for same day-of-week and hour across weeks
+    const dayHourKey = `${dt.weekdayShort}_${dt.hour}`;
+    
+    // Include traffic model in cache key since different models return different durations
+    return `travel_${this.getLocationKey(origin)}_to_${this.getLocationKey(destination)}_${dayHourKey}_${trafficModel}`;
   }
 
   /**
@@ -73,8 +82,10 @@ class CacheManager {
 
     const cachedData = cache.get(key);
     
-    // Check if cache entry is still valid (5 minute TTL)
-    if (Date.now() - cachedData.timestamp > 5 * 60 * 1000) {
+    // Check if cache entry is still valid (7 day TTL for contextual keys)
+    // Since we bucket by day-of-week + hour, traffic patterns remain consistent across weeks
+    const TTL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    if (Date.now() - cachedData.timestamp > TTL) {
       cache.delete(key);
       this.performanceStats.totalMisses++;
       this.performanceStats.totalInvalidations++;
@@ -196,11 +207,12 @@ class CacheManager {
    */
   cleanupExpired() {
     const now = Date.now();
+    const TTL = 7 * 24 * 60 * 60 * 1000; // 7 day TTL
     let cleanedCount = 0;
 
     for (const [cacheType, cache] of this.caches) {
       for (const [key, value] of cache) {
-        if (now - value.timestamp > 5 * 60 * 1000) { // 5 minute TTL
+        if (now - value.timestamp > TTL) {
           cache.delete(key);
           cleanedCount++;
         }
@@ -209,7 +221,7 @@ class CacheManager {
 
     if (cleanedCount > 0) {
       this.performanceStats.totalInvalidations += cleanedCount;
-      console.log(`Auto-cleaned ${cleanedCount} expired cache entries`);
+      console.log(`Auto-cleaned ${cleanedCount} expired cache entries (7-day TTL)`);
     }
   }
 

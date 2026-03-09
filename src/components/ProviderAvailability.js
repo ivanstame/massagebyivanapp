@@ -6,7 +6,8 @@ import ResponsiveCalendar from './ResponsiveCalendar';
 import DaySchedule from './DaySchedule';
 import AddAvailabilityModal from './AddAvailabilityModal';
 import ModifyAvailabilityModal from './ModifyAvailabilityModal';
-import { Clock, Calendar, AlertCircle } from 'lucide-react';
+import AvailabilityList from './AvailabilityList';
+import { Clock, AlertCircle, Calendar as CalendarIcon, List } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS } from '../utils/timeConstants';
 
@@ -24,6 +25,7 @@ const ProviderAvailability = () => {
   const [selectedBlock, setSelectedBlock] = useState(null);
   const [requestState, setRequestState] = useState('INITIAL');
   const [deleteConfirmBlock, setDeleteConfirmBlock] = useState(null);
+  const [activeTab, setActiveTab] = useState('timeline'); // 'timeline' or 'list'
 
   // Removed service area useEffect
 
@@ -210,32 +212,6 @@ const formatTime = useCallback((time) => {
     return parts.join(' and ');
   }, []);
 
-  const renderLoadingState = () => (
-    <div className="text-center py-8">
-      <div className="animate-spin inline-block w-8 h-8 border-4 border-[#387c7e] border-t-transparent rounded-full mb-4" />
-      <p className="text-slate-600">Loading availability data...</p>
-    </div>
-  );
-
-  const renderErrorState = () => (
-    <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded">
-      <div className="flex items-center">
-        <svg className="h-5 w-5 text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-        </svg>
-        <div>
-          <p className="text-sm text-red-700">Failed to load availability data. Please try again.</p>
-          <button
-            onClick={() => fetchData(selectedDate)}
-            className="mt-2 text-sm text-red-700 underline"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderConflictInfo = useCallback(() => {
     if (!conflictInfo) return null;
 
@@ -320,113 +296,10 @@ const formatTime = useCallback((time) => {
     );
   }, [conflictInfo]);
 
-  const renderAvailabilityDetails = useCallback(() => {
-    if (requestState === 'LOADING') return renderLoadingState();
-    if (requestState === 'ERROR') return renderErrorState();
-    if (availabilityBlocks.length === 0) {
-      return (
-        <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-          <p className="text-slate-600">
-            No availability set for {selectedDate.toLocaleDateString()}
-          </p>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#a5825d] text-white rounded-md
-              transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
-              focus:ring-[#009ea5] shadow-sm"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Add First Availability Block
-          </button>
-        </div>
-      );
-    }
-  
-    return (
-      <div className="space-y-4">
-        {error && (
-          <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {renderConflictInfo()}
-        
-        {availabilityBlocks.map((block, index) => (
-          <div 
-            key={block._id || index} 
-            className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden
-              transition duration-200 ease-in-out hover:shadow-md"
-          >
-            <div className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-base font-medium text-slate-900">
-                      {formatTime(block.start)} - {formatTime(block.end)}
-                    </span>
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                      Available
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    {formatDuration(block.start, block.end)}
-                  </p>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handleModifyClick(block)}
-                    className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                      text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50
-                      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
-                      transition-colors duration-200 ease-in-out"
-                  >
-                    Edit
-                  </button>
-                  
-                  <button 
-                    onClick={() => setDeleteConfirmBlock(block)}
-                    className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
-                      text-sm font-medium rounded-md text-red-700 hover:bg-red-50
-                      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
-                      transition-colors duration-200 ease-in-out"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-        
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="w-full flex items-center justify-center px-4 py-3 bg-[#009ea5] text-white
-            rounded-md hover:bg-[#a5825d] transition-colors duration-200 ease-in-out
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
-            shadow-sm"
-        >
-          <Clock className="w-5 h-5 mr-2" />
-          Add New Availability Block
-        </button>
-      </div>
-    );
-  }, [availabilityBlocks, error, selectedDate, formatTime, formatDuration, handleModifyClick, handleDeleteAvailability, renderConflictInfo]);
-
   return (
-    <div className="pt-16"> 
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
+    <div className="pt-16">
+      <div className="max-w-7xl mx-auto p-0 lg:p-4">
+        <div className="hidden lg:flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Manage Availability</h1>
           </div>
@@ -456,47 +329,121 @@ const formatTime = useCallback((time) => {
               events={availabilityBlocks}
               disabled={requestState === 'LOADING'}
             />
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold mb-4">Availability Details:</h2>
-              {renderAvailabilityDetails()}
-            </div>
           </div>
           <div className="lg:w-2/3">
-            <DaySchedule
-              date={selectedDate}
-              availabilityBlocks={availabilityBlocks}
-              bookings={bookings}
-              onModify={handleModifyAvailability}
-            />
+            {/* Tabs */}
+            <div className="mb-4 border-b border-slate-200">
+              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('timeline')}
+                  className={`${
+                    activeTab === 'timeline'
+                      ? 'border-[#009ea5] text-[#009ea5]'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  Timeline View
+                </button>
+                <button
+                  onClick={() => setActiveTab('list')}
+                  className={`${
+                    activeTab === 'list'
+                      ? 'border-[#009ea5] text-[#009ea5]'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <List className="w-4 h-4 mr-2" />
+                  List View
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'timeline' ? (
+              <DaySchedule
+                date={selectedDate}
+                availabilityBlocks={availabilityBlocks}
+                bookings={bookings}
+                onModify={handleModifyClick}
+              />
+            ) : (
+              <AvailabilityList
+                availabilityBlocks={availabilityBlocks}
+                onModify={handleModifyClick}
+                onDelete={(block) => setDeleteConfirmBlock(block)}
+                formatTime={formatTime}
+                formatDuration={formatDuration}
+                onAdd={() => setIsModalOpen(true)}
+                requestState={requestState}
+                error={error}
+                conflictInfo={conflictInfo}
+                renderConflictInfo={renderConflictInfo}
+              />
+            )}
           </div>
         </div>
 
         {/* Mobile View */}
-        <div className="lg:hidden relative h-[calc(100vh-6rem)] flex flex-col">
-          <div className="sticky top-0 z-10 bg-white pb-4 shadow-sm">
-            <ResponsiveCalendar 
+        <div className="lg:hidden relative h-[calc(100dvh-4rem)] flex flex-col">
+          <div className="flex-shrink-0 bg-white pb-2 shadow-sm">
+            <ResponsiveCalendar
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               events={availabilityBlocks}
             />
           </div>
-          <div className="flex-1 overflow-y-auto pb-20">
-            {/* Availability Details Section for Mobile */}
-            <div className="px-4 py-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold mb-3">Availability Details</h2>
-              {renderAvailabilityDetails()}
-            </div>
-            
-            {/* Day Schedule Section */}
-            <div className="px-4 py-4">
-              <h2 className="text-lg font-semibold mb-3">Day Schedule</h2>
-              <DaySchedule
-                date={selectedDate}
-                availabilityBlocks={availabilityBlocks}
-                bookings={bookings}
-                onModify={handleModifyAvailability}
-              />
-            </div>
+          
+          {/* Mobile Tabs */}
+          <div className="flex-shrink-0 flex border-b border-slate-200 bg-white">
+             <button
+                onClick={() => setActiveTab('timeline')}
+                className={`flex-1 py-2 text-sm font-medium text-center ${
+                  activeTab === 'timeline'
+                    ? 'text-[#009ea5] border-b-2 border-[#009ea5]'
+                    : 'text-slate-500'
+                }`}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setActiveTab('list')}
+                className={`flex-1 py-2 text-sm font-medium text-center ${
+                  activeTab === 'list'
+                    ? 'text-[#009ea5] border-b-2 border-[#009ea5]'
+                    : 'text-slate-500'
+                }`}
+              >
+                List
+              </button>
+          </div>
+
+          <div className="flex-1 overflow-hidden relative">
+             {activeTab === 'timeline' ? (
+                <div className="absolute inset-0 px-2 pt-2">
+                  <DaySchedule
+                    date={selectedDate}
+                    availabilityBlocks={availabilityBlocks}
+                    bookings={bookings}
+                    onModify={handleModifyClick}
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 overflow-y-auto pb-20 px-4 pt-4">
+                  <AvailabilityList
+                    availabilityBlocks={availabilityBlocks}
+                    onModify={handleModifyClick}
+                    onDelete={(block) => setDeleteConfirmBlock(block)}
+                    formatTime={formatTime}
+                    formatDuration={formatDuration}
+                    onAdd={() => setIsModalOpen(true)}
+                    requestState={requestState}
+                    error={error}
+                    conflictInfo={conflictInfo}
+                    renderConflictInfo={renderConflictInfo}
+                  />
+                </div>
+              )}
           </div>
           
           {/* Floating Button for Add Availability */}

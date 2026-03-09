@@ -346,10 +346,13 @@ async function validateSlots(
         const prevBookingEnd = DateTime.fromISO(
           `${prevBooking.date.toISOString().split('T')[0]}T${prevBooking.endTime}`
         );
+        // Use 'pessimistic' traffic model for arrival validation - better to be conservative
         const travelTimeFromPrev = await calculateTravelTime(
           prevBooking.location,
           clientLocation,
-          prevBookingEnd.plus({ minutes: effectiveBufferMinutes }).toJSDate()
+          prevBookingEnd.plus({ minutes: effectiveBufferMinutes }).toJSDate(),
+          providerId,
+          'pessimistic'
         ).catch(error => {
           console.error(`[Single-Session] Error calculating travel time from previous booking: ${error.message}`);
           throw new Error(`Travel time calculation failed: ${error.message}`);
@@ -381,10 +384,13 @@ async function validateSlots(
         const requiredDepartureTime = nextBookingStart.minus({ minutes: 15 });
 
         try {
+          // Use 'best_guess' traffic model for departure validation - realistic but not overly conservative
           const travelTimeToNext = await calculateTravelTime(
             clientLocation,
             nextBooking.location,
-            slotEndWithBuffer.toJSDate()
+            slotEndWithBuffer.toJSDate(),
+            providerId,
+            'best_guess'
           ).catch(error => {
             console.error(`[Single-Session] Error calculating travel time to next booking: ${error.message}`);
             throw new Error(`Travel time calculation failed: ${error.message}`);

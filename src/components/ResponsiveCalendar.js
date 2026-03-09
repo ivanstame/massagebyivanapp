@@ -99,41 +99,36 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
   
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-slate-200">
-      <div className="flex items-center mb-3 border-b pb-2">
-        <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
-        <h2 className="font-medium">Select Date</h2>
-      </div>
-      
+    <div className="bg-white rounded-lg shadow-sm p-1 border border-slate-200">
       <div className="bg-white rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-slate-200">
+        <div className="p-2 border-b border-slate-200">
           <div className="flex items-center justify-between">
             <button
               onClick={handlePrevMonth}
               className="text-slate-600 hover:text-slate-800 transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h2 className="text-lg font-medium text-slate-900">
+            <h2 className="text-base font-medium text-slate-900">
               {monthNames[month]} {year}
             </h2>
             <button
               onClick={handleNextMonth}
               className="text-slate-600 hover:text-slate-800 transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
         </div>
         
-        <div className="overflow-x-auto scrollbar-hide py-4 px-2">
+        <div className="overflow-x-auto scrollbar-hide py-2 px-1">
           <div
             ref={scrollRef}
-            className="flex space-x-2 min-w-full px-2"
+            className="flex space-x-1 min-w-full px-1"
           >
             {dates.map((date) => {
               const isPast = isPastDate(date);

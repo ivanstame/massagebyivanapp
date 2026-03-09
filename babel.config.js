@@ -6,5 +6,11 @@ module.exports = {
         node: 'current',
       },
     }],
+    '@babel/preset-react',
   ],
+  env: {
+    test: {
+      plugins: ['@babel/plugin-transform-modules-commonjs']
+    }
+  }
 };

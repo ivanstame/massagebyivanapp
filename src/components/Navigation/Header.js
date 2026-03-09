@@ -31,7 +31,7 @@ const Header = () => {
       return [
         { href: '/login', label: 'Login' },
         { href: '/signup', label: 'Sign Up' },
-        { href: '/sms-consent-policy.html', label: 'SMS Policy' }
+        { href: '/privacy-policy.html', label: 'Privacy Policy' }
       ];
     }
 
@@ -49,7 +49,7 @@ const Header = () => {
     return [
       { href: '/book', label: 'Book Appointment' },
       { href: '/my-bookings', label: 'My Bookings' },
-      { href: '/sms-consent-policy.html', label: 'SMS Policy' }
+      { href: '/privacy-policy.html', label: 'Privacy Policy' }
     ];
   };
 
@@ -73,7 +73,7 @@ const Header = () => {
           {/* Desktop Navigation */}
           <div className="hidden sm:flex sm:space-x-8 sm:items-center">
             {navLinks.map((link) => (
-              link.href.startsWith('/sms-consent-policy') ? (
+              link.href.startsWith('/privacy-policy') ? (
                 <a
                   key={link.href}
                   href={link.href}
@@ -160,7 +160,7 @@ const Header = () => {
       <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
         <div className="pt-2 pb-3 space-y-1">
           {navLinks.map((link) => (
-            link.href.startsWith('/sms-consent-policy') ? (
+            link.href.startsWith('/privacy-policy') ? (
               <a
                 key={link.href}
                 href={link.href}

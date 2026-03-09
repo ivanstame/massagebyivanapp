@@ -60,7 +60,12 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
     >
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md modal-content">
         <div className="flex justify-between items-start mb-4">
-          <h2 className="text-xl font-bold text-slate-900">Add Availability</h2>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Add Availability</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('cccc, LLLL d, yyyy')}
+            </p>
+          </div>
         </div>
 
         {error && (
