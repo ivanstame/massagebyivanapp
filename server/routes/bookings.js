@@ -549,6 +549,32 @@ router.get('/', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// GET /:id (Get a single booking by ID)
+router.get('/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('client', 'email profile.fullName profile.phoneNumber')
+      .populate('provider', 'email profile.fullName profile.phoneNumber providerProfile.businessName');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Authorization: only the provider or client on this booking can view it
+    const isProvider = req.user.accountType === 'PROVIDER' && booking.provider._id.equals(req.user._id);
+    const isClient = req.user.accountType === 'CLIENT' && booking.client._id.equals(req.user._id);
+
+    if (!isProvider && !isClient) {
+      return res.status(403).json({ message: 'Not authorized to view this booking' });
+    }
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Error fetching booking:', error);
+    res.status(500).json({ message: 'Error fetching booking' });
+  }
+});
+
 // DELETE /:id (Cancel a booking)
 router.delete('/:id', ensureAuthenticated, async (req, res) => {
   try {
