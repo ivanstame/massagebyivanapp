@@ -1,5 +1,4 @@
 const axios = require('axios');
-const mongoose = require('mongoose');
 const cacheManager = require('./cacheManager');
 
 // TRAFFIC_THRESHOLD_KM removed - we now always use traffic-aware duration when available
@@ -33,146 +32,13 @@ setInterval(() => {
   }
 }, 15 * 60 * 1000); // 15 minutes
 
-const isWithinServiceArea = (origin, destination, serviceArea) => {
-  // Always return true - serviceArea functionality has been removed
+// Service area validation removed — no geographic restrictions for now
+const isWithinServiceArea = () => true;
+
+// Provider travel validation bypassed — service area feature not active
+// TODO: Re-implement when fixed location anchors are added (Priority 3, Feature B)
+async function validateProviderTravel() {
   return true;
-};
-
-// Log mongoose version to verify it's the same instance
-console.log('Mongoose version in mapService.js:', mongoose.version);
-
-// Helper function to get User model using Mongoose's global model lookup
-function getUserModel() {
-  try {
-    // Try to get the model from Mongoose's registry
-    const userModel = mongoose.model('User');
-    console.log('Loaded User model from mongoose registry:', userModel ? 'Success' : 'Failed');
-    console.log('User model methods:', Object.keys(userModel || {}).join(', '));
-    return userModel;
-  } catch (error) {
-    console.error('Error getting User model from mongoose registry:', error.message);
-    
-    // Fallback to direct require as a last resort
-    try {
-      const userModel = require('../models/User');
-      console.log('Loaded User model via require:', userModel ? 'Success' : 'Failed');
-      return userModel;
-    } catch (reqError) {
-      console.error('Error requiring User model:', reqError.message);
-      return null;
-    }
-  }
-}
-
-/**
- * Get cache key for provider travel validation
- * @param {Object} origin - Origin location
- * @param {Object} destination - Destination location
- * @param {string} providerId - Provider ID
- * @returns {string} - Cache key
- */
-function getProviderTravelCacheKey(origin, destination, providerId) {
-  return cacheManager.getProviderTravelKey(origin, destination, providerId);
-}
-
-/**
- * Validate if a provider can travel between two locations
- * @param {Object} origin - Origin location with lat/lng
- * @param {Object} destination - Destination location with lat/lng
- * @param {string} providerId - Provider ID for validation
- * @returns {Promise<boolean>} - Whether travel is valid
- */
-async function validateProviderTravel(origin, destination, providerId) {
-  // IMPORTANT: Since service area validation has been removed,
-  // we can safely return true immediately to bypass all validation
-  // This is a temporary solution until the module resolution issue is fixed
-  console.log('NOTICE: Bypassing provider travel validation entirely');
-  return true;
-
-  // The code below is kept for reference but is not executed
-  try {
-    console.log('validateProviderTravel called with providerId:', providerId);
-    
-    if (!providerId) {
-      console.log('No providerId provided, skipping validation');
-      return true; // Skip validation if no providerId is provided
-    }
-    
-    if (typeof providerId !== 'string' && !(providerId instanceof Object)) {
-      console.log('Invalid providerId type:', typeof providerId);
-      return true; // Skip validation if providerId is not a string or object
-    }
-    
-    // Check cache first
-    const cacheKey = getProviderTravelCacheKey(origin, destination, providerId);
-    if (geocodeCache.has(cacheKey)) {
-      const cachedData = geocodeCache.get(cacheKey);
-      // Check if cache entry is still valid
-      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
-        console.log(`[Geocoding] Cache hit for ${cacheKey}`);
-        return cachedData.isValid;
-      } else {
-        console.log(`[Geocoding] Cache expired for ${cacheKey}`);
-        geocodeCache.delete(cacheKey);
-      }
-    }
-    
-    // Get the User model using Mongoose's global model lookup
-    const User = getUserModel();
-    
-    // Check if User model was loaded successfully
-    if (!User) {
-      console.log('User model not available, skipping validation');
-      return true;
-    }
-    
-    if (!User.findById) {
-      console.log('User.findById is not a function, skipping validation');
-      console.log('User model type:', typeof User);
-      console.log('User model properties:', Object.keys(User).join(', '));
-      return true;
-    }
-    
-    try {
-      // Try to convert providerId to ObjectId if it's a string
-      const mongoose = require('mongoose');
-      if (typeof providerId === 'string' && mongoose.Types.ObjectId.isValid(providerId)) {
-        providerId = new mongoose.Types.ObjectId(providerId);
-        console.log('Converted providerId to ObjectId:', providerId);
-      }
-    } catch (err) {
-      console.log('Error converting providerId to ObjectId:', err.message);
-      // Continue with the original providerId
-    }
-    
-    const provider = await User.findById(providerId);
-    if (!provider) {
-      console.log('Provider not found for ID:', providerId);
-      return true; // Skip validation if provider not found
-    }
-    
-    if (provider.accountType !== 'PROVIDER') {
-      console.log('User is not a provider:', provider.accountType);
-      return true; // Skip validation if user is not a provider
-    }
-
-    // ServiceArea validation has been removed
-    const isValid = true;
-    
-    // Cache the result
-    geocodeCache.set(cacheKey, {
-      isValid,
-      timestamp: Date.now()
-    });
-    console.log(`[Geocoding] Cached provider travel validation for ${cacheKey}`);
-    
-    return isValid;
-  } catch (error) {
-    console.error('Provider travel validation error:', error);
-    console.log('Error occurred with providerId:', providerId);
-    // Return true instead of throwing to prevent booking failures
-    return true;
-  }
 }
 
 /**

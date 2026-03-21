@@ -26,21 +26,15 @@ const loadGoogleMapsScript = () => {
 };
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
-// import Header from './components/Navigation/Header';
 import TreatmentPreferences from './components/TreatmentPreferences';
 import ClientPreferences from './components/ClientPreferences';
-
-// Import original components
 import Header from './components/Navigation/Header';
 import Home from './components/Home';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import ProfileSetup from './components/ProfileSetup';
-import BookingForm from './components/BookingForm';
-import BookingFormUpdated from './components/BookingForm_updated';
+import BookingForm from './components/BookingForm_updated';
 import BookingList from './components/BookingList';
-
-// Import new provider components
 import ProviderDashboard from './components/ProviderDashboard';
 import ProviderAvailability from './components/ProviderAvailability';
 import ProviderAppointments from './components/ProviderAppointments';
@@ -50,7 +44,6 @@ import ProviderAnalytics from './components/ProviderAnalytics';
 import ProviderSettings from './components/ProviderSettings';
 import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
-import TestInvitationManager from './components/TestInvitationManager';
 import ProviderSelection from './components/ProviderSelection';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 
@@ -183,17 +176,8 @@ function App() {
             }
           />
 
-          <Route 
-            path="/book" 
-            element={
-              <ProtectedRoute>
-                <BookingFormUpdated googleMapsLoaded={googleMapsLoaded} />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route 
-            path="/book2" 
+          <Route
+            path="/book"
             element={
               <ProtectedRoute>
                 <BookingForm googleMapsLoaded={googleMapsLoaded} />
@@ -293,26 +277,16 @@ function App() {
             }
           />
 
-          {/* Catch all route */}
-          <Route 
-            path="*" 
-            element={<Navigate to="/" />}
-          />
-
-          {/* Test Invitations */}
-          <Route 
-            path="/provider/test-invites" 
-            element={
-              <ProtectedRoute providerOnly>
-                <TestInvitationManager />
-              </ProtectedRoute>
-            }
-          />
-
           {/* Invitation Handling */}
-          <Route 
-            path="/invitation/:token" 
+          <Route
+            path="/invitation/:token"
             element={<InvitationHandling />}
+          />
+
+          {/* Catch all route */}
+          <Route
+            path="*"
+            element={<Navigate to="/" />}
           />
         </Routes>
       </main>
