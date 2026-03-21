@@ -46,6 +46,7 @@ import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
 import ProviderSelection from './components/ProviderSelection';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
+import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -204,14 +205,22 @@ function App() {
             }
           />
           <Route 
-            path="/provider/availability" 
+            path="/provider/availability"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderAvailability />
               </ProtectedRoute>
             }
           />
-          <Route 
+          <Route
+            path="/provider/schedule-template"
+            element={
+              <ProtectedRoute providerOnly>
+                <WeeklyTemplateEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/provider/appointments" 
             element={
               <ProtectedRoute providerOnly>

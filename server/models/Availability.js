@@ -14,7 +14,12 @@ const AvailabilitySchema = new mongoose.Schema({
   localDate: { type: String, required: true },   // LA date string (YYYY-MM-DD)
   start: { type: Date, required: true },         // UTC timestamp
   end: { type: Date, required: true },           // UTC timestamp
-  availableSlots: [{ type: String }] // Cached 30-minute slots in local time
+  availableSlots: [{ type: String }], // Cached 30-minute slots in local time
+  source: {
+    type: String,
+    enum: ['manual', 'template'],
+    default: 'manual'
+  }
 });
 
 // Pre-save middleware to handle timezone conversion

@@ -2,17 +2,146 @@ const express = require('express');
 const router = express.Router();
 const Availability = require('../models/Availability');
 const Booking = require('../models/Booking');
+const WeeklyTemplate = require('../models/WeeklyTemplate');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { validateAvailabilityInput } = require('../middleware/validation');
 const { DateTime } = require('luxon');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const LuxonService = require('../../src/utils/LuxonService');
 
+/**
+ * Generate availability from weekly template for a specific date and provider.
+ * Only creates if no availability exists for that date yet.
+ * Returns the created Availability doc, or null if no template applies.
+ */
+async function generateFromTemplate(providerId, laDate) {
+  const localDateStr = laDate.toFormat(TIME_FORMATS.ISO_DATE);
+
+  // Check if availability already exists for this date
+  const existing = await Availability.findOne({
+    provider: providerId,
+    localDate: localDateStr
+  });
+  if (existing) return null; // Already has availability (manual or previously generated)
+
+  // Look up template for this day of week (Luxon: 1=Mon..7=Sun, convert to our 0=Sun..6=Sat)
+  const luxonWeekday = laDate.weekday; // 1=Mon, 7=Sun
+  const dayOfWeek = luxonWeekday === 7 ? 0 : luxonWeekday; // Convert to 0=Sun..6=Sat
+
+  const template = await WeeklyTemplate.findOne({
+    provider: providerId,
+    dayOfWeek,
+    isActive: true
+  });
+  if (!template) return null;
+
+  // Create availability from template
+  const startLA = DateTime.fromFormat(
+    `${localDateStr} ${template.startTime}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: DEFAULT_TZ }
+  );
+  const endLA = DateTime.fromFormat(
+    `${localDateStr} ${template.endTime}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: DEFAULT_TZ }
+  );
+
+  const availability = new Availability({
+    provider: providerId,
+    date: laDate.startOf('day').toUTC().toJSDate(),
+    localDate: localDateStr,
+    start: startLA.toUTC().toJSDate(),
+    end: endLA.toUTC().toJSDate(),
+    source: 'template'
+  });
+
+  await availability.save();
+  return availability;
+}
+
+/**
+ * Generate availability from templates for a date range.
+ * Skips dates that already have availability.
+ */
+async function generateFromTemplateRange(providerId, startDate, endDate) {
+  const templates = await WeeklyTemplate.find({ provider: providerId, isActive: true });
+  if (templates.length === 0) return [];
+
+  // Build a lookup by dayOfWeek
+  const templateByDay = {};
+  for (const t of templates) {
+    templateByDay[t.dayOfWeek] = t;
+  }
+
+  // Get all existing availability in the range
+  const existing = await Availability.find({
+    provider: providerId,
+    localDate: {
+      $gte: startDate.toFormat(TIME_FORMATS.ISO_DATE),
+      $lte: endDate.toFormat(TIME_FORMATS.ISO_DATE)
+    }
+  });
+  const existingDates = new Set(existing.map(a => a.localDate));
+
+  // Generate for each day in range that doesn't have availability yet
+  const toCreate = [];
+  let current = startDate.startOf('day');
+  while (current <= endDate) {
+    const localDateStr = current.toFormat(TIME_FORMATS.ISO_DATE);
+    const luxonWeekday = current.weekday;
+    const dayOfWeek = luxonWeekday === 7 ? 0 : luxonWeekday;
+
+    if (!existingDates.has(localDateStr) && templateByDay[dayOfWeek]) {
+      const template = templateByDay[dayOfWeek];
+      const startLA = DateTime.fromFormat(
+        `${localDateStr} ${template.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      const endLA = DateTime.fromFormat(
+        `${localDateStr} ${template.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+
+      toCreate.push({
+        provider: providerId,
+        date: current.startOf('day').toUTC().toJSDate(),
+        localDate: localDateStr,
+        start: startLA.toUTC().toJSDate(),
+        end: endLA.toUTC().toJSDate(),
+        source: 'template'
+      });
+    }
+    current = current.plus({ days: 1 });
+  }
+
+  if (toCreate.length > 0) {
+    // Use insertMany — pre-save hooks won't fire, but we've already computed all fields
+    // We need to generate availableSlots manually
+    for (const doc of toCreate) {
+      const startDT = DateTime.fromJSDate(doc.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const endDT = DateTime.fromJSDate(doc.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const slots = LuxonService.generateTimeSlots(startDT.toISO(), endDT.toISO(), 30);
+      doc.availableSlots = slots.map(slot =>
+        DateTime.fromISO(slot.start).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H)
+      );
+    }
+    await Availability.insertMany(toCreate);
+  }
+
+  return toCreate;
+}
+
 // Get availability blocks for a specific date
 router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
   try {
     const providerId = req.user._id;
     const laDate = DateTime.fromISO(req.params.date, { zone: DEFAULT_TZ });
+
+    // Auto-generate from template if no availability exists for this date
+    await generateFromTemplate(providerId, laDate);
 
     const blocks = await Availability.find({
       provider: providerId,
@@ -36,28 +165,42 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
     );
     const endDate = startDate.endOf('month');
 
-    // Build query - filter by provider if user is a provider, or by providerId param for clients
+    // Determine the provider ID for template generation
+    let providerId;
+    if (req.user.accountType === 'PROVIDER') {
+      providerId = req.user._id;
+    } else if (req.query.providerId) {
+      providerId = req.query.providerId;
+    }
+
+    // Auto-generate from templates for the whole month (only for future dates)
+    if (providerId) {
+      const today = DateTime.now().setZone(DEFAULT_TZ).startOf('day');
+      const genStart = startDate < today ? today : startDate;
+      if (genStart <= endDate) {
+        await generateFromTemplateRange(providerId, genStart, endDate);
+      }
+    }
+
+    // Build query
     const query = {
       date: {
         $gte: startDate.toUTC().toJSDate(),
         $lte: endDate.toUTC().toJSDate()
       }
     };
-    
-    // If user is a provider, show only their availability
+
     if (req.user.accountType === 'PROVIDER') {
       query.provider = req.user._id;
-    } 
-    // If providerId is specified (e.g., client viewing specific provider), use that
-    else if (req.query.providerId) {
+    } else if (req.query.providerId) {
       query.provider = req.query.providerId;
     }
-    // Otherwise show all availability (for admins or general view)
 
     const availabilityBlocks = await Availability.find(query).sort({ date: 1 });
 
     res.json(availabilityBlocks);
   } catch (error) {
+    console.error('Error fetching monthly availability:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -149,6 +292,12 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       availQuery.provider = req.user._id;
     }
     // Otherwise, find ANY availability (for backward compatibility, but this should ideally require providerId)
+
+    // Auto-generate from template if a provider is identified
+    const templateProviderId = req.query.providerId || (req.user?.accountType === 'PROVIDER' ? req.user._id : null);
+    if (templateProviderId) {
+      await generateFromTemplate(templateProviderId, laDate);
+    }
 
     // Find availability block for the day
     const availability = await Availability.findOne(availQuery);

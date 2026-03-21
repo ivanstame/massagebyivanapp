@@ -163,8 +163,9 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/invitations', require('./routes/invitations'));
-app.use('/api', require('./routes/direct-access')); // Add direct access routes
-app.use('/api/provider-requests', require('./routes/provider-assignment-requests')); // Provider assignment requests
+app.use('/api', require('./routes/direct-access'));
+app.use('/api/provider-requests', require('./routes/provider-assignment-requests'));
+app.use('/api/weekly-template', require('./routes/weekly-template'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({
