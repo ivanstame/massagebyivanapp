@@ -23,6 +23,16 @@ const WeeklyTemplateSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Fixed location anchor for this day (e.g., "Tuesday at Peters Chiropractic 9-5")
+  anchor: {
+    locationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SavedLocation',
+      default: null
+    },
+    startTime: { type: String, default: null }, // "HH:mm" — when the anchor block starts
+    endTime: { type: String, default: null }     // "HH:mm" — when the anchor block ends
   }
 }, { timestamps: true });
 

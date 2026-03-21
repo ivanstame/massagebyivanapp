@@ -2,7 +2,8 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Clock, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, Save, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import SavedLocationsManager from './SavedLocationsManager';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -34,20 +35,22 @@ const WeeklyTemplateEditor = () => {
       dayOfWeek: i,
       startTime: DEFAULT_START,
       endTime: DEFAULT_END,
-      isActive: false
+      isActive: false,
+      anchor: { locationId: null, startTime: DEFAULT_START, endTime: DEFAULT_END }
     }))
   );
+  const [savedLocations, setSavedLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  const [showLocations, setShowLocations] = useState(false);
 
   const fetchTemplate = useCallback(async () => {
     try {
       setLoading(true);
       const res = await axios.get('/api/weekly-template', { withCredentials: true });
       if (res.data.length > 0) {
-        // Merge server data with default structure
         const merged = DAY_NAMES.map((_, i) => {
           const serverDay = res.data.find(d => d.dayOfWeek === i);
           if (serverDay) {
@@ -55,14 +58,20 @@ const WeeklyTemplateEditor = () => {
               dayOfWeek: i,
               startTime: serverDay.startTime,
               endTime: serverDay.endTime,
-              isActive: serverDay.isActive
+              isActive: serverDay.isActive,
+              anchor: {
+                locationId: serverDay.anchor?.locationId?._id || serverDay.anchor?.locationId || null,
+                startTime: serverDay.anchor?.startTime || serverDay.startTime,
+                endTime: serverDay.anchor?.endTime || serverDay.endTime
+              }
             };
           }
           return {
             dayOfWeek: i,
             startTime: DEFAULT_START,
             endTime: DEFAULT_END,
-            isActive: false
+            isActive: false,
+            anchor: { locationId: null, startTime: DEFAULT_START, endTime: DEFAULT_END }
           };
         });
         setDays(merged);
@@ -97,8 +106,18 @@ const WeeklyTemplateEditor = () => {
     setSaved(false);
   };
 
+  const handleAnchorChange = (dayIndex, field, value) => {
+    setDays(prev => prev.map(d => {
+      if (d.dayOfWeek !== dayIndex) return d;
+      return {
+        ...d,
+        anchor: { ...d.anchor, [field]: value }
+      };
+    }));
+    setSaved(false);
+  };
+
   const handleSave = async () => {
-    // Validate active days
     for (const day of days) {
       if (day.isActive && day.endTime <= day.startTime) {
         setError(`${DAY_NAMES[day.dayOfWeek]}: End time must be after start time`);
@@ -120,27 +139,24 @@ const WeeklyTemplateEditor = () => {
     }
   };
 
-  // Quick preset buttons
   const applyPreset = (preset) => {
     let activeDays;
     switch (preset) {
-      case 'weekdays':
-        activeDays = [1, 2, 3, 4, 5]; // Mon-Fri
-        break;
-      case 'mwf':
-        activeDays = [1, 3, 5]; // Mon, Wed, Fri
-        break;
-      case 'tth':
-        activeDays = [2, 4]; // Tue, Thu
-        break;
-      default:
-        return;
+      case 'weekdays': activeDays = [1, 2, 3, 4, 5]; break;
+      case 'mwf': activeDays = [1, 3, 5]; break;
+      case 'tth': activeDays = [2, 4]; break;
+      default: return;
     }
     setDays(prev => prev.map(d => ({
       ...d,
       isActive: activeDays.includes(d.dayOfWeek)
     })));
     setSaved(false);
+  };
+
+  const getLocationName = (locationId) => {
+    const loc = savedLocations.find(l => l._id === locationId);
+    return loc ? loc.name : '';
   };
 
   if (loading) {
@@ -157,8 +173,7 @@ const WeeklyTemplateEditor = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Weekly Schedule Template</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Set your recurring weekly availability. This template auto-fills your calendar
-            each week. You can still override individual days.
+            Set your recurring weekly availability and fixed location commitments.
           </p>
         </div>
 
@@ -176,27 +191,35 @@ const WeeklyTemplateEditor = () => {
           </div>
         )}
 
+        {/* Saved Locations Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowLocations(!showLocations)}
+            className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2 hover:text-[#009ea5] transition-colors"
+          >
+            <MapPin className="w-4 h-4" />
+            My Locations ({savedLocations.length})
+            <span className="text-xs text-slate-400">{showLocations ? '(hide)' : '(manage)'}</span>
+          </button>
+          {showLocations && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <SavedLocationsManager onLocationsChange={setSavedLocations} />
+            </div>
+          )}
+        </div>
+
         {/* Quick presets */}
         <div className="mb-4 flex flex-wrap gap-2">
           <span className="text-sm text-slate-500 self-center mr-1">Quick set:</span>
-          <button
-            onClick={() => applyPreset('weekdays')}
-            className="px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            Mon–Fri
-          </button>
-          <button
-            onClick={() => applyPreset('mwf')}
-            className="px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            Mon/Wed/Fri
-          </button>
-          <button
-            onClick={() => applyPreset('tth')}
-            className="px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            Tue/Thu
-          </button>
+          {[['weekdays', 'Mon\u2013Fri'], ['mwf', 'Mon/Wed/Fri'], ['tth', 'Tue/Thu']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => applyPreset(key)}
+              className="px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-full hover:bg-slate-200 transition-colors"
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Day rows */}
@@ -204,60 +227,108 @@ const WeeklyTemplateEditor = () => {
           {days.map((day) => (
             <div
               key={day.dayOfWeek}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+              className={`p-3 rounded-lg border transition-colors ${
                 day.isActive
                   ? 'bg-white border-[#009ea5]/30 shadow-sm'
                   : 'bg-slate-50 border-slate-200'
               }`}
             >
-              {/* Toggle */}
-              <button
-                onClick={() => handleToggleDay(day.dayOfWeek)}
-                className={`w-10 h-6 rounded-full relative transition-colors flex-shrink-0 ${
-                  day.isActive ? 'bg-[#009ea5]' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    day.isActive ? 'left-[18px]' : 'left-0.5'
+              <div className="flex items-center gap-3">
+                {/* Toggle */}
+                <button
+                  onClick={() => handleToggleDay(day.dayOfWeek)}
+                  className={`w-10 h-6 rounded-full relative transition-colors flex-shrink-0 ${
+                    day.isActive ? 'bg-[#009ea5]' : 'bg-slate-300'
                   }`}
-                />
-              </button>
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      day.isActive ? 'left-[18px]' : 'left-0.5'
+                    }`}
+                  />
+                </button>
 
-              {/* Day name */}
-              <span className={`w-12 text-sm font-medium ${
-                day.isActive ? 'text-slate-900' : 'text-slate-400'
-              }`}>
-                {/* Show short name on mobile, full on desktop */}
-                <span className="hidden sm:inline">{DAY_NAMES[day.dayOfWeek]}</span>
-                <span className="sm:hidden">{DAY_SHORT[day.dayOfWeek]}</span>
-              </span>
+                {/* Day name */}
+                <span className={`w-12 text-sm font-medium ${
+                  day.isActive ? 'text-slate-900' : 'text-slate-400'
+                }`}>
+                  <span className="hidden sm:inline">{DAY_NAMES[day.dayOfWeek]}</span>
+                  <span className="sm:hidden">{DAY_SHORT[day.dayOfWeek]}</span>
+                </span>
 
-              {/* Time selectors */}
-              {day.isActive ? (
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <select
-                    value={day.startTime}
-                    onChange={(e) => handleTimeChange(day.dayOfWeek, 'startTime', e.target.value)}
-                    className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
-                  >
-                    {TIME_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <span className="text-slate-400 text-sm flex-shrink-0">to</span>
-                  <select
-                    value={day.endTime}
-                    onChange={(e) => handleTimeChange(day.dayOfWeek, 'endTime', e.target.value)}
-                    className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
-                  >
-                    {TIME_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                {/* Time selectors */}
+                {day.isActive ? (
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <select
+                      value={day.startTime}
+                      onChange={(e) => handleTimeChange(day.dayOfWeek, 'startTime', e.target.value)}
+                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                    >
+                      {TIME_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <span className="text-slate-400 text-sm flex-shrink-0">to</span>
+                    <select
+                      value={day.endTime}
+                      onChange={(e) => handleTimeChange(day.dayOfWeek, 'endTime', e.target.value)}
+                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                    >
+                      {TIME_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <span className="text-sm text-slate-400 italic">Not available</span>
+                )}
+              </div>
+
+              {/* Anchor assignment (only for active days) */}
+              {day.isActive && (
+                <div className="mt-2 ml-[76px]">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                    <select
+                      value={day.anchor.locationId || ''}
+                      onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
+                      className="border border-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-0 bg-slate-50 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                    >
+                      <option value="">No fixed location (mobile day)</option>
+                      {savedLocations.map(loc => (
+                        <option key={loc._id} value={loc._id}>
+                          {loc.name}{loc.isHomeBase ? ' (Home)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Anchor time range (when a location is selected) */}
+                  {day.anchor.locationId && (
+                    <div className="mt-1.5 flex items-center gap-2 ml-5">
+                      <span className="text-xs text-amber-600 flex-shrink-0">At location:</span>
+                      <select
+                        value={day.anchor.startTime}
+                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'startTime', e.target.value)}
+                        className="border border-amber-200 rounded px-1.5 py-0.5 text-xs bg-amber-50 flex-1 min-w-0"
+                      >
+                        {TIME_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-slate-400">to</span>
+                      <select
+                        value={day.anchor.endTime}
+                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'endTime', e.target.value)}
+                        className="border border-amber-200 rounded px-1.5 py-0.5 text-xs bg-amber-50 flex-1 min-w-0"
+                      >
+                        {TIME_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <span className="text-sm text-slate-400 italic">Not available</span>
               )}
             </div>
           ))}
@@ -292,10 +363,11 @@ const WeeklyTemplateEditor = () => {
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">How this works</p>
               <ul className="list-disc ml-4 space-y-1 text-blue-700">
-                <li>This template automatically creates availability for future dates</li>
-                <li>Availability is generated when you or a client views a date</li>
-                <li>You can still edit or delete individual days from the Availability page</li>
-                <li>Manual changes to a specific day always take priority over the template</li>
+                <li>This template auto-creates availability for future dates</li>
+                <li>You can edit or delete individual days from the Availability page</li>
+                <li>Manual changes to a specific day always take priority</li>
+                <li><strong>Fixed locations</strong> block off time on your calendar — clients can't book over them</li>
+                <li>Drive time calculates from your fixed location, not home, on anchored days</li>
               </ul>
             </div>
           </div>

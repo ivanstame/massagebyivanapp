@@ -3,6 +3,7 @@ const router = express.Router();
 const Availability = require('../models/Availability');
 const Booking = require('../models/Booking');
 const WeeklyTemplate = require('../models/WeeklyTemplate');
+const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { validateAvailabilityInput } = require('../middleware/validation');
 const { DateTime } = require('luxon');
@@ -47,15 +48,32 @@ async function generateFromTemplate(providerId, laDate) {
     { zone: DEFAULT_TZ }
   );
 
-  const availability = new Availability({
+  const availData = {
     provider: providerId,
     date: laDate.startOf('day').toUTC().toJSDate(),
     localDate: localDateStr,
     start: startLA.toUTC().toJSDate(),
     end: endLA.toUTC().toJSDate(),
     source: 'template'
-  });
+  };
 
+  // Propagate anchor info if the template has one
+  if (template.anchor && template.anchor.locationId) {
+    const loc = await SavedLocation.findById(template.anchor.locationId);
+    if (loc) {
+      availData.anchor = {
+        locationId: loc._id,
+        name: loc.name,
+        address: loc.address,
+        lat: loc.lat,
+        lng: loc.lng,
+        startTime: template.anchor.startTime,
+        endTime: template.anchor.endTime
+      };
+    }
+  }
+
+  const availability = new Availability(availData);
   await availability.save();
   return availability;
 }
@@ -72,6 +90,18 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
   const templateByDay = {};
   for (const t of templates) {
     templateByDay[t.dayOfWeek] = t;
+  }
+
+  // Pre-fetch all anchor locations referenced by templates
+  const anchorLocationIds = templates
+    .filter(t => t.anchor && t.anchor.locationId)
+    .map(t => t.anchor.locationId);
+  const anchorLocations = anchorLocationIds.length > 0
+    ? await SavedLocation.find({ _id: { $in: anchorLocationIds } })
+    : [];
+  const locationById = {};
+  for (const loc of anchorLocations) {
+    locationById[loc._id.toString()] = loc;
   }
 
   // Get all existing availability in the range
@@ -105,14 +135,32 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
         { zone: DEFAULT_TZ }
       );
 
-      toCreate.push({
+      const doc = {
         provider: providerId,
         date: current.startOf('day').toUTC().toJSDate(),
         localDate: localDateStr,
         start: startLA.toUTC().toJSDate(),
         end: endLA.toUTC().toJSDate(),
         source: 'template'
-      });
+      };
+
+      // Propagate anchor info
+      if (template.anchor && template.anchor.locationId) {
+        const loc = locationById[template.anchor.locationId.toString()];
+        if (loc) {
+          doc.anchor = {
+            locationId: loc._id,
+            name: loc.name,
+            address: loc.address,
+            lat: loc.lat,
+            lng: loc.lng,
+            startTime: template.anchor.startTime,
+            endTime: template.anchor.endTime
+          };
+        }
+      }
+
+      toCreate.push(doc);
     }
     current = current.plus({ days: 1 });
   }

@@ -99,6 +99,12 @@ const AvailabilityList = ({
                 <p className="text-sm text-slate-500">
                   {formatDuration(block.start, block.end)}
                 </p>
+                {block.anchor && block.anchor.name && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 bg-amber-400 rounded-full"></span>
+                    Fixed at {block.anchor.name} ({block.anchor.startTime} - {block.anchor.endTime})
+                  </p>
+                )}
               </div>
               
               <div className="flex items-center space-x-2">

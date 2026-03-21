@@ -243,7 +243,8 @@ async function validateSlots(
   adminEndTime,
   requestedGroupId = null,
   extraDepartureBuffer = 0,
-  providerId = null
+  providerId = null,
+  anchor = null // { lat, lng, startTime, endTime } — fixed location anchor for the day
 ) {
   // Ensure bufferMinutes is a number to prevent NaN errors in calculations
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
@@ -341,7 +342,22 @@ async function validateSlots(
         }
       }
 
-      // Check arrival buffer from previous booking
+      // If there's a fixed anchor on this day, reject slots that overlap with the anchor block
+      if (anchor && anchor.startTime && anchor.endTime && isValid) {
+        const anchorStart = DateTime.fromFormat(anchor.startTime, 'HH:mm', { zone: DEFAULT_TZ });
+        const anchorEnd = DateTime.fromFormat(anchor.endTime, 'HH:mm', { zone: DEFAULT_TZ });
+        const slotStartLocal = slotStart.setZone(DEFAULT_TZ);
+        const slotEndLocal = slotEnd.setZone(DEFAULT_TZ);
+
+        // Slot overlaps anchor block → invalid (provider is committed elsewhere)
+        if (slotStartLocal.hour * 60 + slotStartLocal.minute < anchorEnd.hour * 60 + anchorEnd.minute &&
+            slotEndLocal.hour * 60 + slotEndLocal.minute > anchorStart.hour * 60 + anchorStart.minute) {
+          console.log('[Single-Session] Slot rejected: overlaps with fixed anchor block');
+          isValid = false;
+        }
+      }
+
+      // Check arrival buffer from previous booking OR anchor
       if (prevBooking && isValid) {
         const prevBookingEnd = DateTime.fromISO(
           `${prevBooking.date.toISOString().split('T')[0]}T${prevBooking.endTime}`
@@ -366,6 +382,41 @@ async function validateSlots(
         if (actualArrivalTime > requiredArrivalTime) {
           console.log('[Single-Session] Slot invalid: not enough time to arrive 15 mins before start');
           isValid = false;
+        }
+      }
+      // No previous booking but there IS an anchor — calculate travel from anchor location
+      else if (!prevBooking && anchor && anchor.lat && anchor.lng && anchor.endTime && isValid) {
+        try {
+          const anchorEndDT = DateTime.fromFormat(anchor.endTime, 'HH:mm', { zone: DEFAULT_TZ });
+          const slotStartLocal = slotStart.setZone(DEFAULT_TZ);
+
+          // Only applies to slots AFTER the anchor ends
+          if (slotStartLocal.hour * 60 + slotStartLocal.minute >= anchorEndDT.hour * 60 + anchorEndDT.minute) {
+            const anchorLocation = { lat: anchor.lat, lng: anchor.lng };
+            const departureTime = slotStart.minus({ minutes: 30 }).toJSDate(); // estimate departure
+
+            const travelTimeFromAnchor = await calculateTravelTime(
+              anchorLocation,
+              clientLocation,
+              departureTime,
+              providerId,
+              'pessimistic'
+            ).catch(error => {
+              console.error(`[Single-Session] Error calculating travel from anchor: ${error.message}`);
+              return 0; // Don't reject if travel calc fails
+            });
+
+            const requiredArrivalTime = slotStart.minus({ minutes: 15 });
+            const actualArrivalTime = anchorEndDT.plus({ minutes: travelTimeFromAnchor });
+
+            if (actualArrivalTime > requiredArrivalTime) {
+              console.log('[Single-Session] Slot invalid: not enough time to arrive from anchor location');
+              isValid = false;
+            }
+          }
+        } catch (error) {
+          console.error('[Single-Session] Error in anchor travel validation:', error);
+          // Don't invalidate on error
         }
       }
 
@@ -445,7 +496,8 @@ async function getAvailableTimeSlots(
   requestedGroupId = null,
   extraDepartureBuffer = 0,
   providerId = null,
-  addons = []
+  addons = [],
+  anchor = null // { lat, lng, startTime, endTime } — fixed location anchor for the day
 ) {
   // Ensure bufferMinutes is a number to prevent NaN errors in calculations
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
@@ -540,6 +592,10 @@ async function getAvailableTimeSlots(
   );
   console.log('DEBUG: slotsAfterOccupied:', slotsAfterOccupied.map(s => s.toTimeString().slice(0,5)));
 
+  // Use anchor from the availability object if not explicitly provided
+  const effectiveAnchor = anchor || (adminAvailability.anchor && adminAvailability.anchor.lat
+    ? adminAvailability.anchor : null);
+
   const validSlots = await validateSlots(
     slotsAfterOccupied,
     bookings,
@@ -549,7 +605,8 @@ async function getAvailableTimeSlots(
     endTime,
     requestedGroupId,
     extraDepartureBuffer,
-    providerId
+    providerId,
+    effectiveAnchor
   ).catch(error => {
     console.error('Error validating slots:', error);
     throw error; // Re-throw to be handled by the caller

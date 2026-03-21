@@ -19,6 +19,16 @@ const AvailabilitySchema = new mongoose.Schema({
     type: String,
     enum: ['manual', 'template'],
     default: 'manual'
+  },
+  // Fixed location anchor info for this day (populated from template)
+  anchor: {
+    locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'SavedLocation', default: null },
+    name: { type: String, default: null },
+    address: { type: String, default: null },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+    startTime: { type: String, default: null }, // "HH:mm" LA time
+    endTime: { type: String, default: null }     // "HH:mm" LA time
   }
 });
 

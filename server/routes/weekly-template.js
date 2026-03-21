@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const WeeklyTemplate = require('../models/WeeklyTemplate');
+const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
-// Get all template entries for the logged-in provider
+// Get all template entries for the logged-in provider (with anchor location populated)
 router.get('/', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
@@ -11,6 +12,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
     }
 
     const templates = await WeeklyTemplate.find({ provider: req.user._id })
+      .populate('anchor.locationId', 'name address lat lng')
       .sort({ dayOfWeek: 1 });
 
     res.json(templates);
@@ -51,21 +53,34 @@ router.put('/', ensureAuthenticated, async (req, res) => {
     }
 
     // Upsert each day
-    const operations = days.map(day => ({
-      updateOne: {
-        filter: { provider: req.user._id, dayOfWeek: day.dayOfWeek },
-        update: {
-          $set: {
-            provider: req.user._id,
-            dayOfWeek: day.dayOfWeek,
-            startTime: day.startTime || '09:00',
-            endTime: day.endTime || '17:00',
-            isActive: day.isActive !== undefined ? day.isActive : false
-          }
-        },
-        upsert: true
+    const operations = days.map(day => {
+      const update = {
+        provider: req.user._id,
+        dayOfWeek: day.dayOfWeek,
+        startTime: day.startTime || '09:00',
+        endTime: day.endTime || '17:00',
+        isActive: day.isActive !== undefined ? day.isActive : false
+      };
+
+      // Include anchor data if provided
+      if (day.anchor && day.anchor.locationId) {
+        update.anchor = {
+          locationId: day.anchor.locationId,
+          startTime: day.anchor.startTime || day.startTime || '09:00',
+          endTime: day.anchor.endTime || day.endTime || '17:00'
+        };
+      } else {
+        update.anchor = { locationId: null, startTime: null, endTime: null };
       }
-    }));
+
+      return {
+        updateOne: {
+          filter: { provider: req.user._id, dayOfWeek: day.dayOfWeek },
+          update: { $set: update },
+          upsert: true
+        }
+      };
+    });
 
     await WeeklyTemplate.bulkWrite(operations);
 

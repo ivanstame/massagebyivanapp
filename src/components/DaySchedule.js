@@ -140,6 +140,41 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
               );
             })}
 
+            {/* Anchor blocks (fixed location commitments) */}
+            {availabilityBlocks
+              .filter(block => block.anchor && block.anchor.name && block.anchor.startTime)
+              .map((block, index) => {
+                const anchorStart = timeToPixels(block.anchor.startTime);
+                const anchorEnd = timeToPixels(block.anchor.endTime);
+                return (
+                  <div
+                    key={`anchor-${index}`}
+                    className="absolute left-0 right-0 bg-amber-50 border border-amber-300
+                      rounded-md z-10"
+                    style={{
+                      top: `${anchorStart}px`,
+                      height: `${Math.max(anchorEnd - anchorStart, 30)}px`,
+                    }}
+                  >
+                    <div className="p-2 flex flex-col h-full">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm font-medium text-amber-800">
+                          {`${formatTime(block.anchor.startTime)} - ${formatTime(block.anchor.endTime)}`}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          Fixed
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-700 mt-0.5 font-medium">{block.anchor.name}</p>
+                      {block.anchor.address && (
+                        <p className="text-xs text-amber-600 truncate">{block.anchor.address}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            }
+
             {/* Bookings */}
             {bookings.map((booking, index) => {
               const bookingStart = timeToPixels(booking.startTime);

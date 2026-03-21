@@ -166,6 +166,7 @@ app.use('/api/invitations', require('./routes/invitations'));
 app.use('/api', require('./routes/direct-access'));
 app.use('/api/provider-requests', require('./routes/provider-assignment-requests'));
 app.use('/api/weekly-template', require('./routes/weekly-template'));
+app.use('/api/saved-locations', require('./routes/saved-locations'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({
