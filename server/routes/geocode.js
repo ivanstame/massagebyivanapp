@@ -127,4 +127,48 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Reverse geocode: convert lat/lng to an address
+router.get('/reverse', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ message: 'lat and lng are required' });
+    }
+
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === 'your-google-maps-api-key-here') {
+      return res.status(500).json({ message: 'Geocoding service not configured' });
+    }
+
+    const cacheKey = `reverse_${lat}_${lng}`;
+    if (geocodeCache.has(cacheKey)) {
+      const cached = geocodeCache.get(cacheKey);
+      if (Date.now() - cached.timestamp < CACHE_TTL) {
+        return res.json(cached.data);
+      }
+      geocodeCache.delete(cacheKey);
+    }
+
+    const response = await safeApiCall(() => axios.get(
+      'https://maps.googleapis.com/maps/api/geocode/json',
+      { params: { latlng: `${lat},${lng}`, key: GOOGLE_MAPS_API_KEY } }
+    ));
+
+    if (response.data.status === 'OK' && response.data.results.length > 0) {
+      const result = {
+        address: response.data.results[0].formatted_address,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng)
+      };
+      geocodeCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      res.json(result);
+    } else {
+      res.status(404).json({ message: 'No address found for these coordinates' });
+    }
+  } catch (error) {
+    console.error('Reverse geocoding error:', error.message);
+    res.status(500).json({ message: 'Reverse geocoding failed' });
+  }
+});
+
 module.exports = router;

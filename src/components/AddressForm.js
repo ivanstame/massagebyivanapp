@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { MapPin, CheckCircle, AlertCircle } from 'lucide-react';
+import { MapPin, CheckCircle, AlertCircle, Map, PenLine } from 'lucide-react';
 import api from '../services/api';
+import PinDropMap from './PinDropMap';
 
 const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
+  // Input mode: 'form' or 'map'
+  const [inputMode, setInputMode] = useState('map');
+
   // Form fields
   const [street, setStreet] = useState('');
   const [unit, setUnit] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
-  
+
   // State
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -28,7 +32,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
 
     try {
       const fullAddress = `${street}${unit ? ', ' + unit : ''}, ${city}, ${state} ${zip}`;
-      
+
       // Geocode the address
       const response = await api.get('/api/geocode', {
         params: { address: fullAddress }
@@ -46,8 +50,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
       }
     } catch (error) {
       console.error('Address verification error:', error);
-      
-      // Handle specific error messages from the server
+
       if (error.response?.data?.message) {
         setVerificationError(error.response.data.message);
       } else if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
@@ -66,10 +69,54 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
     setVerificationError('');
   };
 
+  // Handle pin drop confirmation from map
+  const handleMapLocationConfirmed = (location) => {
+    onAddressConfirmed({
+      fullAddress: location.fullAddress,
+      lat: location.lat,
+      lng: location.lng
+    });
+  };
+
   return (
     <div className="space-y-4">
-      {/* Traditional Address Form */}
-      {!isVerified ? (
+      {/* Mode toggle */}
+      {!isVerified && (
+        <div className="flex rounded-lg bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setInputMode('map')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              inputMode === 'map'
+                ? 'bg-white text-teal-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Map className="w-4 h-4" />
+            Drop Pin
+          </button>
+          <button
+            type="button"
+            onClick={() => setInputMode('form')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              inputMode === 'form'
+                ? 'bg-white text-teal-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <PenLine className="w-4 h-4" />
+            Type Address
+          </button>
+        </div>
+      )}
+
+      {/* Map mode */}
+      {inputMode === 'map' && !isVerified && (
+        <PinDropMap onLocationConfirmed={handleMapLocationConfirmed} />
+      )}
+
+      {/* Form mode */}
+      {inputMode === 'form' && !isVerified && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
@@ -87,7 +134,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                 className="w-full px-4 py-3 text-base border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Unit/Apt (optional)
@@ -121,7 +168,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                 className="w-full px-4 py-3 text-base border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 State <span className="text-red-500">*</span>
@@ -145,10 +192,9 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                 <option value="GA">Georgia</option>
                 <option value="NC">North Carolina</option>
                 <option value="MI">Michigan</option>
-                {/* Add more states as needed */}
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 ZIP Code <span className="text-red-500">*</span>
@@ -188,8 +234,10 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
             {isVerifying ? 'Verifying Address...' : 'Verify Address'}
           </button>
         </div>
-      ) : (
-        /* Verified Address Display */
+      )}
+
+      {/* Verified Address Display (form mode only — map mode confirms inline) */}
+      {isVerified && (
         <div className="space-y-4">
           <div className="bg-teal-50 rounded-lg p-6 border border-teal-200">
             <div className="flex items-start space-x-3">
@@ -211,12 +259,10 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
               </div>
             </div>
           </div>
-          
-          {/* Action buttons after verification */}
+
           <div className="flex gap-3">
             <button
               onClick={() => {
-                // Keep the verified state and just confirm use
                 onAddressConfirmed({
                   fullAddress: addressDetails.formatted_address,
                   lat: addressDetails.lat,
@@ -232,7 +278,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
             >
               Use This Address
             </button>
-            
+
             {showCancel && onCancel && (
               <button
                 onClick={onCancel}

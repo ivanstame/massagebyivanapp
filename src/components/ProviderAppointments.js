@@ -3,6 +3,7 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
 import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, X, Trash2 } from 'lucide-react';
+import StaticMapPreview from './StaticMapPreview';
 
 const ProviderAppointments = () => {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -175,6 +176,15 @@ const ProviderAppointments = () => {
                 <MapPin className="w-4 h-4 mr-2" />
                 <span>{appointment.location?.address || 'No address provided'}</span>
               </div>
+              {appointment.location?.lat && appointment.location?.lng && (
+                <StaticMapPreview
+                  lat={appointment.location.lat}
+                  lng={appointment.location.lng}
+                  width={280}
+                  height={120}
+                  className="mt-2"
+                />
+              )}
             </div>
           </div>
           <div className="ml-4">
