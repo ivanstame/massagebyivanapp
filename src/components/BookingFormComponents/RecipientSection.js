@@ -1,12 +1,12 @@
 import React from 'react';
 import { User, Users, Check, Phone, Mail, UserCircle } from 'lucide-react';
 
-const RecipientSection = ({ 
-  recipientType, 
-  setRecipientType, 
-  recipientInfo, 
-  setRecipientInfo,
-  isComplete 
+const RecipientSection = ({
+  recipientType,
+  onRecipientTypeChange: setRecipientType,
+  recipientInfo,
+  onRecipientInfoChange: setRecipientInfo,
+  isComplete
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
