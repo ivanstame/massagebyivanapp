@@ -1,38 +1,28 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const createTransporter = () => {
-  const host = process.env.EMAIL_HOST;
-  const port = parseInt(process.env.EMAIL_PORT, 10) || 587;
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-
-  if (!host || !user || !pass) {
-    console.warn('Email configuration incomplete. Set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS environment variables.');
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('RESEND_API_KEY environment variable is not set.');
     return null;
   }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass }
-  });
+  return new Resend(apiKey);
 };
 
 const sendPasswordResetEmail = async (toEmail, resetToken) => {
-  const transporter = createTransporter();
+  const resend = getResendClient();
 
-  if (!transporter) {
-    console.error('Cannot send password reset email: email not configured');
+  if (!resend) {
+    console.error('Cannot send password reset email: Resend not configured');
     throw new Error('Email service not configured');
   }
 
   const baseUrl = process.env.REACT_APP_API_URL || process.env.APP_URL || 'http://localhost:3000';
   const resetUrl = `${baseUrl}/reset-password/${resetToken}`;
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
-  const mailOptions = {
-    from: `"Massage by Ivan" <${fromEmail}>`,
+  const { error } = await resend.emails.send({
+    from: `Massage by Ivan <${fromEmail}>`,
     to: toEmail,
     subject: 'Password Reset Request',
     html: `
@@ -62,9 +52,12 @@ const sendPasswordResetEmail = async (toEmail, resetToken) => {
         </div>
       </div>
     `
-  };
+  });
 
-  await transporter.sendMail(mailOptions);
+  if (error) {
+    console.error('Resend error:', error);
+    throw new Error(error.message || 'Failed to send email');
+  }
 };
 
 module.exports = { sendPasswordResetEmail };
