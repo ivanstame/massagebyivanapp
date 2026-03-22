@@ -77,6 +77,14 @@ const UserSchema = new mongoose.Schema({
     default: 1,
     enum: [1, 2, 3]  // Explicitly define valid steps
   },
+  passwordResetToken: {
+    type: String,
+    default: null
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null
+  },
   lastLogin: {
     type: Date,
     default: null

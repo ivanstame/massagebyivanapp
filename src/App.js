@@ -45,6 +45,8 @@ import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
 import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import ProviderSelection from './components/ProviderSelection';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
@@ -130,6 +132,14 @@ function App() {
           <Route
             path="/signup"
             element={user ? <Navigate to="/profile-setup" /> : <SignUp />}
+          />
+          <Route
+            path="/forgot-password"
+            element={user ? <Navigate to="/" /> : <ForgotPassword />}
+          />
+          <Route
+            path="/reset-password/:token"
+            element={user ? <Navigate to="/" /> : <ResetPassword />}
           />
 
           {/* Registration Flow Routes */}
