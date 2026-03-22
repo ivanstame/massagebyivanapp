@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
 const Invitation = require('../models/Invitation');
+const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated, ensureAdmin } = require('../middleware/passportMiddleware');
 
 // @route   GET /api/users/profile
@@ -38,19 +39,42 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
 
     // Different profile updates based on account type
     if (user.accountType === 'PROVIDER') {
-      // Update provider profile
-      user.providerProfile = {
-        ...user.providerProfile,
-        ...req.body.providerProfile
-      };
-      
-      // Update basic profile fields
-      if (req.body.profile) {
-        user.profile = {
-          ...user.profile,
-          ...req.body.profile
+      // Update provider profile (business settings)
+      if (req.body.providerProfile) {
+        user.providerProfile = {
+          ...user.providerProfile,
+          ...req.body.providerProfile
         };
       }
+
+      // Update basic profile fields — handle both nested (req.body.profile) and
+      // root-level fields (from ProfileSetup which sends fullName, phoneNumber, address at root)
+      const updateData = req.body;
+      const profileUpdate = updateData.profile || {};
+
+      user.profile = {
+        ...user.profile,
+        fullName: profileUpdate.fullName || updateData.fullName || user.profile.fullName,
+        phoneNumber: profileUpdate.phoneNumber || updateData.phoneNumber || user.profile.phoneNumber,
+      };
+
+      // Handle address from either root or nested profile
+      const newAddress = profileUpdate.address || updateData.address;
+      if (newAddress) {
+        user.profile.address = {
+          ...user.profile.address,
+          street: newAddress.street || user.profile.address?.street || '',
+          unit: newAddress.unit || user.profile.address?.unit || '',
+          city: newAddress.city || user.profile.address?.city || '',
+          state: newAddress.state || user.profile.address?.state || '',
+          zip: newAddress.zip || user.profile.address?.zip || '',
+          formatted: newAddress.formatted || user.profile.address?.formatted || ''
+        };
+      }
+
+      // Handle allergies/medical from root level (ProfileSetup)
+      if (updateData.allergies !== undefined) user.profile.allergies = updateData.allergies;
+      if (updateData.medicalConditions !== undefined) user.profile.medicalConditions = updateData.medicalConditions;
     } else {
       // Client profile updates - handle both old format (flat structure) and new format
       const updateData = req.body;
@@ -255,11 +279,12 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    
-    // Update provider profile settings
+    const { settings } = req.body;
+
+    // Update provider profile settings (businessName, scheduling, etc)
     user.providerProfile = {
       ...user.providerProfile,
-      ...req.body.settings
+      ...settings
     };
 
     // Clean up: remove bufferTime from scheduling if it exists (since we removed it from UI)
@@ -267,18 +292,88 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
       delete user.providerProfile.scheduling.bufferTime;
     }
 
-    // Update phone number if provided in settings
-    if (req.body.settings.phoneNumber !== undefined) {
+    // Remove address from providerProfile — it belongs in profile.address
+    delete user.providerProfile.address;
+
+    // Update phone number if provided
+    if (settings.phoneNumber !== undefined) {
       user.profile = {
         ...user.profile,
-        phoneNumber: req.body.settings.phoneNumber
+        phoneNumber: settings.phoneNumber
       };
+    }
+
+    // Update address if provided
+    if (settings.address) {
+      user.profile.address = {
+        ...user.profile.address,
+        street: settings.address.street || user.profile.address?.street || '',
+        unit: settings.address.unit || user.profile.address?.unit || '',
+        city: settings.address.city || user.profile.address?.city || '',
+        state: settings.address.state || user.profile.address?.state || '',
+        zip: settings.address.zip || user.profile.address?.zip || '',
+        formatted: settings.address.formatted || user.profile.address?.formatted || ''
+      };
+
+      // Auto-sync: geocode and create/update "Home" saved location
+      const addressStr = [
+        settings.address.street,
+        settings.address.city,
+        settings.address.state,
+        settings.address.zip
+      ].filter(Boolean).join(', ');
+
+      if (addressStr.trim()) {
+        try {
+          // Geocode the address
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressStr)}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+          const geocodeRes = await fetch(geocodeUrl);
+          const geocodeData = await geocodeRes.json();
+
+          if (geocodeData.results && geocodeData.results.length > 0) {
+            const { lat, lng } = geocodeData.results[0].geometry.location;
+            const formattedAddress = geocodeData.results[0].formatted_address;
+
+            // Store formatted address
+            user.profile.address.formatted = formattedAddress;
+
+            // Find existing home base or create one
+            let homeLocation = await SavedLocation.findOne({
+              provider: user._id,
+              isHomeBase: true
+            });
+
+            if (homeLocation) {
+              // Update existing home base
+              homeLocation.name = 'Home';
+              homeLocation.address = formattedAddress;
+              homeLocation.lat = lat;
+              homeLocation.lng = lng;
+              await homeLocation.save();
+            } else {
+              // Create new home base
+              await SavedLocation.create({
+                provider: user._id,
+                name: 'Home',
+                address: formattedAddress,
+                lat,
+                lng,
+                isHomeBase: true
+              });
+            }
+          }
+        } catch (geocodeErr) {
+          // Non-fatal: address saves even if geocoding fails
+          console.error('Geocoding error during settings sync:', geocodeErr.message);
+        }
+      }
     }
 
     await user.save();
     res.json({
       message: 'Provider settings updated',
-      settings: user.providerProfile
+      settings: user.providerProfile,
+      profile: user.profile
     });
   } catch (error) {
     console.error('Error updating provider settings:', error);
