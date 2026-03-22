@@ -5,6 +5,13 @@ import { AuthContext } from '../AuthContext';
 import { MapPin, Plus, Trash2, Home, AlertCircle, X, Map } from 'lucide-react';
 import PinDropMap from './PinDropMap';
 
+const US_STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
+  'VA','WA','WV','WI','WY'
+];
+
 const ProviderLocations = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -13,7 +20,10 @@ const ProviderLocations = () => {
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addMode, setAddMode] = useState('pin'); // 'pin' or 'address'
-  const [newLocation, setNewLocation] = useState({ name: '', address: '', lat: null, lng: null, isHomeBase: false });
+  const [newLocation, setNewLocation] = useState({
+    name: '', address: '', lat: null, lng: null, isHomeBase: false,
+    street: '', city: '', state: 'CA', zip: ''
+  });
   const [geocoding, setGeocoding] = useState(false);
 
   useEffect(() => {
@@ -71,8 +81,13 @@ const ProviderLocations = () => {
       return;
     }
 
-    if (addMode === 'address' && !newLocation.address) {
-      setError('Address is required');
+    if (addMode === 'address' && !newLocation.street) {
+      setError('Street address is required');
+      return;
+    }
+
+    if (addMode === 'address' && !newLocation.city) {
+      setError('City is required');
       return;
     }
 
@@ -84,9 +99,12 @@ const ProviderLocations = () => {
       let lng = newLocation.lng;
       let address = newLocation.address;
 
-      // If using address mode, geocode it
-      if (addMode === 'address' && (!lat || !lng)) {
-        const coords = await geocodeAddress(newLocation.address);
+      // If using address mode, build address string and geocode
+      if (addMode === 'address') {
+        address = [newLocation.street, newLocation.city, newLocation.state, newLocation.zip]
+          .filter(Boolean).join(', ');
+
+        const coords = await geocodeAddress(address);
         if (!coords) {
           setError('Could not find that address. Please check and try again.');
           return;
@@ -103,7 +121,7 @@ const ProviderLocations = () => {
         isHomeBase: newLocation.isHomeBase
       }, { withCredentials: true });
 
-      setNewLocation({ name: '', address: '', lat: null, lng: null, isHomeBase: false });
+      setNewLocation({ name: '', address: '', lat: null, lng: null, isHomeBase: false, street: '', city: '', state: 'CA', zip: '' });
       setShowAddForm(false);
       await fetchLocations();
     } catch (err) {
@@ -275,17 +293,53 @@ const ProviderLocations = () => {
                 </div>
               )}
 
-              {/* Address mode */}
+              {/* Address mode — structured fields */}
               {addMode === 'address' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                  <input
-                    type="text"
-                    value={newLocation.address}
-                    onChange={(e) => setNewLocation(prev => ({ ...prev, address: e.target.value, lat: null, lng: null }))}
-                    placeholder="123 Main St, Huntington Beach, CA 92648"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      value={newLocation.street}
+                      onChange={(e) => setNewLocation(prev => ({ ...prev, street: e.target.value }))}
+                      placeholder="123 Main St"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-6 gap-3">
+                    <div className="col-span-3">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                      <input
+                        type="text"
+                        value={newLocation.city}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="Huntington Beach"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
+                      <select
+                        value={newLocation.state}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, state: e.target.value }))}
+                        className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      >
+                        <option value="">--</option>
+                        {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">ZIP</label>
+                      <input
+                        type="text"
+                        value={newLocation.zip}
+                        onChange={(e) => setNewLocation(prev => ({ ...prev, zip: e.target.value }))}
+                        placeholder="92648"
+                        maxLength={5}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
