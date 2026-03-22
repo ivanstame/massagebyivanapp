@@ -5,7 +5,6 @@ import { Calendar, MapPin, Clock, AlertCircle, Phone, MessageSquare, Tag, Dollar
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
-import { getMassageTypeName } from '../shared/constants/massageOptions';
 
 
 const BookingList = () => {
@@ -188,7 +187,7 @@ const BookingList = () => {
               {booking.massageType && (
                 <div className="flex items-center text-slate-600">
                   <Tag className="w-4 h-4 mr-2" />
-                  <span>{booking.massageType.name || getMassageTypeName(booking.massageType.id)}</span>
+                  <span>{booking.massageType.name || booking.massageType.id}</span>
                 </div>
               )}
               

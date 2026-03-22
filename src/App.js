@@ -41,6 +41,7 @@ import ProviderAppointments from './components/ProviderAppointments';
 import ProviderClients from './components/ProviderClients';
 import ProviderClientDetails from './components/ProviderClientDetails';
 import ProviderLocations from './components/ProviderLocations';
+import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
 import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
@@ -226,6 +227,14 @@ function App() {
             element={
               <ProtectedRoute providerOnly>
                 <ProviderLocations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/services"
+            element={
+              <ProtectedRoute providerOnly>
+                <ProviderServices />
               </ProtectedRoute>
             }
           />

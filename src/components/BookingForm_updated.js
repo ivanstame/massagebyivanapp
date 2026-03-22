@@ -25,45 +25,88 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // Provider state
   const [provider, setProvider] = useState(null);
 
+  // Provider services (fetched from API)
+  const [durationOptions, setDurationOptions] = useState([]);
+  const [availableAddons, setAvailableAddons] = useState([]);
+
   // Booking flow state with sensible defaults
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [recipientType, setRecipientType] = useState('self'); // Default: for myself
+  const [recipientType, setRecipientType] = useState('self');
   const [recipientInfo, setRecipientInfo] = useState({ name: '', phone: '', email: '' });
   const [fullAddress, setFullAddress] = useState('');
   const [location, setLocation] = useState(null);
-  const [selectedDuration, setSelectedDuration] = useState(60); // Default: 60 minutes
+  const [selectedDuration, setSelectedDuration] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
-  const [selectedMassageType] = useState('focused'); // Default massage type
+  const [selectedMassageType] = useState('focused');
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
-  
+
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [newBookingId, setNewBookingId] = useState(null);
 
-  // Get provider info
+  // Get provider info and services
   useEffect(() => {
     const fetchProviderInfo = async () => {
+      let providerId = null;
+
       if (user.accountType === 'PROVIDER') {
         setProvider(user);
-        return;
-      }
-      
-      if (user.accountType === 'CLIENT' && user.providerId) {
+        providerId = user._id;
+      } else if (user.accountType === 'CLIENT' && user.providerId) {
         try {
           const response = await api.get(`/api/users/provider/${user.providerId}`);
           setProvider(response.data || {
             _id: user.providerId,
             providerProfile: { businessName: 'Your Provider' }
           });
+          providerId = user.providerId;
         } catch (error) {
           console.error('Error fetching provider info:', error);
           setProvider({
             _id: user.providerId || user._id,
             providerProfile: { businessName: 'Your Provider' }
           });
+          providerId = user.providerId;
+        }
+      }
+
+      // Fetch provider's services (pricing + addons)
+      if (providerId) {
+        try {
+          const servicesRes = await api.get(`/api/users/provider/${providerId}/services`);
+          const { basePricing, addons } = servicesRes.data;
+
+          if (basePricing && basePricing.length > 0) {
+            setDurationOptions(basePricing);
+            // Auto-select first duration if none selected
+            setSelectedDuration(basePricing[0].duration);
+          } else {
+            // Fallback defaults
+            const defaults = [
+              { duration: 60, price: 125, label: '60 Minutes' },
+              { duration: 90, price: 180, label: '90 Minutes' },
+              { duration: 120, price: 250, label: '120 Minutes' },
+            ];
+            setDurationOptions(defaults);
+            setSelectedDuration(60);
+          }
+
+          if (addons && addons.length > 0) {
+            setAvailableAddons(addons);
+          }
+        } catch (err) {
+          console.error('Error fetching provider services:', err);
+          // Fallback defaults
+          const defaults = [
+            { duration: 60, price: 125, label: '60 Minutes' },
+            { duration: 90, price: 180, label: '90 Minutes' },
+            { duration: 120, price: 250, label: '120 Minutes' },
+          ];
+          setDurationOptions(defaults);
+          setSelectedDuration(60);
         }
       }
     };
@@ -86,8 +129,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
       if (street && city && state && zip) {
         const combinedAddress = `${street}${unit ? ', ' + unit : ''}, ${city}, ${state} ${zip}`;
         setFullAddress(combinedAddress);
-        
-        // Geocode the saved address
+
         (async () => {
           try {
             const geo = await api.get('/api/geocode', {
@@ -106,94 +148,35 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   }, [user]);
 
-  // Fetch available slots
+  // Fetch available time slots
   const fetchAvailableSlots = async () => {
-    if (!googleMapsLoaded || !fullAddress || !selectedDuration) {
-      setAvailableSlots([]);
-      return;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
+    const providerId = user.accountType === 'PROVIDER' ? user._id : user.providerId;
+    if (!providerId) return;
+
+    const dateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
+    const formattedDate = dateLA.toFormat('yyyy-MM-dd');
+
+    // Calculate total duration including add-on extra time
+    const extraTime = selectedAddons.reduce((sum, name) => {
+      const addon = availableAddons.find(a => a.name === name);
+      return sum + (addon?.extraTime || 0);
+    }, 0);
+    const totalDuration = selectedDuration + extraTime;
+
     try {
-      let providerId = user.accountType === 'CLIENT' 
-        ? (user.providerId || provider?._id)
-        : user._id;
-        
-      if (!providerId) {
-        setError('Unable to find your provider. Please contact support.');
-        setLoading(false);
-        return;
-      }
-      
-      // Get coordinates
-      let lat, lng;
-      try {
-        console.log('Geocoding address for availability calculation:', fullAddress);
-        const geocodeResponse = await api.get('/api/geocode', {
-          params: { address: fullAddress }
-        });
-        lat = geocodeResponse.data.lat;
-        lng = geocodeResponse.data.lng;
-        console.log('Geocoded coordinates:', lat, lng);
-      } catch (geoError) {
-        console.error('Error geocoding address:', geoError);
-        lat = 34.0522;
-        lng = -118.2437;
-      }
-
-      const laDate = DateTime.fromJSDate(selectedDate)
-        .setZone(DEFAULT_TZ)
-        .toFormat('yyyy-MM-dd');
-      
-      // Calculate total duration including add-ons
-      const extraTime = selectedAddons.includes('stretching') ? 30 : 0;
-      const totalDuration = selectedDuration + extraTime;
-      
-      const addonsParam = selectedAddons.length > 0 
-        ? JSON.stringify(selectedAddons.map(addonId => {
-            const extraTime = addonId === 'stretching' ? 30 : 0;
-            return { id: addonId, extraTime };
-          }))
-        : null;
-
-      const response = await api.get(
-        `/api/availability/available/${laDate}`,
-        {
-          params: {
-            providerId,
-            duration: totalDuration,
-            lat,
-            lng,
-            addons: addonsParam
-          }
+      const response = await api.get(`/api/availability/available/${formattedDate}`, {
+        params: {
+          providerId,
+          duration: totalDuration,
+          lat: location?.lat,
+          lng: location?.lng,
+          addons: selectedAddons.join(',')
         }
-      );
-
-      const formattedSlots = response.data.map(isoTime => {
-        try {
-          const localTime = LuxonService.formatISOToDisplay(isoTime, TIME_FORMATS.TIME_24H);
-          if (!localTime) return null;
-          
-          return {
-            iso: isoTime,
-            local: localTime,
-            display: LuxonService.formatISOToDisplay(isoTime, TIME_FORMATS.TIME_12H)
-          };
-        } catch (err) {
-          console.error('Error formatting time slot:', isoTime, err);
-          return null;
-        }
-      }).filter(Boolean);
-
-      setAvailableSlots(formattedSlots);
-      setError(null);
+      });
+      setAvailableSlots(response.data);
     } catch (err) {
-      setError('Could not fetch available times');
       console.error('Error fetching slots:', err);
-    } finally {
-      setLoading(false);
+      setAvailableSlots([]);
     }
   };
 
@@ -209,7 +192,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     if (loading) return;
     setError(null);
     setLoading(true);
-    
+
     try {
       if (!selectedDate || !selectedTime || !fullAddress || !location || !selectedDuration) {
         throw new Error('Please complete all required fields');
@@ -217,23 +200,27 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
       const bookingDateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
       const bookingDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
-      
+
       const formattedTime = LuxonService.formatISOToDisplay(selectedTime.iso, TIME_FORMATS.TIME_24H);
       if (!formattedTime) {
         throw new Error('Failed to format time correctly');
       }
 
-      // Calculate pricing
-      const basePrice = selectedDuration === 60 ? 100 : selectedDuration === 90 ? 150 : 200;
-      const addonsPrice = selectedAddons.reduce((total, addonId) => {
-        const prices = { theragun: 10, hotstone: 20, bamboo: 30, stretching: 25 };
-        return total + (prices[addonId] || 0);
-      }, 0);
+      // Calculate pricing from provider data
+      const pricingTier = durationOptions.find(p => p.duration === selectedDuration);
+      const basePrice = pricingTier?.price || 0;
+
+      const selectedAddonDetails = selectedAddons.map(name =>
+        availableAddons.find(a => a.name === name)
+      ).filter(Boolean);
+
+      const addonsPrice = selectedAddonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
+      const extraTime = selectedAddonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
 
       const bookingData = {
         date: bookingDateStr,
         time: formattedTime,
-        duration: selectedDuration + (selectedAddons.includes('stretching') ? 30 : 0),
+        duration: selectedDuration + extraTime,
         location: {
           address: fullAddress,
           lat: location.lat,
@@ -243,15 +230,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
           id: selectedMassageType,
           name: 'Focused Therapeutic'
         },
-        addons: selectedAddons.map(addonId => {
-          const addonDetails = {
-            theragun: { name: 'TheraGun', price: 10, extraTime: 0 },
-            hotstone: { name: 'Hot Stone', price: 20, extraTime: 0 },
-            bamboo: { name: 'Warm Bamboo', price: 30, extraTime: 0 },
-            stretching: { name: 'Dynamic Stretching', price: 25, extraTime: 30 }
-          };
-          return { id: addonId, ...addonDetails[addonId] };
-        }),
+        addons: selectedAddonDetails.map(addon => ({
+          id: addon.name.toLowerCase().replace(/\s+/g, '-'),
+          name: addon.name,
+          price: addon.price,
+          extraTime: addon.extraTime || 0
+        })),
         pricing: {
           basePrice,
           addonsPrice,
@@ -271,7 +255,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
       if (!response || !response._id) {
         throw new Error('Invalid booking response');
       }
-      
+
       setNewBookingId(response._id);
       setBookingSuccess(true);
     } catch (err) {
@@ -283,10 +267,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   };
 
   const isBookingComplete = () => {
-    const isRecipientComplete = 
-      recipientType === 'self' || 
+    const isRecipientComplete =
+      recipientType === 'self' ||
       (recipientType === 'other' && recipientInfo.name && recipientInfo.phone);
-    
+
     return (
       selectedDate &&
       fullAddress &&
@@ -301,7 +285,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setSelectedTime(null);
     setFullAddress('');
     setLocation(null);
-    setSelectedDuration(60);
+    setSelectedDuration(durationOptions.length > 0 ? durationOptions[0].duration : 60);
     setSelectedAddons([]);
     setRecipientType('self');
     setRecipientInfo({ name: '', phone: '', email: '' });
@@ -311,46 +295,36 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 mt-20"> {/* Significantly increased mt-20 to clear navbar */}
-        {/* Simple heading with ample spacing to avoid navbar overlap */}
-        <div className="text-center mb-6 pt-16"> {/* Increased pt-16 to ensure clearance */}
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 mt-20">
+        <div className="text-center mb-6 pt-16">
           <h1 className="text-2xl font-bold text-gray-900">
             {provider?.providerProfile?.businessName
               ? `You are booking with ${provider.providerProfile.businessName}`
-              : provider?.businessName
-              ? `You are booking with ${provider.businessName}`
-              : 'Booking Appointment'
-            }
+              : 'Book Your Massage'}
           </h1>
         </div>
 
-
-        {/* Main booking form */}
         <div className="space-y-6">
           {/* 1. Calendar */}
-          <CalendarSection 
+          <CalendarSection
             selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            availableSlots={availableSlots}
-            isDisabled={false}
+            onDateChange={setSelectedDate}
             isComplete={selectedDate !== null}
           />
 
           {/* 2. Recipient */}
           <RecipientSection
             recipientType={recipientType}
-            setRecipientType={setRecipientType}
             recipientInfo={recipientInfo}
-            setRecipientInfo={setRecipientInfo}
-            isComplete={recipientType === 'self' || (recipientType === 'other' && recipientInfo.name && recipientInfo.phone)}
+            onRecipientTypeChange={setRecipientType}
+            onRecipientInfoChange={setRecipientInfo}
+            isComplete={recipientType === 'self' || (recipientInfo.name && recipientInfo.phone)}
           />
 
           {/* 3. Address */}
-          <AddressSection 
+          <AddressSection
             savedAddress={user?.profile?.address ? {
               fullAddress: `${user.profile.address.street}${user.profile.address.unit ? ', ' + user.profile.address.unit : ''}, ${user.profile.address.city}, ${user.profile.address.state} ${user.profile.address.zip}`
-              // Note: We don't include lat/lng here because the AddressSection will trigger a geocode
-              // when the user selects "Use Saved Address"
             } : null}
             currentAddress={location}
             onAddressChange={handleAddressConfirmed}
@@ -358,23 +332,24 @@ const BookingForm = ({ googleMapsLoaded }) => {
             isComplete={fullAddress !== ''}
           />
 
-          {/* 4. Duration */}
+          {/* 4. Duration — from provider's pricing */}
           <SimpleDurationSelector
             selectedDuration={selectedDuration}
             onDurationChange={setSelectedDuration}
             isComplete={selectedDuration !== null}
+            durationOptions={durationOptions}
           />
 
-          {/* 5. Add-ons */}
+          {/* 5. Add-ons — from provider's services */}
           <AddOnsSelector
             selectedAddons={selectedAddons}
             onAddonsChange={setSelectedAddons}
             isComplete={true}
+            availableAddons={availableAddons}
           />
 
-          {/* 6. Booking Summary - Always visible */}
+          {/* 6. Booking Summary */}
           <BookingSummaryCard
-            selectedMassageType={selectedMassageType}
             selectedDuration={selectedDuration}
             selectedDate={selectedDate}
             selectedTime={selectedTime}
@@ -382,10 +357,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
             selectedAddons={selectedAddons}
             recipientType={recipientType}
             recipientInfo={recipientInfo}
+            durationOptions={durationOptions}
+            availableAddons={availableAddons}
           />
 
           {/* 7. Available Time Slots */}
-          <AvailableTimeSlots 
+          <AvailableTimeSlots
             availableSlots={availableSlots}
             selectedTime={selectedTime}
             onTimeSelected={setSelectedTime}
@@ -411,14 +388,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
               <ArrowLeft className="w-5 h-5" />
               <span>Go Back</span>
             </button>
-            
+
             <button
               onClick={handleSubmit}
               disabled={!isBookingComplete() || loading}
               className={`flex-1 px-6 py-3 rounded-lg text-lg font-medium shadow-sm transition-all
                          flex items-center justify-center space-x-2
-                ${isBookingComplete() 
-                  ? 'bg-teal-600 text-white hover:bg-cyan-900' 
+                ${isBookingComplete()
+                  ? 'bg-teal-600 text-white hover:bg-cyan-900'
                   : 'bg-slate-200 text-slate-500 cursor-not-allowed'
                 }`}
             >
@@ -435,7 +412,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
         </div>
 
         {/* Booking Confirmation Modal */}
-        <BookingConfirmationModal 
+        <BookingConfirmationModal
           isVisible={bookingSuccess}
           bookingDetails={{
             selectedTime,
@@ -447,15 +424,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
             selectedAddons,
             selectedMassageType,
             massageTypes: [
-              { id: 'focused', name: 'Focused Therapeutic' },
-              { id: 'deep', name: 'General Deep Tissue' },
-              { id: 'relaxation', name: 'Relaxation Flow' }
+              { id: 'focused', name: 'Focused Therapeutic' }
             ],
-            addons: [
-              { id: 'theragun', name: 'TheraGun', price: 10 },
-              { id: 'hotstone', name: 'Hot Stone', price: 20 },
-              { id: 'bamboo', name: 'Warm Bamboo', price: 30 },
-            ],
+            addons: availableAddons.map(a => ({ id: a.name, name: a.name, price: a.price })),
             recipientType,
             recipientInfo
           }}

@@ -381,6 +381,75 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Get provider services (addons + base pricing) — for booking flow
+router.get('/provider/:providerId/services', async (req, res) => {
+  try {
+    const provider = await User.findOne({
+      _id: req.params.providerId,
+      accountType: 'PROVIDER'
+    });
+    if (!provider) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    res.json({
+      basePricing: provider.providerProfile?.basePricing || [],
+      addons: (provider.providerProfile?.addons || []).filter(a => a.isActive)
+    });
+  } catch (error) {
+    console.error('Error fetching provider services:', error);
+    res.status(500).json({ message: 'Error fetching provider services' });
+  }
+});
+
+// Update provider services (addons + base pricing)
+router.put('/provider/services', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    const { basePricing, addons } = req.body;
+
+    if (basePricing) {
+      // Validate pricing entries
+      for (const entry of basePricing) {
+        if (!entry.duration || entry.duration < 30 || entry.duration > 180) {
+          return res.status(400).json({ message: `Invalid duration: ${entry.duration}. Must be 30-180 minutes.` });
+        }
+        if (entry.price == null || entry.price < 0) {
+          return res.status(400).json({ message: 'Price must be a positive number' });
+        }
+      }
+      user.providerProfile.basePricing = basePricing;
+    }
+
+    if (addons) {
+      // Validate addon entries
+      for (const addon of addons) {
+        if (!addon.name || addon.name.trim().length === 0) {
+          return res.status(400).json({ message: 'Add-on name is required' });
+        }
+        if (addon.price == null || addon.price < 0) {
+          return res.status(400).json({ message: `Invalid price for add-on "${addon.name}"` });
+        }
+      }
+      user.providerProfile.addons = addons;
+    }
+
+    await user.save();
+    res.json({
+      message: 'Services updated',
+      basePricing: user.providerProfile.basePricing,
+      addons: user.providerProfile.addons
+    });
+  } catch (error) {
+    console.error('Error updating provider services:', error);
+    res.status(500).json({ message: 'Error updating services' });
+  }
+});
+
 // Get provider info for booking (accessible route)
 router.get('/provider/:providerId', async (req, res) => {
   try {

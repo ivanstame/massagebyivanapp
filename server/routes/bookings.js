@@ -10,12 +10,7 @@ const { DateTime } = require('luxon');
 const smsService = require('../services/smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
 
-// Valid massage types and add-ons for validation
-const VALID_MASSAGE_TYPES = ['focused', 'deep', 'relaxation'];
-const VALID_ADDONS = ['theragun', 'hotstone', 'bamboo', 'stretching'];
-
-
-// Calculate price helper
+// Calculate price helper (fallback when provider has no pricing configured)
 const calculatePrice = (duration) => {
   const BASE_RATE = 120; // $120 per hour
   return Math.ceil((duration / 60) * BASE_RATE);
@@ -107,28 +102,26 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'This time slot is no longer available' });
     }
 
-    // Validate massage type if provided
-    if (req.body.massageType) {
-      if (!VALID_MASSAGE_TYPES.includes(req.body.massageType.id)) {
-        return res.status(400).json({ 
-          message: `Invalid massage type: ${req.body.massageType.id}. Valid types are: ${VALID_MASSAGE_TYPES.join(', ')}` 
-        });
-      }
-    }
-    
-    // Validate add-ons if provided
+    // Validate add-ons against provider's configured services
     if (req.body.addons && Array.isArray(req.body.addons)) {
+      const providerUser = await User.findById(providerId);
+      const providerAddons = providerUser?.providerProfile?.addons || [];
+      const activeAddonNames = providerAddons
+        .filter(a => a.isActive)
+        .map(a => a.name);
+
       for (const addon of req.body.addons) {
-        if (!VALID_ADDONS.includes(addon.id)) {
-          return res.status(400).json({ 
-            message: `Invalid add-on: ${addon.id}. Valid add-ons are: ${VALID_ADDONS.join(', ')}` 
+        // Validate against provider's configured addons (by name)
+        if (activeAddonNames.length > 0 && !activeAddonNames.includes(addon.name)) {
+          return res.status(400).json({
+            message: `Add-on "${addon.name}" is not available from this provider`
           });
         }
-        
+
         // Validate price is a positive number
         if (typeof addon.price !== 'number' || addon.price < 0) {
-          return res.status(400).json({ 
-            message: `Invalid price for add-on ${addon.id}: ${addon.price}. Price must be a positive number.` 
+          return res.status(400).json({
+            message: `Invalid price for add-on "${addon.name}". Price must be a positive number.`
           });
         }
       }

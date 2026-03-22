@@ -1,15 +1,18 @@
 import React from 'react';
 import { Plus, Check, Info } from 'lucide-react';
-import { MASSAGE_ADDONS } from '../../shared/constants/massageOptions';
 
-const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete }) => {
-  const toggleAddon = (addonId) => {
-    if (selectedAddons.includes(addonId)) {
-      onAddonsChange(selectedAddons.filter(id => id !== addonId));
+const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableAddons = [] }) => {
+  const toggleAddon = (addonName) => {
+    if (selectedAddons.includes(addonName)) {
+      onAddonsChange(selectedAddons.filter(name => name !== addonName));
     } else {
-      onAddonsChange([...selectedAddons, addonId]);
+      onAddonsChange([...selectedAddons, addonName]);
     }
   };
+
+  if (availableAddons.length === 0) {
+    return null; // Don't render if provider has no add-ons
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
@@ -28,13 +31,13 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete }) => {
 
       {/* Add-ons Grid */}
       <div className="space-y-3">
-        {MASSAGE_ADDONS.map((addon) => {
-          const isSelected = selectedAddons.includes(addon.id);
+        {availableAddons.map((addon) => {
+          const isSelected = selectedAddons.includes(addon.name);
 
           return (
             <button
-              key={addon.id}
-              onClick={() => toggleAddon(addon.id)}
+              key={addon.name}
+              onClick={() => toggleAddon(addon.name)}
               className={`
                 w-full min-h-touch p-4 rounded-lg border-2 transition-all duration-200
                 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
@@ -62,9 +65,11 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete }) => {
                     <div className="font-medium text-lg text-slate-900">
                       {addon.name}
                     </div>
-                    <div className="text-sm text-slate-600 mt-1">
-                      {addon.description}
-                    </div>
+                    {addon.description && (
+                      <div className="text-sm text-slate-600 mt-1">
+                        {addon.description}
+                      </div>
+                    )}
                     {addon.extraTime > 0 && (
                       <div className="text-xs text-teal-600 mt-1 font-medium">
                         +{addon.extraTime} minutes added to session

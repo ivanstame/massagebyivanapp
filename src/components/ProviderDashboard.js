@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Users, Settings, MapPin, Clock } from 'lucide-react';
+import { Calendar, Users, Settings, MapPin, Clock, DollarSign } from 'lucide-react';
 import api from '../services/api';
 import { SkeletonCard } from './ui/Skeleton';
 
@@ -134,6 +134,20 @@ const ProviderDashboard = () => {
             </div>
             <p className="text-slate-500 text-sm">
               Manage saved locations and drop pins on the map
+            </p>
+          </Link>
+
+          <Link
+            to="/provider/services"
+            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+          >
+            <div className="flex items-center mb-3">
+              <DollarSign className="w-5 h-5 text-[#009ea5] mr-2" />
+              <h3 className="font-medium text-slate-900">Services & Pricing</h3>
+            </div>
+            <p className="text-slate-500 text-sm">
+              Manage your session pricing and add-on services
             </p>
           </Link>
 

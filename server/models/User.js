@@ -41,7 +41,21 @@ const UserSchema = new mongoose.Schema({
         default: 'ACTIVE'
       },
       expiresAt: Date
-    }
+    },
+    // Provider-configured pricing by duration
+    basePricing: [{
+      duration: { type: Number, required: true },  // minutes: 60, 90, 120
+      price: { type: Number, required: true },
+      label: String  // e.g. "60 Minutes"
+    }],
+    // Provider-configured add-on services
+    addons: [{
+      name: { type: String, required: true },
+      price: { type: Number, required: true },
+      description: String,
+      extraTime: { type: Number, default: 0 },  // additional minutes
+      isActive: { type: Boolean, default: true }
+    }]
   },
   // Add the new clientProfile field here
   clientProfile: {
