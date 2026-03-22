@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Clock, Save, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
-import SavedLocationsManager from './SavedLocationsManager';
+import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink } from 'lucide-react';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -27,6 +26,15 @@ const generateTimeOptions = () => {
 
 const TIME_OPTIONS = generateTimeOptions();
 
+const FORECAST_OPTIONS = [
+  { value: 1, label: '1 week' },
+  { value: 2, label: '2 weeks' },
+  { value: 4, label: '4 weeks' },
+  { value: 6, label: '6 weeks' },
+  { value: 8, label: '8 weeks' },
+  { value: 12, label: '12 weeks' },
+];
+
 const WeeklyTemplateEditor = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -44,15 +52,21 @@ const WeeklyTemplateEditor = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
-  const [showLocations, setShowLocations] = useState(false);
+  const [forecastWeeks, setForecastWeeks] = useState(4);
 
   const fetchTemplate = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/weekly-template', { withCredentials: true });
-      if (res.data.length > 0) {
+      const [templateRes, locationsRes] = await Promise.all([
+        axios.get('/api/weekly-template', { withCredentials: true }),
+        axios.get('/api/saved-locations', { withCredentials: true })
+      ]);
+
+      setSavedLocations(locationsRes.data);
+
+      if (templateRes.data.length > 0) {
         const merged = DAY_NAMES.map((_, i) => {
-          const serverDay = res.data.find(d => d.dayOfWeek === i);
+          const serverDay = templateRes.data.find(d => d.dayOfWeek === i);
           if (serverDay) {
             return {
               dayOfWeek: i,
@@ -128,7 +142,7 @@ const WeeklyTemplateEditor = () => {
     try {
       setSaving(true);
       setError(null);
-      await axios.put('/api/weekly-template', { days }, { withCredentials: true });
+      await axios.put('/api/weekly-template', { days, forecastWeeks }, { withCredentials: true });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -173,7 +187,7 @@ const WeeklyTemplateEditor = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Weekly Schedule Template</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Set your recurring weekly availability and fixed location commitments.
+            Set your recurring weekly availability and anchor locations.
           </p>
         </div>
 
@@ -187,26 +201,54 @@ const WeeklyTemplateEditor = () => {
         {saved && (
           <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 text-green-700 flex items-start rounded">
             <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-sm">Template saved. Future dates will use this schedule.</p>
+            <p className="text-sm">Template saved. Availability generated {forecastWeeks} weeks out.</p>
           </div>
         )}
 
-        {/* Saved Locations Section */}
-        <div className="mb-6">
-          <button
-            onClick={() => setShowLocations(!showLocations)}
-            className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2 hover:text-[#009ea5] transition-colors"
-          >
-            <MapPin className="w-4 h-4" />
-            My Locations ({savedLocations.length})
-            <span className="text-xs text-slate-400">{showLocations ? '(hide)' : '(manage)'}</span>
-          </button>
-          {showLocations && (
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <SavedLocationsManager onLocationsChange={setSavedLocations} />
-            </div>
-          )}
+        {/* Forecast duration */}
+        <div className="mb-4 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            How far ahead should this schedule be generated?
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {FORECAST_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { setForecastWeeks(opt.value); setSaved(false); }}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  forecastWeeks === opt.value
+                    ? 'bg-[#009ea5] text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Locations link */}
+        {savedLocations.length === 0 ? (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-amber-800">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span>No saved locations yet.</span>
+              <Link to="/provider/locations" className="font-medium underline hover:text-amber-900">
+                Add locations
+              </Link>
+              <span>to assign them to days.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 flex items-center gap-2 text-sm text-slate-600">
+            <MapPin className="w-4 h-4" />
+            <span>{savedLocations.length} saved location{savedLocations.length !== 1 ? 's' : ''}</span>
+            <Link to="/provider/locations" className="text-[#009ea5] hover:underline flex items-center gap-1">
+              Manage <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
+        )}
 
         {/* Quick presets */}
         <div className="mb-4 flex flex-wrap gap-2">
@@ -284,17 +326,18 @@ const WeeklyTemplateEditor = () => {
                 )}
               </div>
 
-              {/* Anchor assignment (only for active days) */}
+              {/* Anchor location assignment */}
               {day.isActive && (
-                <div className="mt-2 ml-[76px]">
+                <div className="mt-3 ml-[76px] p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">Anchor:</span>
                     <select
                       value={day.anchor.locationId || ''}
                       onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
-                      className="border border-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-0 bg-slate-50 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="border border-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#009ea5] focus:border-[#009ea5]"
                     >
-                      <option value="">No fixed location (mobile day)</option>
+                      <option value="">No anchor (mobile day)</option>
                       {savedLocations.map(loc => (
                         <option key={loc._id} value={loc._id}>
                           {loc.name}{loc.isHomeBase ? ' (Home)' : ''}
@@ -303,9 +346,9 @@ const WeeklyTemplateEditor = () => {
                     </select>
                   </div>
 
-                  {/* Anchor time range (when a location is selected) */}
+                  {/* Anchor time range */}
                   {day.anchor.locationId && (
-                    <div className="mt-1.5 flex items-center gap-2 ml-5">
+                    <div className="mt-2 flex items-center gap-2 ml-5">
                       <span className="text-xs text-amber-600 flex-shrink-0">At location:</span>
                       <select
                         value={day.anchor.startTime}
@@ -363,11 +406,11 @@ const WeeklyTemplateEditor = () => {
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">How this works</p>
               <ul className="list-disc ml-4 space-y-1 text-blue-700">
-                <li>This template auto-creates availability for future dates</li>
+                <li>This template generates availability <strong>{forecastWeeks} weeks</strong> into the future</li>
                 <li>You can edit or delete individual days from the Availability page</li>
                 <li>Manual changes to a specific day always take priority</li>
-                <li><strong>Fixed locations</strong> block off time on your calendar — clients can't book over them</li>
-                <li>Drive time calculates from your fixed location, not home, on anchored days</li>
+                <li><strong>Anchor locations</strong> block off time on your calendar for that location</li>
+                <li>Drive time calculates from your anchor location on anchored days</li>
               </ul>
             </div>
           </div>

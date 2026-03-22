@@ -6,13 +6,13 @@ import MyProfile from './components/MyProfile';
 // Google Maps Script Loader with logging
 const loadGoogleMapsScript = () => {
   console.log(`[GoogleMaps] ${new Date().toISOString()} | Loading Google Maps API script`);
-  
+
   const script = document.createElement('script');
   script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&libraries=places`;
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);
-  
+
   return new Promise((resolve, reject) => {
     script.onload = () => {
       console.log(`[GoogleMaps] ${new Date().toISOString()} | Google Maps API script loaded successfully`);
@@ -40,7 +40,7 @@ import ProviderAvailability from './components/ProviderAvailability';
 import ProviderAppointments from './components/ProviderAppointments';
 import ProviderClients from './components/ProviderClients';
 import ProviderClientDetails from './components/ProviderClientDetails';
-import ProviderAnalytics from './components/ProviderAnalytics';
+import ProviderLocations from './components/ProviderLocations';
 import ProviderSettings from './components/ProviderSettings';
 import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
@@ -51,10 +51,10 @@ import AppointmentDetail from './components/AppointmentDetail';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
-  
+
   // Redirect admins to dashboard
   if (user?.isAdmin) return <Navigate to="/admin" />;
-  
+
   const currentStep = user?.registrationStep || 1;
     if (currentStep < requiredStep) {
       if (currentStep === 1) return <Navigate to="/profile-setup" />;
@@ -118,22 +118,22 @@ function App() {
   return (
     <div className="App min-h-screen bg-gray-50">
       <Header />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>
           {/* Public Routes */}
-          <Route 
-            path="/login" 
+          <Route
+            path="/login"
             element={user ? <Navigate to="/" /> : <Login />}
           />
-          <Route 
-            path="/signup" 
+          <Route
+            path="/signup"
             element={user ? <Navigate to="/profile-setup" /> : <SignUp />}
           />
 
           {/* Registration Flow Routes */}
-          <Route 
-            path="/profile-setup" 
+          <Route
+            path="/profile-setup"
             element={
               <RegistrationProtectedRoute requiredStep={1}>
                 <ProfileSetup />
@@ -169,8 +169,8 @@ function App() {
           />
 
           {/* Protected Routes (require completed registration) */}
-          <Route 
-            path="/my-profile" 
+          <Route
+            path="/my-profile"
             element={
               <ProtectedRoute>
                 <MyProfile />
@@ -187,8 +187,8 @@ function App() {
             }
           />
 
-          <Route 
-            path="/my-bookings" 
+          <Route
+            path="/my-bookings"
             element={
               <ProtectedRoute>
                 <BookingList />
@@ -197,15 +197,15 @@ function App() {
           />
 
           {/* Provider Routes */}
-          <Route 
-            path="/provider" 
+          <Route
+            path="/provider"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderDashboard />
               </ProtectedRoute>
             }
           />
-          <Route 
+          <Route
             path="/provider/availability"
             element={
               <ProtectedRoute providerOnly>
@@ -218,6 +218,14 @@ function App() {
             element={
               <ProtectedRoute providerOnly>
                 <WeeklyTemplateEditor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/locations"
+            element={
+              <ProtectedRoute providerOnly>
+                <ProviderLocations />
               </ProtectedRoute>
             }
           />
@@ -245,57 +253,47 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/provider/clients" 
+          <Route
+            path="/provider/clients"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderClients />
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/provider/clients/:clientId" 
+          <Route
+            path="/provider/clients/:clientId"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderClientDetails />
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/provider/analytics" 
-            element={
-              <ProtectedRoute providerOnly>
-                <ProviderAnalytics />
-              </ProtectedRoute>
-            }
-          />
 
-          <Route 
-            path="/provider/assignment-requests" 
+          <Route
+            path="/provider/assignment-requests"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderAssignmentRequests />
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/provider/settings" 
+          <Route
+            path="/provider/settings"
             element={
               <ProtectedRoute providerOnly>
                 <ProviderSettings />
               </ProtectedRoute>
             }
           />
-          <Route 
-            path="/provider/:providerId/profile" 
+          <Route
+            path="/provider/:providerId/profile"
             element={<ProviderProfile />}
           />
 
-          {/* Client Routes */}
-
           {/* Home/Default Route */}
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <ProtectedRoute>
                 {user?.accountType === 'PROVIDER' ? <Navigate to="/provider" /> : <Home />}
