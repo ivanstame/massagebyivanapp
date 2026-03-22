@@ -511,22 +511,10 @@ async function getAvailableTimeSlots(
     addons
   });
   console.log('DEBUG: is Array?', Array.isArray(appointmentDuration));
-  
-  // Calculate extra time from add-ons
-  let extraTimeFromAddons = 0;
-  if (addons && addons.length > 0) {
-    extraTimeFromAddons = addons.reduce((total, addon) => {
-      return total + (addon.extraTime || 0);
-    }, 0);
-    
-    console.log('DEBUG: Extra time from add-ons:', extraTimeFromAddons);
-    
-    // Add extra time to appointment duration
-    if (!Array.isArray(appointmentDuration) && extraTimeFromAddons > 0) {
-      appointmentDuration += extraTimeFromAddons;
-      console.log('DEBUG: Updated appointment duration with add-ons:', appointmentDuration);
-    }
-  }
+
+  // NOTE: Add-on extra time is already included in appointmentDuration by the client.
+  // The client calculates totalDuration = baseDuration + sum(addon.extraTime) before
+  // sending it as the 'duration' query param. Do NOT re-add it here.
 
   // Handle different types of Availability objects
   // Ensure we always get proper DateTime objects for date, start, and end

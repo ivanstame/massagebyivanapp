@@ -169,8 +169,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
           providerId,
           duration: totalDuration,
           lat: location?.lat,
-          lng: location?.lng,
-          addons: selectedAddons.join(',')
+          lng: location?.lng
         }
       });
       setAvailableSlots(response.data);
