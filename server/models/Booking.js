@@ -117,6 +117,11 @@ const BookingSchema = new mongoose.Schema({
     phone: { type: String },
     email: { type: String }
   },
+  // Who placed the booking (the account holder)
+  bookedBy: {
+    name: { type: String },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
   status: { 
     type: String, 
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],

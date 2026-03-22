@@ -161,6 +161,11 @@ const BookingList = () => {
                 {provider.providerProfile.businessName}
               </div>
             )}
+            {booking.recipientType === 'other' && booking.recipientInfo?.name && (
+              <div className="mb-2 text-sm text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                Booked for: <span className="font-medium">{booking.recipientInfo.name}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <div className="flex items-center text-slate-900">
                 <Calendar className="w-4 h-4 mr-2" />

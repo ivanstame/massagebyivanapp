@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
-import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, Trash2, User as UserIcon } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
 
 const ProviderAppointments = () => {
@@ -83,6 +83,24 @@ const ProviderAppointments = () => {
     }
   };
 
+  // Get the display name for who's actually receiving the massage
+  const getRecipientName = (appointment) => {
+    if (appointment.recipientType === 'other' && appointment.recipientInfo?.name) {
+      return appointment.recipientInfo.name;
+    }
+    return appointment.client?.profile?.fullName || appointment.client?.email || 'Unknown Client';
+  };
+
+  // Get the booker name (the account holder)
+  const getBookerName = (appointment) => {
+    // Use bookedBy if available (new bookings), fall back to client profile (old bookings)
+    return appointment.bookedBy?.name || appointment.client?.profile?.fullName || appointment.client?.email || '';
+  };
+
+  const isBookedForOther = (appointment) => {
+    return appointment.recipientType === 'other' && appointment.recipientInfo?.name;
+  };
+
   const renderAppointment = (appointment) => (
     <div
       key={appointment._id}
@@ -92,9 +110,22 @@ const ProviderAppointments = () => {
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-medium text-slate-900">
-              {appointment.client?.profile?.fullName || appointment.client?.email || 'Unknown Client'}
+            {/* Recipient name */}
+            <div className="flex items-center gap-2 mb-1">
+              <UserIcon className="w-4 h-4 text-[#009ea5]" />
+              <span className="text-sm text-slate-500">Massage Recipient</span>
+            </div>
+            <h3 className="text-lg font-medium text-slate-900 mb-1">
+              {getRecipientName(appointment)}
             </h3>
+
+            {/* Booked by (only shown when booked for someone else) */}
+            {isBookedForOther(appointment) && (
+              <p className="text-sm text-slate-500 mb-2">
+                Booked by: <span className="text-slate-700">{getBookerName(appointment)}</span>
+              </p>
+            )}
+
             <div className="mt-2 space-y-2">
               <div className="flex items-center text-slate-600">
                 <Calendar className="w-4 h-4 mr-2" />

@@ -193,7 +193,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           phone: req.body.recipientInfo.phone,
           email: req.body.recipientInfo.email || ''
         }
-      })
+      }),
+      // Always store who placed the booking
+      bookedBy: {
+        name: req.user.profile?.fullName || req.user.email,
+        userId: req.user._id
+      }
     });
 
     console.log('Booking object created, attempting to save to MongoDB...');

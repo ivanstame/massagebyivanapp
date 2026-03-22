@@ -143,32 +143,71 @@ const AppointmentDetail = () => {
 
           {/* Person */}
           <div className="p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <User className="w-5 h-5 text-[#009ea5]" />
-              <div>
-                <p className="text-sm text-slate-500">{otherPartyLabel}</p>
-                <p className="font-medium text-slate-900">
-                  {otherParty?.profile?.fullName || otherParty?.email || 'Unknown'}
-                </p>
-              </div>
-            </div>
-            {otherParty?.profile?.phoneNumber && (
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-[#009ea5]" />
-                <div>
-                  <p className="text-sm text-slate-500">Phone</p>
-                  <a
-                    href={`tel:${otherParty.profile.phoneNumber}`}
-                    className="font-medium text-[#009ea5] hover:underline"
-                  >
-                    {otherParty.profile.phoneNumber}
-                  </a>
+            {/* For provider view: show recipient prominently */}
+            {isProvider && booking.recipientType === 'other' && booking.recipientInfo ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-[#009ea5]" />
+                  <div>
+                    <p className="text-sm text-slate-500">Massage Recipient</p>
+                    <p className="font-medium text-slate-900">{booking.recipientInfo.name}</p>
+                  </div>
                 </div>
-              </div>
+                {booking.recipientInfo.phone && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-[#009ea5]" />
+                    <div>
+                      <p className="text-sm text-slate-500">Recipient Phone</p>
+                      <a href={`tel:${booking.recipientInfo.phone}`} className="font-medium text-[#009ea5] hover:underline">
+                        {booking.recipientInfo.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+                <div className="ml-8 p-2 bg-slate-50 rounded-lg text-sm">
+                  <p className="text-slate-500">
+                    Booked by: <span className="text-slate-700 font-medium">
+                      {booking.bookedBy?.name || otherParty?.profile?.fullName || otherParty?.email}
+                    </span>
+                  </p>
+                  {otherParty?.profile?.phoneNumber && (
+                    <p className="text-slate-500 mt-0.5">
+                      Account holder phone: <a href={`tel:${otherParty.profile.phoneNumber}`} className="text-[#009ea5] hover:underline">{otherParty.profile.phoneNumber}</a>
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-[#009ea5]" />
+                  <div>
+                    <p className="text-sm text-slate-500">{isProvider ? 'Massage Recipient' : otherPartyLabel}</p>
+                    <p className="font-medium text-slate-900">
+                      {otherParty?.profile?.fullName || otherParty?.email || 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+                {otherParty?.profile?.phoneNumber && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5 text-[#009ea5]" />
+                    <div>
+                      <p className="text-sm text-slate-500">Phone</p>
+                      <a
+                        href={`tel:${otherParty.profile.phoneNumber}`}
+                        className="font-medium text-[#009ea5] hover:underline"
+                      >
+                        {otherParty.profile.phoneNumber}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            {booking.recipientType === 'other' && booking.recipientInfo && (
+            {/* For client view: still show recipient info if booked for other */}
+            {!isProvider && booking.recipientType === 'other' && booking.recipientInfo && (
               <div className="ml-8 p-2 bg-amber-50 rounded-lg text-sm">
-                <p className="text-amber-700 font-medium">Booked for someone else:</p>
+                <p className="text-amber-700 font-medium">Booked for:</p>
                 <p className="text-amber-800">{booking.recipientInfo.name}</p>
                 {booking.recipientInfo.phone && (
                   <p className="text-amber-600">{booking.recipientInfo.phone}</p>
