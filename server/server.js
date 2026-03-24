@@ -7,6 +7,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
 require('./config/passport')(passport);
+const path = require('path');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const User = require('./models/User');
@@ -185,42 +186,13 @@ app.get('/sms-consent-policy.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/sms-consent-policy.html'));
 });
 
-// Global error handler
-// Enhanced error handling middleware
-app.use((err, req, res, next) => {
-  console.error('[Global Error Handler]', err.stack);
-  
-  // Handle provider-specific errors
-  if (err.name === 'ProviderValidationError') {
-    return res.status(400).json({ 
-      message: 'Provider validation failed',
-      errors: err.errors 
-    });
-  }
-  
-  // Handle client-provider relationship errors
-  if (err.name === 'ClientProviderError') {
-    return res.status(403).json({ 
-      message: 'Invalid client-provider relationship',
-      error: err.message 
-    });
-  }
-
-  res.status(500).json({ 
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
-// Serve static files from the React build directory in production
 // Serve static files from public directory in all environments
-const path = require('path');
 app.use(express.static(path.join(__dirname, '../public')));
 
 if (process.env.NODE_ENV === 'production') {
-  // Also serve static files from build directory in production
+  // Serve static files from React build directory in production
   app.use(express.static(path.join(__dirname, '../build')));
-  
+
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../build', 'index.html'));
@@ -229,6 +201,32 @@ if (process.env.NODE_ENV === 'production') {
 
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is reachable!' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]', err.stack);
+
+  // Handle provider-specific errors
+  if (err.name === 'ProviderValidationError') {
+    return res.status(400).json({
+      message: 'Provider validation failed',
+      errors: err.errors
+    });
+  }
+
+  // Handle client-provider relationship errors
+  if (err.name === 'ClientProviderError') {
+    return res.status(403).json({
+      message: 'Invalid client-provider relationship',
+      error: err.message
+    });
+  }
+
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
