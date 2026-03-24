@@ -4,7 +4,7 @@ import { AuthContext } from '../AuthContext';
 import {
   Users, Mail, UserPlus, AlertCircle, CheckCircle,
   ExternalLink, MapPin, Clock, Search, Phone, Calendar,
-  MessageSquare, Clock as ClockIcon, UserX
+  MessageSquare, Clock as ClockIcon, UserX, Copy, Link as LinkIcon, Edit3
 } from 'lucide-react';
 import axios from 'axios';
 import { SkeletonText } from './ui/Skeleton';
@@ -25,6 +25,8 @@ const ProviderClients = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('name'); // 'name', 'recent', 'email'
   const [activeTab, setActiveTab] = useState('clients'); // 'clients' or 'invitations'
+  const [joinCode, setJoinCode] = useState('');
+  const [joinCodeCopied, setJoinCodeCopied] = useState(false);
 
   useEffect(() => {
     if (user?.accountType !== 'PROVIDER') {
@@ -34,7 +36,23 @@ const ProviderClients = () => {
     
     fetchClients();
     fetchInvitations();
+    fetchJoinCode();
   }, [user, navigate]);
+
+  const fetchJoinCode = async () => {
+    try {
+      const response = await axios.get('/api/join-code');
+      setJoinCode(response.data.joinCode || '');
+    } catch (error) {
+      console.error('Error fetching join code:', error);
+    }
+  };
+
+  const copyJoinCode = () => {
+    navigator.clipboard.writeText(joinCode);
+    setJoinCodeCopied(true);
+    setTimeout(() => setJoinCodeCopied(false), 2000);
+  };
 
   const fetchClients = async () => {
     try {
@@ -280,6 +298,43 @@ const ProviderClients = () => {
             Invite Client
           </button>
         </div>
+
+        {/* Join Code Card */}
+        {joinCode && (
+          <div className="mb-6 bg-[#387c7e]/5 border border-[#387c7e]/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <LinkIcon className="w-5 h-5 text-[#387c7e] mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Your Client Join Code</p>
+                  <p className="text-xs text-slate-500">Share this code with clients so they can sign up and connect with you</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg font-bold tracking-wider text-[#387c7e] bg-white px-4 py-1.5 rounded-md border border-[#387c7e]/20">
+                  {joinCode.toUpperCase()}
+                </span>
+                <button
+                  onClick={copyJoinCode}
+                  className="inline-flex items-center px-3 py-1.5 text-sm text-[#387c7e]
+                    hover:bg-[#387c7e]/10 rounded-md transition"
+                >
+                  {joinCodeCopied ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="mb-6 border-b border-slate-200">

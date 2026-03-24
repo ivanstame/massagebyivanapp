@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import AddressForm from './AddressForm';
 import api from '../services/api';
-import { AlertCircle, User, Phone, Briefcase, MapPin, AlertTriangle } from 'lucide-react';
+import { AlertCircle, User, Phone, Briefcase, MapPin, AlertTriangle, Link as LinkIcon, Check, X } from 'lucide-react';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 
 const STATES = [
@@ -72,12 +72,14 @@ const ProfileSetup = () => {
     state: '',
     zip: '',
     businessName: '',
+    joinCode: '',
     // Only include health fields for clients
     ...(user?.accountType === 'CLIENT' && {
       allergies: '',
       medicalConditions: ''
     })
   });
+  const [joinCodeStatus, setJoinCodeStatus] = useState(null); // null, 'checking', 'available', 'taken', 'invalid'
 
   useEffect(() => {
     if (!user) {
@@ -100,10 +102,11 @@ const ProfileSetup = () => {
       formData.city.trim() !== '' &&
       formData.state.trim() !== '' &&
       formData.zip.trim() !== '' &&
-      (user?.accountType !== 'PROVIDER' || formData.businessName.trim() !== '')
+      (user?.accountType !== 'PROVIDER' || formData.businessName.trim() !== '') &&
+      (user?.accountType !== 'PROVIDER' || (formData.joinCode.trim().length >= 3 && joinCodeStatus === 'available'))
     );
     setFormValid(isValid);
-  }, [formData, user?.accountType]);
+  }, [formData, user?.accountType, joinCodeStatus]);
 
   const handleChange = (e) => {
     setFormData(prev => ({
@@ -111,6 +114,36 @@ const ProfileSetup = () => {
       [e.target.name]: e.target.value
     }));
   };
+
+  const checkJoinCodeAvailability = async (code) => {
+    const trimmed = code.toLowerCase().trim();
+    if (trimmed.length < 3) {
+      setJoinCodeStatus('invalid');
+      return;
+    }
+    if (!/^[a-z0-9]+$/.test(trimmed)) {
+      setJoinCodeStatus('invalid');
+      return;
+    }
+    setJoinCodeStatus('checking');
+    try {
+      const response = await api.get(`/api/join-code/check/${trimmed}`);
+      setJoinCodeStatus(response.data.available ? 'available' : 'taken');
+    } catch {
+      setJoinCodeStatus('invalid');
+    }
+  };
+
+  useEffect(() => {
+    if (user?.accountType !== 'PROVIDER' || !formData.joinCode) {
+      setJoinCodeStatus(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      checkJoinCodeAvailability(formData.joinCode);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.joinCode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,11 +169,12 @@ const ProfileSetup = () => {
         registrationStep: user?.accountType === 'PROVIDER' ? 3 : 2
       };
 
-      // For providers, include the business name in providerProfile
+      // For providers, include the business name in providerProfile and set join code
       if (user?.accountType === 'PROVIDER') {
         requestBody.providerProfile = {
           businessName: formData.businessName.trim()
         };
+        requestBody.joinCode = formData.joinCode.trim();
       } else {
         // For clients, include businessName at root level (if needed for any reason)
         requestBody.businessName = formData.businessName?.trim() || '';
@@ -156,6 +190,11 @@ const ProfileSetup = () => {
       });
 
       if (user?.accountType === 'PROVIDER') {
+        navigate('/dashboard', {
+          replace: true
+        });
+      } else if (user?.providerId || user?.hasProviderViaJoinCode) {
+        // Client already has a provider (via join code or invitation), skip provider selection
         navigate('/dashboard', {
           replace: true
         });
@@ -282,6 +321,49 @@ const ProfileSetup = () => {
                     />
                     <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    Client Join Code *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="joinCode"
+                      value={formData.joinCode}
+                      onChange={(e) => {
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        setFormData(prev => ({ ...prev, joinCode: val }));
+                      }}
+                      required
+                      maxLength={20}
+                      className={`w-full pl-10 pr-10 py-2 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                        joinCodeStatus === 'available' ? 'border-green-400 focus:ring-green-400' :
+                        joinCodeStatus === 'taken' || joinCodeStatus === 'invalid' ? 'border-red-400 focus:ring-red-400' :
+                        'border-slate-200 focus:ring-[#387c7e]'
+                      }`}
+                      placeholder="e.g. ivan"
+                    />
+                    <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                    {joinCodeStatus === 'checking' && (
+                      <div className="absolute right-3 top-2.5">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#387c7e]"></div>
+                      </div>
+                    )}
+                    {joinCodeStatus === 'available' && (
+                      <Check className="absolute right-3 top-2.5 h-5 w-5 text-green-500" />
+                    )}
+                    {(joinCodeStatus === 'taken' || joinCodeStatus === 'invalid') && (
+                      <X className="absolute right-3 top-2.5 h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {joinCodeStatus === 'taken' ? 'This code is already taken. Try another.' :
+                     joinCodeStatus === 'invalid' ? 'Must be 3-20 alphanumeric characters (letters and numbers only).' :
+                     joinCodeStatus === 'available' ? 'This code is available!' :
+                     'Your clients will enter this code when signing up to connect with you. Letters and numbers only.'}
+                  </p>
                 </div>
               </div>
             )}

@@ -75,6 +75,20 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
       // Handle allergies/medical from root level (ProfileSetup)
       if (updateData.allergies !== undefined) user.profile.allergies = updateData.allergies;
       if (updateData.medicalConditions !== undefined) user.profile.medicalConditions = updateData.medicalConditions;
+
+      // Handle join code from ProfileSetup
+      if (updateData.joinCode) {
+        const code = updateData.joinCode.toLowerCase().trim();
+        if (code.length >= 3 && code.length <= 20 && /^[a-z0-9]+$/.test(code)) {
+          // Check uniqueness
+          const existing = await User.findOne({ joinCode: code, _id: { $ne: user._id } });
+          if (existing) {
+            return res.status(400).json({ message: 'This join code is already taken' });
+          }
+          user.joinCode = code;
+          user.joinCodeLastChanged = new Date();
+        }
+      }
     } else {
       // Client profile updates - handle both old format (flat structure) and new format
       const updateData = req.body;

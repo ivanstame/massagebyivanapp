@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import api from '../services/api';
-import { Eye, EyeOff, AlertCircle, CheckCircle, UserPlus, Users } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle, UserPlus, Users, ArrowLeft } from 'lucide-react';
 
 const ProgressIndicator = ({ currentStep, accountType }) => {
   const totalSteps = accountType === 'PROVIDER' ? 2 : 3;
@@ -38,9 +38,12 @@ const SignUp = () => {
     confirmPassword: '',
     accountType: '',  // 'PROVIDER' or 'CLIENT'
     invitationToken: '',  // for invited clients
+    joinCode: '',  // for client join code
   });
 
-  const [step, setStep] = useState(1);  // 1: Type Selection, 2: Provider Password Gate, 3: Details
+  const [step, setStep] = useState(1);  // 1: Type Selection, 2: Provider Password Gate, 2.5: Client Join Code, 3: Details
+  const [verifiedJoinProvider, setVerifiedJoinProvider] = useState(null);
+  const [isVerifyingJoinCode, setIsVerifyingJoinCode] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showProviderConfirmation, setShowProviderConfirmation] = useState(false);
@@ -103,15 +106,21 @@ const SignUp = () => {
           accountType: formData.accountType,
           invitationToken: formData.invitationToken,
           ...(formData.accountType === 'PROVIDER' && { providerPassword: verifiedProviderPassword }),
-          smsConsent: smsConsent, // Include SMS consent
+          ...(formData.accountType === 'CLIENT' && formData.joinCode && { joinCode: formData.joinCode }),
+          smsConsent: smsConsent,
         }
       );
 
       console.log('Registration response:', response.data);
 
       if (response.data.user) {
+        const userData = { ...response.data.user, registrationStep: 1 };
+        // If client registered with join code, they already have a provider
+        if (formData.accountType === 'CLIENT' && formData.joinCode && response.data.user.providerId) {
+          userData.hasProviderViaJoinCode = true;
+        }
         localStorage.setItem('registrationStep', '1');
-        setUser({ ...response.data.user, registrationStep: 1 });
+        setUser(userData);
         navigate('/profile-setup');
       }
     } catch (err) {
@@ -143,6 +152,89 @@ const SignUp = () => {
     }, 500);
   };
 
+  const verifyJoinCode = async () => {
+    const code = formData.joinCode.trim();
+    if (!code) {
+      setError('Please enter a join code');
+      return;
+    }
+    setIsVerifyingJoinCode(true);
+    setError('');
+    try {
+      const response = await api.get(`/api/join-code/verify/${code}`);
+      setVerifiedJoinProvider(response.data.provider);
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid join code');
+    } finally {
+      setIsVerifyingJoinCode(false);
+    }
+  };
+
+  const renderJoinCodeStep = () => (
+    <div className="bg-white p-8 rounded-lg shadow-md">
+      <div className="text-center mb-6">
+        <h3 className="text-xl font-medium text-slate-900">Enter Your Provider's Code</h3>
+        <p className="mt-2 text-slate-500">Your massage provider should have given you a short join code</p>
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="joinCode" className="block text-sm font-medium text-slate-600 mb-2">
+            Join Code
+          </label>
+          <input
+            id="joinCode"
+            type="text"
+            value={formData.joinCode}
+            onChange={(e) => {
+              const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+              setFormData(prev => ({ ...prev, joinCode: val }));
+            }}
+            className="w-full px-4 py-3 border border-slate-200 rounded-md text-center text-lg tracking-wider
+              focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+            placeholder="e.g. ivan"
+            maxLength={20}
+            autoFocus
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                verifyJoinCode();
+              }
+            }}
+          />
+        </div>
+
+        <div className="flex space-x-4">
+          <button
+            onClick={() => {
+              setStep(1);
+              setFormData(prev => ({ ...prev, joinCode: '', accountType: '' }));
+              setError('');
+            }}
+            className="flex-1 py-2 px-4 border border-slate-300 rounded-md text-slate-700
+              hover:bg-slate-50 transition"
+          >
+            Back
+          </button>
+          <button
+            onClick={verifyJoinCode}
+            disabled={isVerifyingJoinCode || !formData.joinCode.trim()}
+            className="flex-1 py-2 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60]
+              text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isVerifyingJoinCode ? 'Verifying...' : 'Continue'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTypeSelection = () => (
     <div className="space-y-6">
       <div className="text-center">
@@ -166,7 +258,7 @@ const SignUp = () => {
         <button
           onClick={() => {
             setFormData(prev => ({ ...prev, accountType: 'CLIENT' }));
-            setStep(3); // Skip password gate for clients
+            setStep(2.5); // Go to join code entry
           }}
           className="p-6 border-2 rounded-lg hover:border-[#387c7e]
             hover:bg-[#387c7e]/5 transition-all duration-200
@@ -384,7 +476,9 @@ const SignUp = () => {
         )}
         
         {step === 2 && renderProviderPasswordGate()}
-        
+
+        {step === 2.5 && renderJoinCodeStep()}
+
         {step === 3 && (
           <>
             <ProgressIndicator currentStep={1} accountType={formData.accountType} />
@@ -393,7 +487,18 @@ const SignUp = () => {
               <h2 className="text-2xl font-normal text-center text-slate-700 mb-2">
                 {formData.accountType === 'PROVIDER' ? 'Create Provider Account' : 'Create Client Account'}
               </h2>
-              
+
+              {verifiedJoinProvider && formData.accountType === 'CLIENT' && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-center">
+                  <div className="flex items-center justify-center text-green-700">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <span className="text-sm font-medium">
+                      Joining {verifiedJoinProvider.businessName || verifiedJoinProvider.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
                   <p>{error}</p>

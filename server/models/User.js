@@ -27,6 +27,20 @@ const UserSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  joinCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+    minlength: 3,
+    maxlength: 20,
+    match: [/^[a-z0-9]+$/, 'Join code must be alphanumeric only']
+  },
+  joinCodeLastChanged: {
+    type: Date,
+    default: null
+  },
   providerProfile: {
     businessName: String,
     subscription: {

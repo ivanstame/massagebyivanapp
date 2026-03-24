@@ -41,8 +41,23 @@ router.post('/register', ensureGuest, async (req, res) => {
 
     let providerId = null;
 
-    if (accountType === 'CLIENT' && invitationToken) {
-      // Handle invitation if provided, but it's no longer required
+    // Handle join code for clients (preferred method)
+    const joinCode = req.body.joinCode;
+    if (accountType === 'CLIENT' && joinCode) {
+      const provider = await User.findOne({
+        joinCode: joinCode.toLowerCase().trim(),
+        accountType: 'PROVIDER'
+      });
+
+      if (provider) {
+        providerId = provider._id;
+      } else {
+        return res.status(400).json({ message: 'Invalid join code. Please check with your provider.' });
+      }
+    }
+
+    // Fall back to invitation token if no join code
+    if (accountType === 'CLIENT' && !providerId && invitationToken) {
       const invitation = await Invitation.findOne({
         token: invitationToken,
         status: 'PENDING',
@@ -50,14 +65,13 @@ router.post('/register', ensureGuest, async (req, res) => {
       });
 
       if (invitation) {
-        if (process.env.NODE_ENV !== 'development' && 
+        if (process.env.NODE_ENV !== 'development' &&
             invitation.email.toLowerCase() !== email.toLowerCase()) {
           return res.status(400).json({ message: 'Email does not match invitation' });
         }
 
         providerId = invitation.provider;
       }
-      // If no invitation token provided or invalid, providerId remains null
     }
 
     user = new User({ 
