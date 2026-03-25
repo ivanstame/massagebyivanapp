@@ -19,16 +19,32 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
     const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
       types: ['address'],
       componentRestrictions: { country: 'us' },
-      fields: ['formatted_address', 'geometry']
+      fields: ['formatted_address', 'geometry', 'address_components']
     });
 
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
       if (place.geometry) {
+        // Parse address components
+        const components = {};
+        (place.address_components || []).forEach(c => {
+          if (c.types.includes('street_number')) components.streetNumber = c.long_name;
+          if (c.types.includes('route')) components.route = c.long_name;
+          if (c.types.includes('locality')) components.city = c.long_name;
+          if (c.types.includes('administrative_area_level_1')) components.state = c.short_name;
+          if (c.types.includes('postal_code')) components.zip = c.long_name;
+          if (c.types.includes('subpremise')) components.unit = c.long_name;
+        });
+
         setSelectedPlace({
           address: place.formatted_address,
           lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
+          lng: place.geometry.location.lng(),
+          street: [components.streetNumber, components.route].filter(Boolean).join(' '),
+          city: components.city || '',
+          state: components.state || '',
+          zip: components.zip || '',
+          unit: components.unit || ''
         });
         setSearchValue(place.formatted_address);
       }
@@ -54,7 +70,12 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
     onAddressConfirmed({
       fullAddress: location.fullAddress,
       lat: location.lat,
-      lng: location.lng
+      lng: location.lng,
+      street: location.street || location.fullAddress || '',
+      city: location.city || '',
+      state: location.state || '',
+      zip: location.zip || '',
+      unit: location.unit || ''
     });
   };
 
@@ -64,7 +85,12 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
     onAddressConfirmed({
       fullAddress: selectedPlace.address,
       lat: selectedPlace.lat,
-      lng: selectedPlace.lng
+      lng: selectedPlace.lng,
+      street: selectedPlace.street || '',
+      city: selectedPlace.city || '',
+      state: selectedPlace.state || '',
+      zip: selectedPlace.zip || '',
+      unit: selectedPlace.unit || ''
     });
   };
 

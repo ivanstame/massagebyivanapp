@@ -375,14 +375,14 @@ const ProfileSetup = () => {
                 {user?.accountType === 'PROVIDER' ? 'Business Address' : 'Your Address'}
               </h3>
               
-              <AddressForm 
+              <AddressForm
                 onAddressConfirmed={(addr) => setFormData(prev => ({
                   ...prev,
-                  street: addr.street,
-                  city: addr.city,
-                  state: addr.state,
-                  zip: addr.zip,
-                  unit: addr.unit
+                  street: addr.street || addr.fullAddress || '',
+                  city: addr.city || '',
+                  state: addr.state || '',
+                  zip: addr.zip || '',
+                  unit: addr.unit || ''
                 }))}
               />
             </div>
