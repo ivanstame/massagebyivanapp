@@ -151,9 +151,11 @@ router.post('/create-payment-intent', ensureAuthenticated, async (req, res) => {
     }
 
     // Create payment intent on the connected account (direct charge)
+    // Enable both card and Venmo as payment methods
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalPrice * 100), // cents
       currency: 'usd',
+      payment_method_types: ['card', 'venmo'],
       metadata: {
         bookingId: booking._id.toString(),
         clientId: req.user._id.toString(),

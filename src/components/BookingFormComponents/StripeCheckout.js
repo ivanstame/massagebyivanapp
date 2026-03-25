@@ -3,10 +3,10 @@ import axios from 'axios';
 import { CreditCard, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 
 /**
- * StripeCheckout - Handles card payment after a booking is created.
+ * StripeCheckout - Handles card + Venmo payment after a booking is created.
  *
- * Uses Stripe.js (loaded from CDN) to collect card details and confirm payment.
- * The payment goes directly to the provider's connected Stripe account.
+ * Uses Stripe Payment Element (supports card, Venmo, and other methods).
+ * Payment goes directly to the provider's connected Stripe account.
  *
  * Props:
  *   bookingId - The booking to pay for
@@ -19,9 +19,8 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [cardElement, setCardElement] = useState(null);
   const [stripe, setStripe] = useState(null);
-  const [clientSecret, setClientSecret] = useState(null);
+  const [elements, setElements] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -47,36 +46,37 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
 
         if (!mounted) return;
 
-        const { clientSecret: secret, stripeAccountId } = res.data;
-        setClientSecret(secret);
+        const { clientSecret, stripeAccountId } = res.data;
 
         // Initialize Stripe with the connected account
         const stripeInstance = window.Stripe(
-          process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY,
+          process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY,
           { stripeAccount: stripeAccountId }
         );
         setStripe(stripeInstance);
 
-        // Create card element
-        const elements = stripeInstance.elements();
-        const card = elements.create('card', {
-          style: {
-            base: {
-              fontSize: '16px',
-              color: '#1e293b',
-              '::placeholder': { color: '#94a3b8' },
+        // Create Payment Element (supports card + Venmo + more)
+        const elementsInstance = stripeInstance.elements({
+          clientSecret,
+          appearance: {
+            theme: 'stripe',
+            variables: {
+              colorPrimary: '#635bff',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            },
-            invalid: { color: '#ef4444' },
+            }
           }
         });
 
-        // Mount card element after a tick to ensure DOM is ready
+        const paymentElement = elementsInstance.create('payment', {
+          layout: 'tabs'
+        });
+
+        // Mount after a tick to ensure DOM is ready
         setTimeout(() => {
-          const mountPoint = document.getElementById('stripe-card-element');
+          const mountPoint = document.getElementById('stripe-payment-element');
           if (mountPoint && mounted) {
-            card.mount('#stripe-card-element');
-            setCardElement(card);
+            paymentElement.mount('#stripe-payment-element');
+            setElements(elementsInstance);
             setLoading(false);
           }
         }, 100);
@@ -91,25 +91,23 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
 
     init();
 
-    return () => {
-      mounted = false;
-      if (cardElement) {
-        cardElement.destroy();
-      }
-    };
-  }, [bookingId]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { mounted = false; };
+  }, [bookingId]);
 
   const handlePay = async () => {
-    if (!stripe || !cardElement || !clientSecret) return;
+    if (!stripe || !elements) return;
 
     setPaying(true);
     setError(null);
 
     try {
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        clientSecret,
-        { payment_method: { card: cardElement } }
-      );
+      const { error: stripeError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/my-bookings`,
+        },
+        redirect: 'if_required'
+      });
 
       if (stripeError) {
         setError(stripeError.message);
@@ -117,10 +115,9 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
         return;
       }
 
-      if (paymentIntent.status === 'succeeded') {
-        setSuccess(true);
-        setTimeout(() => onSuccess?.(), 1500);
-      }
+      // Payment succeeded (no redirect needed for card)
+      setSuccess(true);
+      setTimeout(() => onSuccess?.(), 1500);
     } catch (err) {
       setError('Payment failed. Please try again.');
       setPaying(false);
@@ -134,7 +131,7 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-[#635bff]" />
-            <h3 className="font-semibold text-slate-900">Card Payment</h3>
+            <h3 className="font-semibold text-slate-900">Payment</h3>
           </div>
           {!success && (
             <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
@@ -158,14 +155,11 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
                 <p className="text-3xl font-bold text-slate-900">${totalPrice?.toFixed(2)}</p>
               </div>
 
-              {/* Card input */}
+              {/* Payment Element (card + Venmo tabs) */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Card Details
-                </label>
                 <div
-                  id="stripe-card-element"
-                  className="p-3 border border-slate-300 rounded-lg bg-white min-h-[44px]"
+                  id="stripe-payment-element"
+                  className="min-h-[120px]"
                 />
               </div>
 

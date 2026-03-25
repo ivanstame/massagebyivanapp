@@ -269,8 +269,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
       setNewBookingId(response._id);
 
-      // If card payment, show Stripe checkout before showing success
-      if (selectedPaymentMethod === 'card') {
+      // If card or venmo payment, show Stripe checkout (Venmo is handled via Stripe)
+      if (selectedPaymentMethod === 'card' || selectedPaymentMethod === 'venmo') {
         setPendingBookingPrice(bookingData.pricing.totalPrice);
         setShowStripeCheckout(true);
       } else {
