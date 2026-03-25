@@ -67,6 +67,9 @@ app.use(requestLogger);
 app.use(responseLogger);
 app.use(dbConnectionChecker);
 
+// Stripe webhook needs raw body — must be registered BEFORE json parser
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 // Middleware setup - ORDER IS IMPORTANT
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -169,6 +172,7 @@ app.use('/api/provider-requests', require('./routes/provider-assignment-requests
 app.use('/api/weekly-template', require('./routes/weekly-template'));
 app.use('/api/saved-locations', require('./routes/saved-locations'));
 app.use('/api/join-code', require('./routes/join-code'));
+app.use('/api/stripe', require('./routes/stripe'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({

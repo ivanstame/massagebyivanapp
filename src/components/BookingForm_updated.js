@@ -18,6 +18,7 @@ import BookingSummaryCard from './BookingFormComponents/BookingSummaryCard';
 import AvailableTimeSlots from './BookingFormComponents/AvailableTimeSlots';
 import BookingConfirmationModal from './BookingFormComponents/BookingConfirmationModal';
 import PaymentMethodSelector from './BookingFormComponents/PaymentMethodSelector';
+import StripeCheckout from './BookingFormComponents/StripeCheckout';
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();
@@ -49,6 +50,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [error, setError] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [newBookingId, setNewBookingId] = useState(null);
+  const [showStripeCheckout, setShowStripeCheckout] = useState(false);
+  const [pendingBookingPrice, setPendingBookingPrice] = useState(null);
 
   // Get provider info and services
   useEffect(() => {
@@ -265,7 +268,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
       }
 
       setNewBookingId(response._id);
-      setBookingSuccess(true);
+
+      // If card payment, show Stripe checkout before showing success
+      if (selectedPaymentMethod === 'card') {
+        setPendingBookingPrice(bookingData.pricing.totalPrice);
+        setShowStripeCheckout(true);
+      } else {
+        setBookingSuccess(true);
+      }
     } catch (err) {
       console.error('Error creating booking:', err);
       setError(err.message || 'Failed to create booking');
@@ -428,6 +438,23 @@ const BookingForm = ({ googleMapsLoaded }) => {
             </button>
           </div>
         </div>
+
+        {/* Stripe Checkout Modal (shown after booking created with card payment) */}
+        {showStripeCheckout && newBookingId && (
+          <StripeCheckout
+            bookingId={newBookingId}
+            totalPrice={pendingBookingPrice}
+            onSuccess={() => {
+              setShowStripeCheckout(false);
+              setBookingSuccess(true);
+            }}
+            onClose={() => {
+              // Close checkout — booking still exists but unpaid
+              setShowStripeCheckout(false);
+              setBookingSuccess(true);
+            }}
+          />
+        )}
 
         {/* Booking Confirmation Modal */}
         <BookingConfirmationModal

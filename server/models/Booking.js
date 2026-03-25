@@ -121,6 +121,10 @@ const BookingSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  stripePaymentIntentId: {
+    type: String,
+    default: null
+  },
   // Recipient information
   recipientType: {
     type: String,

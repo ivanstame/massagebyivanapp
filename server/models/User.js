@@ -68,6 +68,13 @@ const UserSchema = new mongoose.Schema({
       price: { type: Number, required: true },
       label: String  // e.g. "60 Minutes"
     }],
+    // Stripe Connect
+    stripeAccountId: { type: String, default: null },
+    stripeAccountStatus: {
+      type: String,
+      enum: ['not_connected', 'pending', 'active', 'restricted'],
+      default: 'not_connected'
+    },
     // Provider-configured add-on services
     addons: [{
       name: { type: String, required: true },

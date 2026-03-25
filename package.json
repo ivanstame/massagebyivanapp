@@ -60,6 +60,7 @@
     "recharts": "^2.15.0",
     "request": "^2.88.2",
     "resend": "^6.9.4",
+    "stripe": "^20.4.1",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "tough-cookie": "^6.0.0",

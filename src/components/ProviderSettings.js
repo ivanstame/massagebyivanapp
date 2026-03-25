@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home } from 'lucide-react';
+import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 
@@ -13,12 +14,18 @@ const US_STATES = [
 
 const ProviderSettings = () => {
   const { user, setUser } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+
+  // Stripe Connect state
+  const [stripeStatus, setStripeStatus] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
+
   const [settings, setSettings] = useState({
     businessName: '',
     phoneNumber: '',
@@ -50,6 +57,45 @@ const ProviderSettings = () => {
       }));
     }
   }, [user]);
+
+  // Fetch Stripe Connect status
+  useEffect(() => {
+    const fetchStripeStatus = async () => {
+      try {
+        const res = await axios.get('/api/stripe/connect/status', { withCredentials: true });
+        setStripeStatus(res.data);
+      } catch (err) {
+        console.error('Error fetching Stripe status:', err);
+      }
+    };
+    if (user?.accountType === 'PROVIDER') {
+      fetchStripeStatus();
+    }
+    // If returning from Stripe onboarding, refresh status
+    if (searchParams.get('stripe') === 'success') {
+      fetchStripeStatus();
+    }
+  }, [user, searchParams]);
+
+  const handleStripeConnect = async () => {
+    setStripeLoading(true);
+    try {
+      const res = await axios.post('/api/stripe/connect', {}, { withCredentials: true });
+      window.location.href = res.data.url;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start Stripe setup');
+      setStripeLoading(false);
+    }
+  };
+
+  const handleStripeDashboard = async () => {
+    try {
+      const res = await axios.get('/api/stripe/connect/dashboard', { withCredentials: true });
+      window.open(res.data.url, '_blank');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to open Stripe dashboard');
+    }
+  };
 
   const validateSettings = () => {
     if (!settings.businessName || settings.businessName.trim().length === 0) {
@@ -250,6 +296,78 @@ const ProviderSettings = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Stripe Connect */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="w-5 h-5 text-[#009ea5]" />
+            <h3 className="font-medium text-slate-900">Card Payments (Stripe)</h3>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Connect your Stripe account to accept credit/debit card payments from clients.
+          </p>
+
+          {!stripeStatus || stripeStatus.status === 'not_connected' ? (
+            <button
+              onClick={handleStripeConnect}
+              disabled={stripeLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#635bff] text-white rounded-lg hover:bg-[#5851db] disabled:opacity-50 font-medium text-sm transition-colors"
+            >
+              {stripeLoading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</>
+              ) : (
+                <><CreditCard className="w-4 h-4" /> Connect Stripe Account</>
+              )}
+            </button>
+          ) : stripeStatus.status === 'pending' ? (
+            <div>
+              <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <p className="text-sm text-amber-800">
+                  Stripe setup incomplete. Please finish onboarding to accept card payments.
+                </p>
+              </div>
+              <button
+                onClick={handleStripeConnect}
+                disabled={stripeLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#635bff] text-white rounded-lg hover:bg-[#5851db] disabled:opacity-50 font-medium text-sm"
+              >
+                {stripeLoading ? 'Loading...' : 'Continue Stripe Setup'}
+              </button>
+            </div>
+          ) : stripeStatus.status === 'active' ? (
+            <div>
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg mb-3">
+                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <p className="text-sm text-green-800">
+                  Stripe connected — you can accept card payments!
+                </p>
+              </div>
+              <button
+                onClick={handleStripeDashboard}
+                className="flex items-center gap-2 text-sm text-[#635bff] hover:text-[#5851db] font-medium"
+              >
+                <ExternalLink className="w-4 h-4" /> Open Stripe Dashboard
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-3">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                <p className="text-sm text-red-800">
+                  Your Stripe account has restrictions. Please visit Stripe to resolve.
+                </p>
+              </div>
+              <button
+                onClick={handleStripeConnect}
+                disabled={stripeLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#635bff] text-white rounded-lg hover:bg-[#5851db] disabled:opacity-50 font-medium text-sm"
+              >
+                {stripeLoading ? 'Loading...' : 'Update Stripe Account'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Scheduling */}

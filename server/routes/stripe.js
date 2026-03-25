@@ -1,0 +1,247 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const Booking = require('../models/Booking');
+const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Base URL for redirects
+const getBaseUrl = () => {
+  return process.env.NODE_ENV === 'production'
+    ? 'https://massagebyivan.com'
+    : 'http://localhost:3000';
+};
+
+// ─── Connect: Create account + onboarding link ──────────────────────────
+router.post('/connect', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    // If they already have an account, just create a new onboarding link
+    let accountId = user.providerProfile?.stripeAccountId;
+
+    if (!accountId) {
+      // Create a new Connect account (Standard type)
+      const account = await stripe.accounts.create({
+        type: 'standard',
+        email: user.email,
+        metadata: { userId: user._id.toString() }
+      });
+      accountId = account.id;
+
+      // Save to user
+      user.providerProfile.stripeAccountId = accountId;
+      user.providerProfile.stripeAccountStatus = 'pending';
+      await user.save();
+    }
+
+    // Create onboarding link
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${getBaseUrl()}/provider/settings?stripe=refresh`,
+      return_url: `${getBaseUrl()}/provider/settings?stripe=success`,
+      type: 'account_onboarding',
+    });
+
+    res.json({ url: accountLink.url });
+  } catch (error) {
+    console.error('Error creating Stripe Connect account:', error);
+    res.status(500).json({ message: 'Failed to create Stripe account' });
+  }
+});
+
+// ─── Connect: Check account status ──────────────────────────────────────
+router.get('/connect/status', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    const accountId = user.providerProfile?.stripeAccountId;
+
+    if (!accountId) {
+      return res.json({
+        connected: false,
+        status: 'not_connected'
+      });
+    }
+
+    // Fetch latest account status from Stripe
+    const account = await stripe.accounts.retrieve(accountId);
+
+    // Determine status
+    let status = 'pending';
+    if (account.charges_enabled && account.payouts_enabled) {
+      status = 'active';
+    } else if (account.requirements?.disabled_reason) {
+      status = 'restricted';
+    }
+
+    // Update stored status if changed
+    if (user.providerProfile.stripeAccountStatus !== status) {
+      user.providerProfile.stripeAccountStatus = status;
+      await user.save();
+    }
+
+    res.json({
+      connected: status === 'active',
+      status,
+      chargesEnabled: account.charges_enabled,
+      payoutsEnabled: account.payouts_enabled,
+      requirements: account.requirements?.currently_due || []
+    });
+  } catch (error) {
+    console.error('Error checking Stripe Connect status:', error);
+    res.status(500).json({ message: 'Failed to check Stripe status' });
+  }
+});
+
+// ─── Connect: Dashboard login link (for providers to see their Stripe dashboard) ─
+router.get('/connect/dashboard', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    const accountId = user.providerProfile?.stripeAccountId;
+
+    if (!accountId) {
+      return res.status(400).json({ message: 'No Stripe account connected' });
+    }
+
+    const loginLink = await stripe.accounts.createLoginLink(accountId);
+    res.json({ url: loginLink.url });
+  } catch (error) {
+    console.error('Error creating Stripe dashboard link:', error);
+    res.status(500).json({ message: 'Failed to create dashboard link' });
+  }
+});
+
+// ─── Payments: Create payment intent for a booking ──────────────────────
+router.post('/create-payment-intent', ensureAuthenticated, async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    const booking = await Booking.findById(bookingId).populate('provider');
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Verify the requester is the client on this booking
+    if (!booking.client.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Check provider has Stripe connected
+    const providerAccountId = booking.provider.providerProfile?.stripeAccountId;
+    if (!providerAccountId) {
+      return res.status(400).json({ message: 'Provider has not set up card payments yet' });
+    }
+
+    const totalPrice = booking.pricing?.totalPrice;
+    if (!totalPrice || totalPrice <= 0) {
+      return res.status(400).json({ message: 'Invalid booking price' });
+    }
+
+    // Create payment intent on the connected account (direct charge)
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(totalPrice * 100), // cents
+      currency: 'usd',
+      metadata: {
+        bookingId: booking._id.toString(),
+        clientId: req.user._id.toString(),
+        providerId: booking.provider._id.toString()
+      },
+    }, {
+      stripeAccount: providerAccountId,
+    });
+
+    // Store the payment intent ID on the booking
+    booking.stripePaymentIntentId = paymentIntent.id;
+    await booking.save();
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      stripeAccountId: providerAccountId
+    });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).json({ message: 'Failed to create payment' });
+  }
+});
+
+// ─── Webhook: Handle Stripe events ──────────────────────────────────────
+// NOTE: This route uses express.raw() body parser — registered separately in server.js
+router.post('/webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+  try {
+    if (endpointSecret) {
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } else {
+      // In development without webhook secret, parse the body directly
+      event = JSON.parse(req.body.toString());
+    }
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'payment_intent.succeeded': {
+      const paymentIntent = event.data.object;
+      const bookingId = paymentIntent.metadata?.bookingId;
+      if (bookingId) {
+        try {
+          await Booking.findByIdAndUpdate(bookingId, {
+            paymentStatus: 'paid',
+            paidAt: new Date()
+          });
+          console.log(`Booking ${bookingId} marked as paid via webhook`);
+        } catch (err) {
+          console.error('Error updating booking from webhook:', err);
+        }
+      }
+      break;
+    }
+    case 'account.updated': {
+      // Update provider's Stripe account status
+      const account = event.data.object;
+      const userId = account.metadata?.userId;
+      if (userId) {
+        try {
+          let status = 'pending';
+          if (account.charges_enabled && account.payouts_enabled) {
+            status = 'active';
+          } else if (account.requirements?.disabled_reason) {
+            status = 'restricted';
+          }
+          await User.findByIdAndUpdate(userId, {
+            'providerProfile.stripeAccountStatus': status
+          });
+          console.log(`Provider ${userId} Stripe status updated to ${status}`);
+        } catch (err) {
+          console.error('Error updating provider Stripe status:', err);
+        }
+      }
+      break;
+    }
+    default:
+      // Unhandled event type
+      break;
+  }
+
+  res.json({ received: true });
+});
+
+module.exports = router;
