@@ -149,19 +149,59 @@ router.get('/provider/clients/:clientId', ensureAuthenticated, async (req, res) 
   }
 });
 
-// Get provider's clients
+// Get provider's clients with booking stats
 router.get('/provider/clients', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Provider access required' });
     }
 
-    const clients = await User.find({ 
+    const clients = await User.find({
       providerId: req.user._id,
       accountType: 'CLIENT'
     }).select('-password');
 
-    res.json(clients);
+    // Fetch booking stats for all clients in one query
+    const now = new Date();
+    const clientIds = clients.map(c => c._id);
+    const bookingStats = await Booking.aggregate([
+      { $match: { client: { $in: clientIds }, provider: req.user._id } },
+      { $group: {
+        _id: '$client',
+        totalAppointments: { $sum: 1 },
+        completedAppointments: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+        upcomingAppointments: { $sum: { $cond: [{ $and: [{ $gt: ['$date', now] }, { $ne: ['$status', 'cancelled'] }] }, 1, 0] } },
+        lastAppointmentDate: { $max: { $cond: [{ $eq: ['$status', 'completed'] }, '$date', null] } },
+        nextAppointmentDate: { $min: { $cond: [{ $and: [{ $gt: ['$date', now] }, { $ne: ['$status', 'cancelled'] }] }, '$date', null] } },
+        totalRevenue: { $sum: { $ifNull: ['$pricing.totalPrice', 0] } }
+      }}
+    ]);
+
+    const statsMap = {};
+    bookingStats.forEach(s => { statsMap[s._id.toString()] = s; });
+
+    const enrichedClients = clients.map(c => {
+      const obj = c.toObject();
+      const s = statsMap[c._id.toString()];
+      obj.bookingStats = s ? {
+        totalAppointments: s.totalAppointments,
+        completedAppointments: s.completedAppointments,
+        upcomingAppointments: s.upcomingAppointments,
+        lastAppointmentDate: s.lastAppointmentDate,
+        nextAppointmentDate: s.nextAppointmentDate,
+        totalRevenue: s.totalRevenue
+      } : {
+        totalAppointments: 0,
+        completedAppointments: 0,
+        upcomingAppointments: 0,
+        lastAppointmentDate: null,
+        nextAppointmentDate: null,
+        totalRevenue: 0
+      };
+      return obj;
+    });
+
+    res.json(enrichedClients);
   } catch (error) {
     console.error('Error fetching clients:', error);
     res.status(500).json({ message: 'Error fetching clients' });

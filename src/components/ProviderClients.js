@@ -4,10 +4,43 @@ import { AuthContext } from '../AuthContext';
 import {
   Users, Mail, UserPlus, AlertCircle, CheckCircle,
   ExternalLink, MapPin, Clock, Search, Phone, Calendar,
-  MessageSquare, Clock as ClockIcon, UserX, Copy, Link as LinkIcon, Edit3
+  MessageSquare, Clock as ClockIcon, UserX, Copy, Link as LinkIcon, Edit3,
+  DollarSign, AlertTriangle
 } from 'lucide-react';
 import axios from 'axios';
 import { SkeletonText } from './ui/Skeleton';
+
+const formatClientAddress = (address) => {
+  if (!address) return '';
+  // Try formatted first, then build from parts
+  if (address.formatted) return address.formatted;
+  const parts = [address.street, address.city, address.state].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : '';
+};
+
+const formatRelativeDate = (dateStr) => {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const futureDiffDays = Math.floor((date - now) / (1000 * 60 * 60 * 24));
+
+  if (diffMs < 0) {
+    // Future date
+    if (futureDiffDays === 0) return 'Today';
+    if (futureDiffDays === 1) return 'Tomorrow';
+    if (futureDiffDays < 7) return `In ${futureDiffDays} days`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  // Past date
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 const ProviderClients = () => {
   const { user } = useContext(AuthContext);
@@ -549,59 +582,117 @@ const ProviderClients = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-200">
-                  {filteredClients.map(client => (
-                    <div key={client._id} className="p-4 sm:p-6 hover:bg-slate-50">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-4 sm:space-y-0">
-                        <div className="flex-1">
-                          <h3 className="text-base sm:text-lg font-medium text-slate-900">
-                            {client.profile?.fullName || 'Unnamed Client'}
-                          </h3>
-                          <div className="mt-1 space-y-1">
-                            <div className="flex items-center text-sm text-slate-500">
-                              <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
-                              <span className="truncate">{client.email}</span>
+                  {filteredClients.map(client => {
+                    const address = formatClientAddress(client.profile?.address);
+                    const stats = client.bookingStats;
+                    const hasHealthInfo = client.profile?.allergies || client.profile?.medicalConditions;
+
+                    return (
+                      <div
+                        key={client._id}
+                        className="p-4 sm:p-6 hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/provider/clients/${client._id}`)}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                          {/* Left: Client info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-base sm:text-lg font-medium text-slate-900 truncate">
+                                {client.profile?.fullName || 'Unnamed Client'}
+                              </h3>
+                              {hasHealthInfo && (
+                                <span title="Has health info on file">
+                                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                </span>
+                              )}
                             </div>
-                            {client.profile?.address && (
+
+                            {/* Contact info row */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                               <div className="flex items-center text-sm text-slate-500">
-                                <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
-                                <span className="truncate">{client.profile.address.formatted}</span>
+                                <Mail className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">{client.email}</span>
+                              </div>
+                              {client.profile?.phoneNumber && (
+                                <div className="flex items-center text-sm text-slate-500">
+                                  <Phone className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                                  <span>{client.profile.phoneNumber}</span>
+                                </div>
+                              )}
+                              {address && (
+                                <div className="flex items-center text-sm text-slate-500">
+                                  <MapPin className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                                  <span className="truncate">{address}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Stats row */}
+                            {stats && stats.totalAppointments > 0 && (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                                <span className="inline-flex items-center text-xs text-slate-500">
+                                  <Calendar className="w-3.5 h-3.5 mr-1" />
+                                  {stats.totalAppointments} session{stats.totalAppointments !== 1 ? 's' : ''}
+                                </span>
+                                {stats.lastAppointmentDate && (
+                                  <span className="text-xs text-slate-500">
+                                    Last: {formatRelativeDate(stats.lastAppointmentDate)}
+                                  </span>
+                                )}
+                                {stats.nextAppointmentDate && (
+                                  <span className="text-xs text-[#387c7e] font-medium">
+                                    Next: {formatRelativeDate(stats.nextAppointmentDate)}
+                                  </span>
+                                )}
+                                {stats.totalRevenue > 0 && (
+                                  <span className="inline-flex items-center text-xs text-slate-500">
+                                    <DollarSign className="w-3.5 h-3.5 mr-0.5" />
+                                    {stats.totalRevenue.toFixed(0)}
+                                  </span>
+                                )}
                               </div>
                             )}
+                            {stats && stats.totalAppointments === 0 && (
+                              <p className="mt-2 text-xs text-slate-400 italic">No appointments yet</p>
+                            )}
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex flex-row sm:flex-col lg:flex-row gap-2 flex-shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {client.profile?.phoneNumber && (
+                              <button
+                                onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
+                                className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
+                                  hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
+                              >
+                                <Phone className="w-4 h-4 mr-1" />
+                                Call
+                              </button>
+                            )}
+                            {client.profile?.phoneNumber && (
+                              <button
+                                onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
+                                className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
+                                  hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
+                              >
+                                <MessageSquare className="w-4 h-4 mr-1" />
+                                Text
+                              </button>
+                            )}
+                            <button
+                              onClick={() => navigate(`/provider/clients/${client._id}`)}
+                              className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-[#387c7e]
+                                hover:bg-[#387c7e]/10 rounded-md flex-1 sm:flex-initial"
+                            >
+                              View Details
+                            </button>
                           </div>
                         </div>
-                        
-                        <div className="flex flex-row sm:flex-col lg:flex-row gap-2">
-                          {client.profile?.phoneNumber && (
-                            <button
-                              onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
-                              className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
-                            >
-                              <Phone className="w-4 h-4 mr-1" />
-                              Call
-                            </button>
-                          )}
-                          {client.profile?.phoneNumber && (
-                            <button
-                              onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
-                              className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
-                            >
-                              <MessageSquare className="w-4 h-4 mr-1" />
-                              Text
-                            </button>
-                          )}
-                          <button
-                            onClick={() => navigate(`/provider/clients/${client._id}`)}
-                            className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-[#387c7e]
-                              hover:bg-[#387c7e]/10 rounded-md flex-1 sm:flex-initial"
-                          >
-                            View Details
-                          </button>
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
