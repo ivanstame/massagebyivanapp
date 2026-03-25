@@ -124,7 +124,11 @@ router.put('/', ensureAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating join code:', error);
-    res.status(500).json({ message: 'Server error' });
+    // Surface duplicate key errors clearly
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'This join code is already taken' });
+    }
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 });
 
