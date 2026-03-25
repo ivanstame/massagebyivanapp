@@ -448,7 +448,8 @@ router.get('/provider/:providerId/services', async (req, res) => {
 
     res.json({
       basePricing: provider.providerProfile?.basePricing || [],
-      addons: (provider.providerProfile?.addons || []).filter(a => a.isActive)
+      addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
+      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash']
     });
   } catch (error) {
     console.error('Error fetching provider services:', error);
@@ -464,7 +465,7 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    const { basePricing, addons } = req.body;
+    const { basePricing, addons, acceptedPaymentMethods } = req.body;
 
     if (basePricing) {
       // Validate pricing entries
@@ -492,11 +493,21 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
       user.providerProfile.addons = addons;
     }
 
+    if (acceptedPaymentMethods) {
+      const validMethods = ['cash', 'zelle', 'venmo', 'card'];
+      const filtered = acceptedPaymentMethods.filter(m => validMethods.includes(m));
+      if (filtered.length === 0) {
+        return res.status(400).json({ message: 'At least one valid payment method is required' });
+      }
+      user.providerProfile.acceptedPaymentMethods = filtered;
+    }
+
     await user.save();
     res.json({
       message: 'Services updated',
       basePricing: user.providerProfile.basePricing,
-      addons: user.providerProfile.addons
+      addons: user.providerProfile.addons,
+      acceptedPaymentMethods: user.providerProfile.acceptedPaymentMethods
     });
   } catch (error) {
     console.error('Error updating provider services:', error);

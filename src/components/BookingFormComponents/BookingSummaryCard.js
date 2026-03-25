@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, DollarSign, User, Info, Sparkles } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, User, Info, Sparkles, Banknote } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../../utils/timeConstants';
 
@@ -12,8 +12,15 @@ const BookingSummaryCard = ({
   recipientType,
   recipientInfo,
   durationOptions = [],
-  availableAddons = []
+  availableAddons = [],
+  selectedPaymentMethod = null
 }) => {
+  const paymentMethodLabels = {
+    cash: 'Cash',
+    zelle: 'Zelle',
+    venmo: 'Venmo',
+    card: 'Card',
+  };
   const formattedDate = selectedDate
     ? DateTime.fromJSDate(selectedDate)
         .setZone(DEFAULT_TZ)
@@ -141,6 +148,21 @@ const BookingSummaryCard = ({
                     <span className="text-sm font-medium text-teal-600">+${addon.price}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Payment Method */}
+          {selectedPaymentMethod && (
+            <div className="pb-4 border-b border-slate-100">
+              <div className="flex items-start space-x-3">
+                <Banknote className="w-5 h-5 text-teal-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-600">Payment Method</p>
+                  <p className="text-base text-slate-900">
+                    {paymentMethodLabels[selectedPaymentMethod] || selectedPaymentMethod}
+                  </p>
+                </div>
               </div>
             </div>
           )}

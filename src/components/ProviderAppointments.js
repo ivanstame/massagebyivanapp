@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
-import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, Trash2, User as UserIcon } from 'lucide-react';
+import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, Trash2, User as UserIcon, DollarSign, CheckCircle } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
 
 const ProviderAppointments = () => {
@@ -83,6 +83,24 @@ const ProviderAppointments = () => {
     }
   };
 
+  const handleTogglePayment = async (appointmentId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
+      await axios.patch(`/api/bookings/${appointmentId}/payment-status`,
+        { paymentStatus: newStatus },
+        { withCredentials: true }
+      );
+      await fetchAppointments();
+    } catch (error) {
+      alert('Failed to update payment status. Please try again.');
+    }
+  };
+
+  const paymentMethodLabel = (method) => {
+    const labels = { cash: 'Cash', zelle: 'Zelle', venmo: 'Venmo', card: 'Card' };
+    return labels[method] || method || 'Cash';
+  };
+
   // Get the display name for who's actually receiving the massage
   const getRecipientName = (appointment) => {
     if (appointment.recipientType === 'other' && appointment.recipientInfo?.name) {
@@ -151,9 +169,38 @@ const ProviderAppointments = () => {
                   className="mt-2"
                 />
               )}
+
+              {/* Payment info */}
+              {appointment.pricing?.totalPrice > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <DollarSign className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-600">
+                    ${appointment.pricing.totalPrice.toFixed(2)} — {paymentMethodLabel(appointment.paymentMethod)}
+                  </span>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
+                    appointment.paymentStatus === 'paid'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {appointment.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-          <div className="ml-4">
+          <div className="ml-4 flex flex-col gap-2">
+            <button
+              onClick={() => handleTogglePayment(appointment._id, appointment.paymentStatus)}
+              className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-colors duration-200 ${
+                appointment.paymentStatus === 'paid'
+                  ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                  : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+              }`}
+              title={appointment.paymentStatus === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
+            >
+              <CheckCircle className="w-4 h-4 mr-1.5" />
+              {appointment.paymentStatus === 'paid' ? 'Paid' : 'Mark Paid'}
+            </button>
             <button
               onClick={() => handleCancelAppointment(appointment._id)}
               className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200

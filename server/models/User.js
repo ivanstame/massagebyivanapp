@@ -56,6 +56,12 @@ const UserSchema = new mongoose.Schema({
       },
       expiresAt: Date
     },
+    // Provider-accepted payment methods
+    acceptedPaymentMethods: {
+      type: [String],
+      enum: ['cash', 'zelle', 'venmo', 'card'],
+      default: ['cash']
+    },
     // Provider-configured pricing by duration
     basePricing: [{
       duration: { type: Number, required: true },  // minutes: 60, 90, 120

@@ -17,6 +17,7 @@ import AddOnsSelector from './BookingFormComponents/AddOnsSelector';
 import BookingSummaryCard from './BookingFormComponents/BookingSummaryCard';
 import AvailableTimeSlots from './BookingFormComponents/AvailableTimeSlots';
 import BookingConfirmationModal from './BookingFormComponents/BookingConfirmationModal';
+import PaymentMethodSelector from './BookingFormComponents/PaymentMethodSelector';
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // Provider services (fetched from API)
   const [durationOptions, setDurationOptions] = useState([]);
   const [availableAddons, setAvailableAddons] = useState([]);
+  const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState(['cash']);
 
   // Booking flow state with sensible defaults
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -38,6 +40,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [selectedMassageType] = useState('focused');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
 
@@ -77,7 +80,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
       if (providerId) {
         try {
           const servicesRes = await api.get(`/api/users/provider/${providerId}/services`);
-          const { basePricing, addons } = servicesRes.data;
+          const { basePricing, addons, acceptedPaymentMethods: providerMethods } = servicesRes.data;
+
+          if (providerMethods && providerMethods.length > 0) {
+            setAcceptedPaymentMethods(providerMethods);
+            setSelectedPaymentMethod(providerMethods[0]);
+          }
 
           if (basePricing && basePricing.length > 0) {
             setDurationOptions(basePricing);
@@ -240,6 +248,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
           addonsPrice,
           totalPrice: basePrice + addonsPrice
         },
+        paymentMethod: selectedPaymentMethod,
         recipientType,
         ...(recipientType === 'other' && {
           recipientInfo: {
@@ -286,6 +295,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setLocation(null);
     setSelectedDuration(durationOptions.length > 0 ? durationOptions[0].duration : 60);
     setSelectedAddons([]);
+    setSelectedPaymentMethod(acceptedPaymentMethods[0] || 'cash');
     setRecipientType('self');
     setRecipientInfo({ name: '', phone: '', email: '' });
     setBookingSuccess(false);
@@ -347,7 +357,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
             availableAddons={availableAddons}
           />
 
-          {/* 6. Booking Summary */}
+          {/* 6. Payment Method */}
+          <PaymentMethodSelector
+            selectedMethod={selectedPaymentMethod}
+            onMethodChange={setSelectedPaymentMethod}
+            acceptedMethods={acceptedPaymentMethods}
+            isComplete={selectedPaymentMethod !== null}
+          />
+
+          {/* 7. Booking Summary */}
           <BookingSummaryCard
             selectedDuration={selectedDuration}
             selectedDate={selectedDate}
@@ -358,6 +376,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             recipientInfo={recipientInfo}
             durationOptions={durationOptions}
             availableAddons={availableAddons}
+            selectedPaymentMethod={selectedPaymentMethod}
           />
 
           {/* 7. Available Time Slots */}

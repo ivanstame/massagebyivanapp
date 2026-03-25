@@ -5,7 +5,7 @@ import { AuthContext } from '../AuthContext';
 import { DateTime } from 'luxon';
 import {
   ArrowLeft, Calendar, Clock, MapPin, User, Phone,
-  DollarSign, Trash2, AlertCircle, Tag, Plus
+  DollarSign, Trash2, AlertCircle, Tag, Plus, Banknote, CheckCircle
 } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
 
@@ -44,6 +44,24 @@ const AppointmentDetail = () => {
       setCancelling(false);
       setShowCancelConfirm(false);
     }
+  };
+
+  const handleTogglePayment = async () => {
+    try {
+      const newStatus = booking.paymentStatus === 'paid' ? 'unpaid' : 'paid';
+      const res = await axios.patch(`/api/bookings/${id}/payment-status`,
+        { paymentStatus: newStatus },
+        { withCredentials: true }
+      );
+      setBooking(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update payment status');
+    }
+  };
+
+  const paymentMethodLabel = (method) => {
+    const labels = { cash: 'Cash', zelle: 'Zelle', venmo: 'Venmo', card: 'Card' };
+    return labels[method] || method || 'Cash';
   };
 
   const formatTime = (timeStr) => {
@@ -284,6 +302,44 @@ const AppointmentDetail = () => {
               </div>
             </div>
           )}
+
+          {/* Payment */}
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <Banknote className="w-5 h-5 text-[#009ea5]" />
+              <div>
+                <p className="text-sm text-slate-500">Payment Method</p>
+                <p className="font-medium text-slate-900">{paymentMethodLabel(booking.paymentMethod)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle className={`w-5 h-5 ${booking.paymentStatus === 'paid' ? 'text-green-500' : 'text-amber-500'}`} />
+              <div className="flex items-center gap-2">
+                <div>
+                  <p className="text-sm text-slate-500">Payment Status</p>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
+                    booking.paymentStatus === 'paid'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {booking.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                  </span>
+                </div>
+                {isProvider && booking.status !== 'cancelled' && (
+                  <button
+                    onClick={handleTogglePayment}
+                    className={`ml-2 px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+                      booking.paymentStatus === 'paid'
+                        ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                    }`}
+                  >
+                    {booking.paymentStatus === 'paid' ? 'Mark Unpaid' : 'Mark as Paid'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Cancel button */}

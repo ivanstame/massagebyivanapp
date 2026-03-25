@@ -106,6 +106,21 @@ const BookingSchema = new mongoose.Schema({
     addonsPrice: { type: Number },
     totalPrice: { type: Number }
   },
+  // Payment information
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'zelle', 'venmo', 'card'],
+    default: 'cash'
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['unpaid', 'paid'],
+    default: 'unpaid'
+  },
+  paidAt: {
+    type: Date,
+    default: null
+  },
   // Recipient information
   recipientType: {
     type: String,

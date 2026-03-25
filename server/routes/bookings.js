@@ -187,6 +187,9 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           email: req.body.recipientInfo.email || ''
         }
       }),
+      // Payment method
+      paymentMethod: req.body.paymentMethod || 'cash',
+      paymentStatus: 'unpaid',
       // Always store who placed the booking
       bookedBy: {
         name: req.user.profile?.fullName || req.user.email,
@@ -610,6 +613,36 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('❌ Error cancelling booking:', error);
     res.status(500).json({ message: 'Server error while cancelling booking' });
+  }
+});
+
+// PATCH /:id/payment-status (Mark booking as paid/unpaid)
+router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Only the provider on this booking can update payment status
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can update payment status' });
+    }
+
+    const { paymentStatus } = req.body;
+    if (!['paid', 'unpaid'].includes(paymentStatus)) {
+      return res.status(400).json({ message: 'Invalid payment status' });
+    }
+
+    booking.paymentStatus = paymentStatus;
+    booking.paidAt = paymentStatus === 'paid' ? new Date() : null;
+    await booking.save();
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    res.status(500).json({ message: 'Error updating payment status' });
   }
 });
 
