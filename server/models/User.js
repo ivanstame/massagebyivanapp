@@ -46,12 +46,12 @@ const UserSchema = new mongoose.Schema({
     subscription: {
       plan: {
         type: String,
-        enum: ['BASIC', 'PRO'],
+        enum: [null, 'BASIC', 'PRO'],
         default: 'BASIC'
       },
       status: {
         type: String,
-        enum: ['ACTIVE', 'PAST_DUE', 'CANCELLED'],
+        enum: [null, 'ACTIVE', 'PAST_DUE', 'CANCELLED'],
         default: 'ACTIVE'
       },
       expiresAt: Date
