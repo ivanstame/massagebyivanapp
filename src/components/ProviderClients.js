@@ -27,6 +27,10 @@ const ProviderClients = () => {
   const [activeTab, setActiveTab] = useState('clients'); // 'clients' or 'invitations'
   const [joinCode, setJoinCode] = useState('');
   const [joinCodeCopied, setJoinCodeCopied] = useState(false);
+  const [isEditingJoinCode, setIsEditingJoinCode] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinCodeError, setJoinCodeError] = useState('');
+  const [isSavingJoinCode, setIsSavingJoinCode] = useState(false);
 
   useEffect(() => {
     if (user?.accountType !== 'PROVIDER') {
@@ -52,6 +56,30 @@ const ProviderClients = () => {
     navigator.clipboard.writeText(joinCode);
     setJoinCodeCopied(true);
     setTimeout(() => setJoinCodeCopied(false), 2000);
+  };
+
+  const saveJoinCode = async () => {
+    const code = joinCodeInput.toLowerCase().trim();
+    if (!code || code.length < 3) {
+      setJoinCodeError('Must be at least 3 characters');
+      return;
+    }
+    if (!/^[a-z0-9]+$/.test(code)) {
+      setJoinCodeError('Letters and numbers only');
+      return;
+    }
+    setIsSavingJoinCode(true);
+    setJoinCodeError('');
+    try {
+      const response = await axios.put('/api/join-code', { joinCode: code });
+      setJoinCode(response.data.joinCode);
+      setIsEditingJoinCode(false);
+      setJoinCodeInput('');
+    } catch (err) {
+      setJoinCodeError(err.response?.data?.message || 'Failed to save join code');
+    } finally {
+      setIsSavingJoinCode(false);
+    }
   };
 
   const fetchClients = async () => {
@@ -300,11 +328,11 @@ const ProviderClients = () => {
         </div>
 
         {/* Join Code Card */}
-        {joinCode && (
-          <div className="mb-6 bg-[#387c7e]/5 border border-[#387c7e]/20 rounded-lg p-4">
-            <div className="flex items-center justify-between">
+        <div className="mb-6 bg-[#387c7e]/5 border border-[#387c7e]/20 rounded-lg p-4">
+          {joinCode && !isEditingJoinCode ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center">
-                <LinkIcon className="w-5 h-5 text-[#387c7e] mr-3" />
+                <LinkIcon className="w-5 h-5 text-[#387c7e] mr-3 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-slate-700">Your Client Join Code</p>
                   <p className="text-xs text-slate-500">Share this code with clients so they can sign up and connect with you</p>
@@ -331,10 +359,68 @@ const ProviderClients = () => {
                     </>
                   )}
                 </button>
+                <button
+                  onClick={() => { setIsEditingJoinCode(true); setJoinCodeInput(joinCode); }}
+                  className="inline-flex items-center px-2 py-1.5 text-sm text-slate-500
+                    hover:bg-slate-100 rounded-md transition"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div>
+              <div className="flex items-center mb-3">
+                <LinkIcon className="w-5 h-5 text-[#387c7e] mr-3 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-slate-700">
+                    {joinCode ? 'Edit Join Code' : 'Set Up Your Client Join Code'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {joinCode ? 'Change your join code (once every 30 days)' : 'Create a short code that clients enter when signing up to connect with you'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={joinCodeInput}
+                  onChange={(e) => {
+                    setJoinCodeInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    setJoinCodeError('');
+                  }}
+                  placeholder="e.g. ivan"
+                  maxLength={20}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-lg tracking-wider
+                    focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                  onKeyPress={(e) => { if (e.key === 'Enter') saveJoinCode(); }}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveJoinCode}
+                    disabled={isSavingJoinCode || !joinCodeInput.trim()}
+                    className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60]
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSavingJoinCode ? 'Saving...' : 'Save'}
+                  </button>
+                  {joinCode && (
+                    <button
+                      onClick={() => { setIsEditingJoinCode(false); setJoinCodeInput(''); setJoinCodeError(''); }}
+                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+              {joinCodeError && (
+                <p className="mt-2 text-sm text-red-600">{joinCodeError}</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Tab Navigation */}
         <div className="mb-6 border-b border-slate-200">
