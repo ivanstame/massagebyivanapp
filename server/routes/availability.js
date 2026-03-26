@@ -392,6 +392,22 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
     // NOTE: Add-on extra time is already included in appointmentDuration by the client.
     // No need to pass addons separately — duration param is the total.
 
+    // If no anchor on this availability, use provider's home base for first-booking travel calc
+    let homeAnchor = null;
+    if (!availability.anchor?.lat && providerId) {
+      const homeBase = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
+      if (homeBase) {
+        // Use availability start as the anchor "end time" — provider is at home until they leave
+        const availStart = DateTime.fromJSDate(availability.start).setZone(DEFAULT_TZ).toFormat('HH:mm');
+        homeAnchor = {
+          lat: homeBase.lat,
+          lng: homeBase.lng,
+          startTime: availStart,
+          endTime: availStart
+        };
+      }
+    }
+
     // Get available slots using the shared validation function
     const availableSlots = await getAvailableTimeSlots(
       availability,
@@ -401,7 +417,9 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       bufferTime,
       null, // requestedGroupId
       0,    // extraDepartureBuffer
-      providerId
+      providerId,
+      [],   // addons
+      homeAnchor // fallback anchor from provider home base
     );
     
     console.log(`Available slots: ${availableSlots.length} with shared validation logic`);

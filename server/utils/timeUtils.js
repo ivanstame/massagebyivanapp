@@ -384,16 +384,20 @@ async function validateSlots(
           isValid = false;
         }
       }
-      // No previous booking but there IS an anchor — calculate travel from anchor location
+      // No previous booking but there IS an anchor — calculate travel from anchor location (e.g. provider home)
       else if (!prevBooking && anchor && anchor.lat && anchor.lng && anchor.endTime && isValid) {
         try {
-          const anchorEndDT = DateTime.fromFormat(anchor.endTime, 'HH:mm', { zone: DEFAULT_TZ });
           const slotStartLocal = slotStart.setZone(DEFAULT_TZ);
+          // Build anchorEndDT on the same date as the slot
+          const anchorEndDT = slotStartLocal.set({
+            hour: parseInt(anchor.endTime.split(':')[0]),
+            minute: parseInt(anchor.endTime.split(':')[1])
+          });
 
           // Only applies to slots AFTER the anchor ends
-          if (slotStartLocal.hour * 60 + slotStartLocal.minute >= anchorEndDT.hour * 60 + anchorEndDT.minute) {
+          if (slotStartLocal >= anchorEndDT) {
             const anchorLocation = { lat: anchor.lat, lng: anchor.lng };
-            const departureTime = slotStart.minus({ minutes: 30 }).toJSDate(); // estimate departure
+            const departureTime = slotStart.minus({ minutes: 30 }).toJSDate();
 
             const travelTimeFromAnchor = await calculateTravelTime(
               anchorLocation,
@@ -410,7 +414,7 @@ async function validateSlots(
             const actualArrivalTime = anchorEndDT.plus({ minutes: travelTimeFromAnchor });
 
             if (actualArrivalTime > requiredArrivalTime) {
-              console.log('[Single-Session] Slot invalid: not enough time to arrive from anchor location');
+              console.log(`[Single-Session] Slot ${slotStartLocal.toFormat('HH:mm')} invalid: travel ${travelTimeFromAnchor}min from home, can't arrive 15min early`);
               isValid = false;
             }
           }
