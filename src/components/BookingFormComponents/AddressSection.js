@@ -30,7 +30,7 @@ const AddressSection = ({
     if (savedAddress && locationType === 'saved') {
       onAddressChange(savedAddress);
     }
-  }, [savedAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [savedAddress]);
 
   // If no saved address, default to "other"
   useEffect(() => {
