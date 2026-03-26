@@ -136,9 +136,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // Load saved address for clients
   useEffect(() => {
     if (user && user.accountType === 'CLIENT' && user.profile?.address) {
-      const { street, unit, city, state, zip } = user.profile.address;
-      if (street && city && state && zip) {
-        const combinedAddress = `${street}${unit ? ', ' + unit : ''}, ${city}, ${state} ${zip}`;
+      const addr = user.profile.address;
+      const combinedAddress = (addr.street && addr.city && addr.state && addr.zip)
+        ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}`
+        : addr.formatted || null;
+
+      if (combinedAddress) {
         setFullAddress(combinedAddress);
 
         (async () => {
