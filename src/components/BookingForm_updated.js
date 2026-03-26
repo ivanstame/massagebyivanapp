@@ -348,7 +348,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
               const fullAddr = addr.formatted ||
                 (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
               if (!fullAddr) return null;
-              return { fullAddress: fullAddr, lat: location?.lat, lng: location?.lng };
+              return { fullAddress: fullAddr };
             })()}
             currentAddress={location}
             onAddressChange={handleAddressConfirmed}

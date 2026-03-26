@@ -25,13 +25,6 @@ const AddressSection = ({
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState(null);
 
-  // When savedAddress becomes available (e.g. after geocode), auto-select it
-  useEffect(() => {
-    if (savedAddress && locationType === 'saved') {
-      onAddressChange(savedAddress);
-    }
-  }, [savedAddress]);
-
   // If no saved address, default to "other"
   useEffect(() => {
     if (!savedAddress) {
@@ -39,12 +32,12 @@ const AddressSection = ({
     }
   }, [savedAddress]);
 
+  // When user switches back to saved address, the parent already has
+  // the geocoded location from its own useEffect. No need to call
+  // onAddressChange here — just reset locationType so the UI shows it.
   const handleUseSaved = () => {
     setLocationType('saved');
     setVerifyError(null);
-    if (savedAddress) {
-      onAddressChange(savedAddress);
-    }
   };
 
   const handleUseOther = () => {
