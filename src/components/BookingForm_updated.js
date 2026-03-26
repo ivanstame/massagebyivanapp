@@ -186,15 +186,21 @@ const BookingForm = ({ googleMapsLoaded }) => {
           lng: location?.lng
         }
       });
-      // Transform ISO strings from server into objects expected by AvailableTimeSlots
-      const slots = (response.data || []).map(iso => {
-        const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
-        return {
-          iso,
-          display: dt.toFormat('h:mm a'),
-          local: dt.toFormat('HH:mm')
-        };
-      });
+      // Transform ISO strings and filter out past times for today
+      const now = DateTime.now().setZone(DEFAULT_TZ);
+      const slots = (response.data || [])
+        .filter(iso => {
+          const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+          return dt > now;
+        })
+        .map(iso => {
+          const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+          return {
+            iso,
+            display: dt.toFormat('h:mm a'),
+            local: dt.toFormat('HH:mm')
+          };
+        });
       setAvailableSlots(slots);
     } catch (err) {
       console.error('Error fetching slots:', err);
