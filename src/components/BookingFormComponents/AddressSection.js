@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Check, Home, Navigation, AlertCircle } from 'lucide-react';
 
 const US_STATES = [
@@ -14,7 +14,7 @@ const AddressSection = ({
   onAddressChange,
   isComplete
 }) => {
-  const [locationType, setLocationType] = useState('saved'); // 'saved' or 'other'
+  const [locationType, setLocationType] = useState(savedAddress ? 'saved' : 'other');
   const [otherAddress, setOtherAddress] = useState({
     street: '',
     unit: '',
@@ -24,6 +24,20 @@ const AddressSection = ({
   });
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState(null);
+
+  // When savedAddress becomes available (e.g. after geocode), auto-select it
+  useEffect(() => {
+    if (savedAddress && locationType === 'saved') {
+      onAddressChange(savedAddress);
+    }
+  }, [savedAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If no saved address, default to "other"
+  useEffect(() => {
+    if (!savedAddress) {
+      setLocationType('other');
+    }
+  }, [savedAddress]);
 
   const handleUseSaved = () => {
     setLocationType('saved');
