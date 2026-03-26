@@ -195,10 +195,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
   // Re-fetch slots when dependencies change
   useEffect(() => {
-    if (fullAddress && location?.lat && location?.lng && selectedDuration && selectedDate && (provider || user?.accountType === 'PROVIDER')) {
+    if (fullAddress && selectedDuration && selectedDate && (provider || user?.accountType === 'PROVIDER')) {
       fetchAvailableSlots();
     }
-  }, [fullAddress, location?.lat, location?.lng, selectedDuration, selectedAddons, selectedDate, provider]);
+  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location]);
 
   // Handle booking submission
   const handleSubmit = async () => {
