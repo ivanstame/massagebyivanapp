@@ -186,7 +186,16 @@ const BookingForm = ({ googleMapsLoaded }) => {
           lng: location?.lng
         }
       });
-      setAvailableSlots(response.data);
+      // Transform ISO strings from server into objects expected by AvailableTimeSlots
+      const slots = (response.data || []).map(iso => {
+        const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+        return {
+          iso,
+          display: dt.toFormat('h:mm a'),
+          local: dt.toFormat('HH:mm')
+        };
+      });
+      setAvailableSlots(slots);
     } catch (err) {
       console.error('Error fetching slots:', err);
       setAvailableSlots([]);
