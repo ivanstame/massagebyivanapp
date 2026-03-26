@@ -342,12 +342,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
           {/* 3. Address */}
           <AddressSection
-            savedAddress={user?.profile?.address ? {
-              fullAddress: `${user.profile.address.street}${user.profile.address.unit ? ', ' + user.profile.address.unit : ''}, ${user.profile.address.city}, ${user.profile.address.state} ${user.profile.address.zip}`
+            savedAddress={user?.profile?.address?.street ? {
+              fullAddress: `${user.profile.address.street}${user.profile.address.unit ? ', ' + user.profile.address.unit : ''}, ${user.profile.address.city}, ${user.profile.address.state} ${user.profile.address.zip}`,
+              lat: location?.lat,
+              lng: location?.lng
             } : null}
             currentAddress={location}
             onAddressChange={handleAddressConfirmed}
-            googleMapsLoaded={googleMapsLoaded}
             isComplete={fullAddress !== ''}
           />
 
