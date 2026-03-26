@@ -186,12 +186,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
           lng: location?.lng
         }
       });
-      // Transform ISO strings and filter out past times for today
-      const now = DateTime.now().setZone(DEFAULT_TZ);
+      // Transform ISO strings and filter out slots without enough lead time
+      // Need at least 60 minutes from now to realistically book
+      const cutoff = DateTime.now().setZone(DEFAULT_TZ).plus({ minutes: 60 });
       const slots = (response.data || [])
         .filter(iso => {
           const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
-          return dt > now;
+          return dt > cutoff;
         })
         .map(iso => {
           const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
