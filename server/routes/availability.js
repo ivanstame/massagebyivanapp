@@ -386,28 +386,21 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       JSON.parse(req.query.sessionDurations) :
       [appointmentDuration];
 
-    // Fetch provider's home base for first-booking travel calc
-    let homeAnchor = null;
+    // Fetch provider's home base for travel calculations
+    let homeBase = null;
     if (providerId) {
-      const homeBase = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
-      if (homeBase) {
-        // Use earliest availability start as the anchor — provider is at home until they leave
-        const earliestStart = DateTime.fromJSDate(availabilityBlocks[0].start).setZone(DEFAULT_TZ).toFormat('HH:mm');
-        homeAnchor = {
-          lat: homeBase.lat,
-          lng: homeBase.lng,
-          startTime: earliestStart,
-          endTime: earliestStart
-        };
+      const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
+      if (homeLoc) {
+        homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
+        console.log(`[Boundary] Provider home base: ${homeLoc.address} (${homeLoc.lat}, ${homeLoc.lng})`);
+      } else {
+        console.log('[Boundary] No home base found for provider');
       }
     }
 
     // Generate slots from ALL availability blocks and merge
     let allSlots = [];
     for (const availability of availabilityBlocks) {
-      // Use block's own anchor if it has one, otherwise fall back to home
-      const blockAnchor = (availability.anchor?.lat) ? null : homeAnchor;
-
       const slots = await getAvailableTimeSlots(
         availability,
         bookings,
@@ -418,7 +411,7 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         0,    // extraDepartureBuffer
         providerId,
         [],   // addons
-        blockAnchor
+        homeBase
       );
       allSlots = allSlots.concat(slots);
     }

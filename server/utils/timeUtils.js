@@ -3,121 +3,36 @@
 const { DateTime } = require('luxon');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const LuxonService = require('../../src/utils/LuxonService');
-const { calculateTravelTime } = require('../services/mapService'); // Adjust the path as necessary
-const { validateProviderTravel } = require('../services/mapService');
-
-const laZone = 'America/Los_Angeles';
+const { calculateTravelTime } = require('../services/mapService');
 
 /**
- * HELPER FUNCTION: Calculate buffer time between bookings based on group ID and location
- *
- * @param {Object} booking1 - First booking
- * @param {Object} booking2 - Second booking
- * @param {number} [defaultBuffer=15] - Default buffer time in minutes
- *                                      TEMPORARY: This default value is used until provider registration
- *                                      captures and stores the desired buffer time per provider.
- * @param {Array} [allBookings=[]] - All bookings for the day
- * @returns {number} - Buffer time in minutes
+ * HELPER: Calculate buffer time between bookings based on group ID and location
  */
 const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, allBookings = []) => {
-  // Ensure defaultBuffer is a number to prevent NaN errors in calculations
   const effectiveBuffer = typeof defaultBuffer === 'number' ? defaultBuffer : 15;
-  
-  // If we don't have two real bookings, just return the default buffer
-  if (!booking1 || !booking2) {
-    return effectiveBuffer;
-  }
+  if (!booking1 || !booking2) return effectiveBuffer;
 
-  // If both bookings share the same groupId and location, skip the in-between buffer
   if (
-    booking1.groupId &&
-    booking2.groupId &&
+    booking1.groupId && booking2.groupId &&
     booking1.groupId === booking2.groupId &&
     booking1.location?.address === booking2.location?.address
   ) {
     return 0;
   }
 
-  // If the first booking is flagged as "last in group," add the accumulated buffer
   if (booking1.groupId && booking1.isLastInGroup && booking1.extraDepartureBuffer) {
-    // Count how many bookings share that groupId
     const groupSize = allBookings.filter(b => b.groupId === booking1.groupId).length;
-    // Add extra buffer based on group size
     return effectiveBuffer * groupSize + booking1.extraDepartureBuffer;
   }
 
-  // Otherwise, return the default buffer
   return effectiveBuffer;
 };
 
-//
-// HELPER FUNCTION: Validate a chain of sessions (multi-session wizard scenario)
-//
-const validateMultiSessionSlot = async (
-  startTimeString,      // e.g. "13:00"
-  sessionDurations,     // array of durations [90, 60, 120, ...]
-  bookings,
-  clientLocation,
-  earliestTime,         // e.g. 6 (6 AM)
-  latestTime            // e.g. 22 (10 PM)
-) => {
-  console.log('DEBUG: validateMultiSessionSlot checking chain:', { 
-    startTimeString, 
-    sessionDurations 
-  });
-
-  let currentTime = startTimeString;
-
-  for (let i = 0; i < sessionDurations.length; i++) {
-    const duration = sessionDurations[i];
-    const [hours, minutes] = currentTime.split(':').map(Number);
-
-    // Check if we're still within business hours
-    if (hours < earliestTime || hours >= latestTime) {
-      return false;
-    }
-
-    // Ensure we're on a half-hour boundary
-    if (minutes % 30 !== 0) {
-      return false;
-    }
-
-    // Calculate end time for this session
-    const totalMinutes = hours * 60 + minutes + duration;
-    const endHours = Math.floor(totalMinutes / 60);
-    const endMinutes = totalMinutes % 60;
-
-    // Check if end time is within business hours
-    if (endHours >= latestTime) {
-      return false;
-    }
-
-    // If this is the last session, see if we can fit the combined buffer
-    if (i === sessionDurations.length - 1) {
-      // Calculate the buffer based on number of sessions
-      const bufferMinutes = 15 * (sessionDurations.length - 1);
-      const withBufferMinutes = totalMinutes + bufferMinutes;
-      const bufferEndHour = Math.floor(withBufferMinutes / 60);
-      if (bufferEndHour >= latestTime) {
-        return false;
-      }
-    }
-
-    // Move currentTime to the end of this session (no middle buffer)
-    currentTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
-  }
-
-  // If all sessions fit, return true
-  return true;
-};
-
-//
-// Generate time slots in half-hour increments
-//
+/**
+ * Generate time slots in 30-minute increments
+ */
 function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDuration) {
-  // Handle both Date objects and ISO strings
   let startDT, endDT;
-  
   if (startTime instanceof Date) {
     startDT = DateTime.fromJSDate(startTime).setZone(DEFAULT_TZ);
     endDT = DateTime.fromJSDate(endTime).setZone(DEFAULT_TZ);
@@ -125,486 +40,334 @@ function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDurat
     startDT = DateTime.fromISO(startTime, { zone: DEFAULT_TZ });
     endDT = DateTime.fromISO(endTime, { zone: DEFAULT_TZ });
   }
-  
-  console.log(`Generating time slots from ${startDT.toFormat('HH:mm')} to ${endDT.toFormat('HH:mm')}`);
-  
+
   const slots = [];
   let currentSlot = startDT;
-
-  // If appointmentDuration is an array (multi-session), use the longest duration
-  const maxDuration = Array.isArray(appointmentDuration) 
-    ? Math.max(...appointmentDuration) 
+  const maxDuration = Array.isArray(appointmentDuration)
+    ? Math.max(...appointmentDuration)
     : appointmentDuration;
 
   while (currentSlot <= endDT.minus({ minutes: maxDuration })) {
-    // Skip slots that would create appointments spanning DST transitions
     const slotEnd = currentSlot.plus({ minutes: maxDuration });
-    if (!LuxonService.checkDSTTransition(
-      currentSlot.toISO(), 
-      slotEnd.toISO()
-    )) {
+    if (!LuxonService.checkDSTTransition(currentSlot.toISO(), slotEnd.toISO())) {
       slots.push(currentSlot.toJSDate());
     }
-
     currentSlot = currentSlot.plus({ minutes: intervalMinutes });
   }
 
   return slots;
 }
 
-//
-// Remove occupied slots (considering buffer on both ends)
-//
 /**
- * Remove occupied slots considering buffer on both ends
- *
- * @param {Array} slots - Array of potential time slots
- * @param {Array} bookings - Existing bookings for the day
- * @param {number|Array} appointmentDuration - Duration in minutes or array of durations for multi-session
- * @param {number} [bufferMinutes=15] - Buffer time between appointments in minutes
- * @param {string} [requestedGroupId=null] - Group ID for multi-session bookings
- * @param {Object} [clientLocation=null] - Client's location coordinates and address
- * @returns {Array} - Array of available time slots after removing occupied ones
+ * Remove slots that overlap with existing bookings (including buffer)
  */
-function removeOccupiedSlots(
-  slots,
-  bookings,
-  appointmentDuration,
-  bufferMinutes = 15, // Default to 15 minutes if not provided
-  requestedGroupId = null,
-  clientLocation = null
-) {
-  // Ensure bufferMinutes is a number to prevent NaN errors in calculations
+function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes = 15, requestedGroupId = null, clientLocation = null) {
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
-  // If appointmentDuration is an array, use the longest duration as a baseline
-  const appointmentDurationMs = Array.isArray(appointmentDuration)
-    ? Math.max(...appointmentDuration) * 60 * 1000
-    : appointmentDuration * 60 * 1000;
+  const appointmentDurationMs = (Array.isArray(appointmentDuration)
+    ? Math.max(...appointmentDuration)
+    : appointmentDuration) * 60 * 1000;
 
   return slots.filter(slot => {
-    // Convert slot to Luxon DateTime in LA timezone
     const slotStart = DateTime.fromJSDate(slot).setZone(DEFAULT_TZ);
     const slotEnd = slotStart.plus({ milliseconds: appointmentDurationMs });
 
     return !bookings.some(booking => {
-      // Convert booking times to Luxon DateTime in LA timezone
       const bookingStart = DateTime.fromFormat(
         `${booking.date.toISOString().split('T')[0]} ${booking.startTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
       );
       const bookingEnd = DateTime.fromFormat(
         `${booking.date.toISOString().split('T')[0]} ${booking.endTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
       );
 
-      // Calculate dynamic buffer based on booking context
       const buffer = calculateBufferBetweenBookings(
         { groupId: requestedGroupId, location: clientLocation },
-        booking,
-        effectiveBufferMinutes,
-        bookings
+        booking, effectiveBufferMinutes, bookings
       );
-
       const bufferMs = buffer * 60 * 1000;
       const occupiedStart = bookingStart.minus({ milliseconds: bufferMs });
       const occupiedEnd = bookingEnd.plus({ milliseconds: bufferMs });
 
-      // Check if slot overlaps with occupied time (including buffer)
       return slotStart < occupiedEnd && slotEnd > occupiedStart;
     });
   });
 }
 
-//
-// Validate slots for final availability check
-//
 /**
- * Validate time slots for final availability check
- *
- * @param {Array} slots - Array of potential time slots
- * @param {Array} bookings - Existing bookings for the day
- * @param {Object} clientLocation - Client's location coordinates and address
- * @param {number|Array} appointmentDuration - Duration in minutes or array of durations for multi-session
- * @param {number} [bufferMinutes=15] - Buffer time between appointments in minutes
- * @param {Date} adminEndTime - End time of provider's availability
- * @param {string} [requestedGroupId=null] - Group ID for multi-session bookings
- * @param {number} [extraDepartureBuffer=0] - Additional buffer time for departure
- * @param {string} [providerId=null] - Provider ID for validation
- * @returns {Promise<Array>} - Array of valid time slots
+ * Check if two locations are effectively the same place (within ~200m)
  */
-async function validateSlots(
+function isSameLocation(loc1, loc2) {
+  if (!loc1?.lat || !loc2?.lat || !loc1?.lng || !loc2?.lng) return false;
+  const latDiff = Math.abs(loc1.lat - loc2.lat);
+  const lngDiff = Math.abs(loc1.lng - loc2.lng);
+  return latDiff < 0.002 && lngDiff < 0.002; // ~200m
+}
+
+/**
+ * Get travel time between two locations, using cache and same-location shortcut.
+ * Uses a session-level route cache so the same origin→destination pair is only
+ * called once per availability request regardless of direction consideration.
+ */
+async function getCachedTravelTime(from, to, departureTime, providerId, routeCache) {
+  // Same location = 0 travel time
+  if (isSameLocation(from, to)) {
+    console.log('[Travel] Same location detected, 0 min travel');
+    return 0;
+  }
+
+  // Skip if coords are invalid
+  if (!from?.lat || !from?.lng || !to?.lat || !to?.lng ||
+      isNaN(from.lat) || isNaN(from.lng) || isNaN(to.lat) || isNaN(to.lng)) {
+    console.log('[Travel] Invalid coords, returning 0');
+    return 0;
+  }
+
+  // Round coords to 3 decimal places for cache key (~100m precision)
+  const key = `${from.lat.toFixed(3)},${from.lng.toFixed(3)}→${to.lat.toFixed(3)},${to.lng.toFixed(3)}`;
+
+  if (routeCache.has(key)) {
+    console.log(`[Travel] Route cache hit: ${key} = ${routeCache.get(key)} min`);
+    return routeCache.get(key);
+  }
+
+  // Also check reverse direction — travel time is similar for nearby locations
+  const reverseKey = `${to.lat.toFixed(3)},${to.lng.toFixed(3)}→${from.lat.toFixed(3)},${from.lng.toFixed(3)}`;
+  if (routeCache.has(reverseKey)) {
+    const reverseTime = routeCache.get(reverseKey);
+    console.log(`[Travel] Using reverse route: ${reverseKey} = ${reverseTime} min`);
+    routeCache.set(key, reverseTime);
+    return reverseTime;
+  }
+
+  try {
+    const travelMin = await calculateTravelTime(from, to, departureTime, providerId, 'pessimistic');
+    routeCache.set(key, travelMin);
+    console.log(`[Travel] API call: ${key} = ${travelMin} min`);
+    return travelMin;
+  } catch (err) {
+    console.error(`[Travel] API error for ${key}: ${err.message}`);
+    return 0; // Don't reject slots due to API failures
+  }
+}
+
+/**
+ * BOUNDARY-BASED SLOT VALIDATION
+ *
+ * Instead of making an API call per slot, this calculates time-window boundaries
+ * for each gap in the provider's day, then filters slots by those windows.
+ *
+ * For a day with N bookings, this makes at most N+1 API calls (one per unique
+ * route pair) instead of up to 20 calls (one per slot).
+ *
+ * The commitments for the day are: [home/anchor, booking1, booking2, ..., end-of-day]
+ * For each gap between commitments, we calculate:
+ *   - earliestStart: when provider can arrive at client after previous commitment
+ *   - latestStart: latest the massage can start and still reach next commitment
+ * Then we filter: only offer slots where slotStart >= earliestStart AND slotStart <= latestStart
+ */
+async function validateSlotsByBoundary(
   slots,
   bookings,
   clientLocation,
   appointmentDuration,
-  bufferMinutes = 15, // Default to 15 minutes if not provided
-  adminEndTime,
-  requestedGroupId = null,
-  extraDepartureBuffer = 0,
-  providerId = null,
-  anchor = null // { lat, lng, startTime, endTime } — fixed location anchor for the day
+  bufferMinutes,
+  availEndTime, // Date object — end of availability block
+  providerId,
+  homeBase     // { lat, lng } or null
 ) {
-  // Ensure bufferMinutes is a number to prevent NaN errors in calculations
-  const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
-  
-  const validSlots = [];
-  
-  // Limit the number of slots to validate to prevent excessive API calls
-  const MAX_SLOTS_TO_VALIDATE = 20;
-  const slotsToProcess = slots.slice(0, MAX_SLOTS_TO_VALIDATE);
-  
-  console.log(`Validating ${slotsToProcess.length} slots (limited from ${slots.length} total slots)`);
+  const effectiveBuffer = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
+  const duration = Array.isArray(appointmentDuration) ? Math.max(...appointmentDuration) : appointmentDuration;
+  const arrivalBuffer = 15; // provider arrives 15 min early
 
-  for (const slot of slotsToProcess) {
-    let isValid = true;
-    const slotStart = DateTime.fromJSDate(slot);
-    
-    console.log('Validating slot:', {
-      localTime: DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toString(),
-      utcTime: slot.toISOString(),
-      bookingStart: DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toString(),
-      utcBookingStart: slot.toISOString()
-    });
+  // Route cache for this request — prevents duplicate API calls
+  const routeCache = new Map();
 
-    // Branch for multi-session arrays
-    if (Array.isArray(appointmentDuration)) {
-      const canFitChain = await validateMultiSessionSlot(
-        slotStart.toFormat('HH:mm'),
-        appointmentDuration,
-        bookings,
-        clientLocation,
-        6,   // earliest hour
-        22   // latest hour
+  // Sort bookings by start time
+  const sortedBookings = [...bookings].sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  // Get availability end as DateTime
+  const availEnd = DateTime.fromJSDate(availEndTime).setZone(DEFAULT_TZ);
+
+  // Get slot date from first slot (they're all the same day)
+  if (slots.length === 0) return [];
+  const slotDate = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+
+  // Build commitment list: each has { location, startMinute, endMinute }
+  // Minutes are from midnight for easy comparison
+  const toMinutes = (dt) => dt.hour * 60 + dt.minute;
+
+  const commitments = sortedBookings.map(b => {
+    const bStart = DateTime.fromFormat(`${slotDate} ${b.startTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    const bEnd = DateTime.fromFormat(`${slotDate} ${b.endTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    return {
+      location: b.location,
+      startMinute: toMinutes(bStart),
+      endMinute: toMinutes(bEnd),
+      startDT: bStart,
+      endDT: bEnd
+    };
+  });
+
+  // Build the list of valid time windows
+  const windows = [];
+  const departurePlaceholder = DateTime.fromFormat(`${slotDate} 12:00`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }).toJSDate();
+
+  console.log(`[Boundary] Building windows for ${commitments.length} bookings, duration=${duration}min`);
+
+  for (let i = 0; i <= commitments.length; i++) {
+    const prev = i > 0 ? commitments[i - 1] : null;
+    const next = i < commitments.length ? commitments[i] : null;
+
+    // --- Calculate earliest start (when can provider arrive at client?) ---
+    let earliestMinute;
+    if (prev) {
+      // After a booking: prevEnd + buffer + travel + arrivalBuffer
+      const travelFromPrev = await getCachedTravelTime(
+        prev.location, clientLocation, prev.endDT.toJSDate(), providerId, routeCache
       );
-      if (!canFitChain) isValid = false;
-    } 
-    // Single-session branch
-    else {
-      const slotEnd = slotStart.plus({ minutes: appointmentDuration });
-      const reversedBookings = [...bookings].reverse();
-      const prevBooking = reversedBookings.find(booking =>
-        DateTime.fromISO(`${booking.date.toISOString().split('T')[0]}T${booking.endTime}`) <= slotStart
+      earliestMinute = prev.endMinute + effectiveBuffer + travelFromPrev + arrivalBuffer;
+      console.log(`[Boundary] After booking ending ${prev.endMinute}: +${effectiveBuffer}buf +${travelFromPrev}travel +${arrivalBuffer}arrival = earliest ${earliestMinute}`);
+    } else if (homeBase?.lat && homeBase?.lng) {
+      // First gap: provider at home, can leave to arrive by slot time
+      // Availability start means they can BEGIN work at that time
+      // So earliest = availability start (they leave home early enough to arrive)
+      const firstSlotDT = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ);
+      const travelFromHome = await getCachedTravelTime(
+        homeBase, clientLocation, departurePlaceholder, providerId, routeCache
       );
-      const nextBooking = bookings.find(booking =>
-        DateTime.fromISO(`${booking.date.toISOString().split('T')[0]}T${booking.startTime}`) > slotStart
-      );
-
-      // Check service area if provider specified
-      if (providerId && isValid) {
-        try {
-          console.log('Validating provider travel with providerId:', providerId);
-          
-          // Validate travel from previous booking
-          if (prevBooking) {
-            try {
-              const travelValid = await validateProviderTravel(
-                prevBooking.location,
-                clientLocation,
-                providerId
-              );
-              if (!travelValid) {
-                console.log('[Single-Session] Slot invalid: outside provider service area from previous booking');
-                isValid = false;
-                continue;
-              }
-            } catch (validationError) {
-              console.error(`[Single-Session] Error validating travel from previous booking: ${validationError.message}`);
-              // Don't invalidate the slot due to validation errors
-              console.log('Continuing despite validation error from previous booking');
-            }
-          }
-
-          // Validate travel to next booking
-          if (nextBooking) {
-            try {
-              const travelValid = await validateProviderTravel(
-                clientLocation,
-                nextBooking.location,
-                providerId
-              );
-              if (!travelValid) {
-                console.log('[Single-Session] Slot invalid: outside provider service area to next booking');
-                isValid = false;
-                continue;
-              }
-            } catch (validationError) {
-              console.error(`[Single-Session] Error validating travel to next booking: ${validationError.message}`);
-              // Don't invalidate the slot due to validation errors
-              console.log('Continuing despite validation error to next booking');
-            }
-          }
-        } catch (error) {
-          console.error(`[Single-Session] Error in overall validation process for slot: ${slotStart.toISO()}`, error);
-          // Don't invalidate the slot due to validation errors
-          console.log('Continuing despite overall validation error');
-        }
-      }
-
-      // If there's a fixed anchor on this day, reject slots that overlap with the anchor block
-      if (anchor && anchor.startTime && anchor.endTime && isValid) {
-        const anchorStart = DateTime.fromFormat(anchor.startTime, 'HH:mm', { zone: DEFAULT_TZ });
-        const anchorEnd = DateTime.fromFormat(anchor.endTime, 'HH:mm', { zone: DEFAULT_TZ });
-        const slotStartLocal = slotStart.setZone(DEFAULT_TZ);
-        const slotEndLocal = slotEnd.setZone(DEFAULT_TZ);
-
-        // Slot overlaps anchor block → invalid (provider is committed elsewhere)
-        if (slotStartLocal.hour * 60 + slotStartLocal.minute < anchorEnd.hour * 60 + anchorEnd.minute &&
-            slotEndLocal.hour * 60 + slotEndLocal.minute > anchorStart.hour * 60 + anchorStart.minute) {
-          console.log('[Single-Session] Slot rejected: overlaps with fixed anchor block');
-          isValid = false;
-        }
-      }
-
-      // Check arrival buffer from previous booking OR anchor
-      if (prevBooking && isValid) {
-        const prevBookingEnd = DateTime.fromISO(
-          `${prevBooking.date.toISOString().split('T')[0]}T${prevBooking.endTime}`
-        );
-        // Use 'pessimistic' traffic model for arrival validation - better to be conservative
-        const travelTimeFromPrev = await calculateTravelTime(
-          prevBooking.location,
-          clientLocation,
-          prevBookingEnd.plus({ minutes: effectiveBufferMinutes }).toJSDate(),
-          providerId,
-          'pessimistic'
-        ).catch(error => {
-          console.error(`[Single-Session] Error calculating travel time from previous booking: ${error.message}`);
-          throw new Error(`Travel time calculation failed: ${error.message}`);
-        });
-
-        const requiredArrivalTime = slotStart.minus({ minutes: 15 });
-        const actualArrivalTime = prevBookingEnd.plus({
-          minutes: effectiveBufferMinutes + travelTimeFromPrev
-        });
-
-        if (actualArrivalTime > requiredArrivalTime) {
-          console.log('[Single-Session] Slot invalid: not enough time to arrive 15 mins before start');
-          isValid = false;
-        }
-      }
-      // No previous booking but there IS an anchor — calculate travel from anchor location (e.g. provider home)
-      else if (!prevBooking && anchor && anchor.lat && anchor.lng && anchor.endTime && isValid) {
-        try {
-          const slotStartLocal = slotStart.setZone(DEFAULT_TZ);
-          // Build anchorEndDT on the same date as the slot
-          const anchorEndDT = slotStartLocal.set({
-            hour: parseInt(anchor.endTime.split(':')[0]),
-            minute: parseInt(anchor.endTime.split(':')[1])
-          });
-
-          // Only applies to slots AFTER the anchor ends
-          if (slotStartLocal >= anchorEndDT) {
-            const anchorLocation = { lat: anchor.lat, lng: anchor.lng };
-            const departureTime = slotStart.minus({ minutes: 30 }).toJSDate();
-
-            const travelTimeFromAnchor = await calculateTravelTime(
-              anchorLocation,
-              clientLocation,
-              departureTime,
-              providerId,
-              'pessimistic'
-            ).catch(error => {
-              console.error(`[Single-Session] Error calculating travel from anchor: ${error.message}`);
-              return 0; // Don't reject if travel calc fails
-            });
-
-            const requiredArrivalTime = slotStart.minus({ minutes: 15 });
-            const actualArrivalTime = anchorEndDT.plus({ minutes: travelTimeFromAnchor });
-
-            if (actualArrivalTime > requiredArrivalTime) {
-              console.log(`[Single-Session] Slot ${slotStartLocal.toFormat('HH:mm')} invalid: travel ${travelTimeFromAnchor}min from home, can't arrive 15min early`);
-              isValid = false;
-            }
-          }
-        } catch (error) {
-          console.error('[Single-Session] Error in anchor travel validation:', error);
-          // Don't invalidate on error
-        }
-      }
-
-      // Check departure buffer to next booking
-      if (nextBooking && isValid) {
-        const dynamicBuffer = calculateBufferBetweenBookings(
-          { groupId: requestedGroupId, location: clientLocation },
-          nextBooking,
-          effectiveBufferMinutes,
-          bookings
-        );
-        const slotEndWithBuffer = slotEnd.plus({ minutes: dynamicBuffer });
-        const nextBookingStart = DateTime.fromISO(
-          `${nextBooking.date.toISOString().split('T')[0]}T${nextBooking.startTime}`
-        );
-        const requiredDepartureTime = nextBookingStart.minus({ minutes: 15 });
-
-        try {
-          // Use 'best_guess' traffic model for departure validation - realistic but not overly conservative
-          const travelTimeToNext = await calculateTravelTime(
-            clientLocation,
-            nextBooking.location,
-            slotEndWithBuffer.toJSDate(),
-            providerId,
-            'best_guess'
-          ).catch(error => {
-            console.error(`[Single-Session] Error calculating travel time to next booking: ${error.message}`);
-            throw new Error(`Travel time calculation failed: ${error.message}`);
-          });
-          const actualDepartureTime = slotEndWithBuffer.plus({ minutes: travelTimeToNext });
-          if (actualDepartureTime > requiredDepartureTime) {
-            console.log('[Single-Session] Slot invalid: not enough time to reach next booking 15 mins before');
-            isValid = false;
-          }
-        } catch (error) {
-          console.error(`[Single-Session] Error calculating travel time for slot: ${slotStart.toISO()}`, error);
-          isValid = false;
-        }
-      }
+      // Provider can start working at availStart, but needs travelFromHome + arrivalBuffer to get there
+      // So the earliest slot they can make is: they need to arrive at (slotStart - arrivalBuffer)
+      // They leave home at (slotStart - arrivalBuffer - travelFromHome)
+      // The slot is valid as long as they can physically get there
+      // Earliest slot = travelFromHome + arrivalBuffer (minutes after midnight, relative to availability start doesn't matter — they leave whenever needed)
+      // Actually: the constraint is just that the slot exists and they can drive there.
+      // For the FIRST gap, earliest = first available slot where travel + arrival fits
+      earliestMinute = toMinutes(firstSlotDT); // start from first generated slot
+      // But we need to check: can they arrive arrivalBuffer before the slot?
+      // They need to leave home at: slotStart - arrivalBuffer - travelFromHome
+      // That's fine as long as it's a reasonable time (no constraint — they leave whenever needed)
+      // So earliest is just the first slot
+      // BUT: if travel is very long, we might want to warn — for now, we just allow it
+      // Actually no — the constraint is availability start. Provider is willing to work starting at avail start.
+      // They need to leave home at (availStart - arrivalBuffer - travelFromHome) to make the first slot.
+      // Any slot within the avail window works for travel from home — they just leave earlier.
+      earliestMinute = toMinutes(firstSlotDT);
+      console.log(`[Boundary] From home: travel=${travelFromHome}min, earliest slot=${earliestMinute} (first available)`);
+    } else {
+      // No home base, no previous booking — no travel constraint
+      const firstSlotDT = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ);
+      earliestMinute = toMinutes(firstSlotDT);
     }
 
-    if (isValid) {
-      console.log('Slot is valid:', slotStart.toISO());
-      validSlots.push(slot);
+    // --- Calculate latest start (latest slot that still gets provider to next commitment) ---
+    let latestMinute;
+    if (next) {
+      // Before a booking: must finish massage + buffer + travel + arrive arrivalBuffer early
+      const travelToNext = await getCachedTravelTime(
+        clientLocation, next.location, departurePlaceholder, providerId, routeCache
+      );
+      latestMinute = next.startMinute - arrivalBuffer - travelToNext - effectiveBuffer - duration;
+      console.log(`[Boundary] Before booking at ${next.startMinute}: -${arrivalBuffer}arrival -${travelToNext}travel -${effectiveBuffer}buf -${duration}dur = latest ${latestMinute}`);
+    } else {
+      // Last gap: just need to finish before availability ends
+      latestMinute = toMinutes(availEnd) - duration;
+      console.log(`[Boundary] End of day: avail ends ${toMinutes(availEnd)}, latest start=${latestMinute}`);
+    }
+
+    if (earliestMinute <= latestMinute) {
+      windows.push({ earliestMinute, latestMinute });
+      console.log(`[Boundary] Window ${i}: ${earliestMinute}-${latestMinute} (${Math.floor(earliestMinute/60)}:${String(earliestMinute%60).padStart(2,'0')} - ${Math.floor(latestMinute/60)}:${String(latestMinute%60).padStart(2,'0')})`);
+    } else {
+      console.log(`[Boundary] Window ${i}: NO VALID SLOTS (earliest ${earliestMinute} > latest ${latestMinute})`);
     }
   }
 
+  // Filter slots by windows
+  const validSlots = slots.filter(slot => {
+    const slotDT = DateTime.fromJSDate(slot).setZone(DEFAULT_TZ);
+    const slotMinute = toMinutes(slotDT);
+    return windows.some(w => slotMinute >= w.earliestMinute && slotMinute <= w.latestMinute);
+  });
+
+  console.log(`[Boundary] ${validSlots.length} valid slots from ${slots.length} candidates using ${routeCache.size} API calls`);
   return validSlots;
 }
 
-//
-// The main function to retrieve open slots
-//
 /**
- * Get available time slots for booking
- *
- * @param {Object} adminAvailability - The provider's availability for the day
- * @param {Array} bookings - Existing bookings for the day
- * @param {Object} clientLocation - Client's location coordinates and address
- * @param {number|Array} appointmentDuration - Duration in minutes or array of durations for multi-session
- * @param {number} [bufferMinutes=15] - Buffer time between appointments in minutes
- *                                      TEMPORARY: This default value is used until provider registration
- *                                      captures and stores the desired buffer time per provider.
- *                                      Should be replaced with provider-specific value in the future.
- * @param {string} [requestedGroupId=null] - Group ID for multi-session bookings
- * @param {number} [extraDepartureBuffer=0] - Additional buffer time for departure
- * @param {string} [providerId=null] - Provider ID for validation
- * @param {Array} [addons=[]] - Array of add-ons that might add extra time to the appointment
- * @returns {Promise<Array>} - Array of available time slots
+ * Main function: get available time slots for booking
  */
 async function getAvailableTimeSlots(
   adminAvailability,
   bookings,
   clientLocation,
   appointmentDuration,
-  bufferMinutes = 15, // Default to 15 minutes if not provided
+  bufferMinutes = 15,
   requestedGroupId = null,
   extraDepartureBuffer = 0,
   providerId = null,
   addons = [],
-  anchor = null // { lat, lng, startTime, endTime } — fixed location anchor for the day
+  homeBase = null // { lat, lng } — provider's home/anchor location
 ) {
-  // Ensure bufferMinutes is a number to prevent NaN errors in calculations
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
-  
-  console.log('DEBUG: getAvailableTimeSlots invoked with:', {
-    adminAvailability,
-    appointmentDuration,
-    bufferMinutes: effectiveBufferMinutes,
-    requestedGroupId,
-    extraDepartureBuffer,
-    addons
-  });
-  console.log('DEBUG: is Array?', Array.isArray(appointmentDuration));
 
-  // NOTE: Add-on extra time is already included in appointmentDuration by the client.
-  // The client calculates totalDuration = baseDuration + sum(addon.extraTime) before
-  // sending it as the 'duration' query param. Do NOT re-add it here.
-
-  // Handle different types of Availability objects
-  // Ensure we always get proper DateTime objects for date, start, and end
+  // Parse availability start/end times
   let availabilityDateLA, startTime, endTime;
-  
-  // Get the date in LA timezone
-  availabilityDateLA = DateTime.fromJSDate(adminAvailability.date)
-    .setZone('America/Los_Angeles')
-    .startOf('day');
-  
-  // Get start time in LA timezone
+  availabilityDateLA = DateTime.fromJSDate(adminAvailability.date).setZone(DEFAULT_TZ).startOf('day');
+
   if (adminAvailability.start instanceof Date) {
-    // If it's a Date object, convert to DateTime
-    startTime = DateTime.fromJSDate(adminAvailability.start).setZone('America/Los_Angeles').toJSDate();
+    startTime = DateTime.fromJSDate(adminAvailability.start).setZone(DEFAULT_TZ).toJSDate();
   } else if (typeof adminAvailability.start === 'string') {
-    // If it's a string (HH:mm format), create a DateTime for it
     const startDT = DateTime.fromFormat(
       `${availabilityDateLA.toFormat('yyyy-MM-dd')} ${adminAvailability.start}`,
-      'yyyy-MM-dd HH:mm',
-      { zone: 'America/Los_Angeles' }
+      'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
     );
-    if (!startDT.isValid) {
-      console.error('Invalid start time:', adminAvailability.start);
-      return []; // Return no slots if time is invalid
-    }
+    if (!startDT.isValid) return [];
     startTime = startDT.toJSDate();
   } else {
-    console.error('Start time is in an unexpected format:', adminAvailability.start);
-    return []; // Return no slots if time format is unrecognized
+    return [];
   }
-  
-  // Get end time in LA timezone
+
   if (adminAvailability.end instanceof Date) {
-    // If it's a Date object, convert to DateTime
-    endTime = DateTime.fromJSDate(adminAvailability.end).setZone('America/Los_Angeles').toJSDate();
+    endTime = DateTime.fromJSDate(adminAvailability.end).setZone(DEFAULT_TZ).toJSDate();
   } else if (typeof adminAvailability.end === 'string') {
-    // If it's a string (HH:mm format), create a DateTime for it
     const endDT = DateTime.fromFormat(
       `${availabilityDateLA.toFormat('yyyy-MM-dd')} ${adminAvailability.end}`,
-      'yyyy-MM-dd HH:mm',
-      { zone: 'America/Los_Angeles' }
+      'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
     );
-    if (!endDT.isValid) {
-      console.error('Invalid end time:', adminAvailability.end);
-      return []; // Return no slots if time is invalid
-    }
+    if (!endDT.isValid) return [];
     endTime = endDT.toJSDate();
   } else {
-    console.error('End time is in an unexpected format:', adminAvailability.end);
-    return []; // Return no slots if time format is unrecognized
+    return [];
   }
 
+  // Step 1: Generate all possible 30-min slots
   const slots = generateTimeSlots(startTime, endTime, 30, appointmentDuration);
-  console.log('DEBUG: generated base slots:', slots.map(s => s.toTimeString().slice(0,5)));
+  console.log(`[Slots] Generated ${slots.length} base slots`);
 
+  // Step 2: Remove slots occupied by existing bookings
   const slotsAfterOccupied = removeOccupiedSlots(
-    slots,
-    bookings,
-    appointmentDuration,
-    effectiveBufferMinutes,
-    requestedGroupId,
-    clientLocation
+    slots, bookings, appointmentDuration,
+    effectiveBufferMinutes, requestedGroupId, clientLocation
   );
-  console.log('DEBUG: slotsAfterOccupied:', slotsAfterOccupied.map(s => s.toTimeString().slice(0,5)));
+  console.log(`[Slots] ${slotsAfterOccupied.length} slots after removing occupied`);
 
-  // Use anchor from the availability object if not explicitly provided
-  const effectiveAnchor = anchor || (adminAvailability.anchor && adminAvailability.anchor.lat
-    ? adminAvailability.anchor : null);
+  // Step 3: Use availability's own anchor if it has one, otherwise use provided homeBase
+  const effectiveHome = (adminAvailability.anchor?.lat)
+    ? { lat: adminAvailability.anchor.lat, lng: adminAvailability.anchor.lng }
+    : homeBase;
 
-  const validSlots = await validateSlots(
+  // Step 4: Validate by travel-time boundaries (efficient — few API calls)
+  const validSlots = await validateSlotsByBoundary(
     slotsAfterOccupied,
     bookings,
     clientLocation,
     appointmentDuration,
     effectiveBufferMinutes,
     endTime,
-    requestedGroupId,
-    extraDepartureBuffer,
     providerId,
-    effectiveAnchor
-  ).catch(error => {
-    console.error('Error validating slots:', error);
-    throw error; // Re-throw to be handled by the caller
-  });
-
-  console.log('DEBUG: validSlots after travel time check:', validSlots.map(s => s.toTimeString().slice(0,5)));
+    effectiveHome
+  );
 
   return validSlots;
 }
@@ -613,6 +376,6 @@ module.exports = {
   getAvailableTimeSlots,
   generateTimeSlots,
   removeOccupiedSlots,
-  validateSlots,
+  validateSlotsByBoundary,
   calculateBufferBetweenBookings
 };
