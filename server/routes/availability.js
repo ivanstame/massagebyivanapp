@@ -18,13 +18,6 @@ const LuxonService = require('../../src/utils/LuxonService');
 async function generateFromTemplate(providerId, laDate) {
   const localDateStr = laDate.toFormat(TIME_FORMATS.ISO_DATE);
 
-  // Check if availability already exists for this date
-  const existing = await Availability.findOne({
-    provider: providerId,
-    localDate: localDateStr
-  });
-  if (existing) return null; // Already has availability (manual or previously generated)
-
   // Look up template for this day of week (Luxon: 1=Mon..7=Sun, convert to our 0=Sun..6=Sat)
   const luxonWeekday = laDate.weekday; // 1=Mon, 7=Sun
   const dayOfWeek = luxonWeekday === 7 ? 0 : luxonWeekday; // Convert to 0=Sun..6=Sat
@@ -36,7 +29,15 @@ async function generateFromTemplate(providerId, laDate) {
   });
   if (!template) return null;
 
-  // Create availability from template
+  // Check if a template-sourced availability already exists for this date
+  const existingTemplate = await Availability.findOne({
+    provider: providerId,
+    localDate: localDateStr,
+    source: 'template'
+  });
+  if (existingTemplate) return null; // Template already generated for this day
+
+  // Create availability from template (even if manual blocks exist — they may cover different hours)
   const startLA = DateTime.fromFormat(
     `${localDateStr} ${template.startTime}`,
     'yyyy-MM-dd HH:mm',
@@ -347,12 +348,12 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       await generateFromTemplate(templateProviderId, laDate);
     }
 
-    // Find availability block for the day
-    const availability = await Availability.findOne(availQuery);
+    // Find ALL availability blocks for the day (manual + template may coexist)
+    const availabilityBlocks = await Availability.find(availQuery).sort({ start: 1 });
 
-    if (!availability) {
+    if (availabilityBlocks.length === 0) {
       console.log(`No availability blocks found for date: ${laDate.toFormat(TIME_FORMATS.ISO_DATE)}`);
-      return res.status(200).json([]);  // Return empty array instead of 404 error
+      return res.status(200).json([]);
     }
 
     // Get existing bookings for the day
@@ -363,64 +364,73 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       }
     }).sort({ startTime: 1 });
 
-    console.log('Found bookings:', 
+    console.log('Found bookings:',
       bookings.map(b => `${b.startTime}-${b.endTime}`)
     );
 
-    const clientLocation = { 
-      lat: parseFloat(lat), 
-      lng: parseFloat(lng) 
+    const clientLocation = {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng)
     };
 
-    console.log('Availability Found:', {
-      date: laDate.toFormat(TIME_FORMATS.ISO_DATE),
-      start: DateTime.fromJSDate(availability.start).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H),
-      end: DateTime.fromJSDate(availability.end).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H),
-      appointmentDuration,
-      sessionDurations: req.query.sessionDurations || 'none'
+    console.log('Availability blocks found:', availabilityBlocks.length);
+    availabilityBlocks.forEach((a, i) => {
+      console.log(`  Block ${i}: ${DateTime.fromJSDate(a.start).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H)} - ${DateTime.fromJSDate(a.end).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H)} (${a.source})`);
     });
 
     // Import the same validation function used by the booking endpoint
     const { getAvailableTimeSlots } = require('../utils/timeUtils');
-    
-    // Generate available slots using the same method as booking validation
+
     const providerId = req.query.providerId;
     const sessionDurationsArray = isMultiSession && req.query.sessionDurations ?
       JSON.parse(req.query.sessionDurations) :
       [appointmentDuration];
-    
-    // NOTE: Add-on extra time is already included in appointmentDuration by the client.
-    // No need to pass addons separately — duration param is the total.
 
-    // If no anchor on this availability, use provider's home base for first-booking travel calc
+    // Fetch provider's home base for first-booking travel calc
     let homeAnchor = null;
-    if (!availability.anchor?.lat && providerId) {
+    if (providerId) {
       const homeBase = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
       if (homeBase) {
-        // Use availability start as the anchor "end time" — provider is at home until they leave
-        const availStart = DateTime.fromJSDate(availability.start).setZone(DEFAULT_TZ).toFormat('HH:mm');
+        // Use earliest availability start as the anchor — provider is at home until they leave
+        const earliestStart = DateTime.fromJSDate(availabilityBlocks[0].start).setZone(DEFAULT_TZ).toFormat('HH:mm');
         homeAnchor = {
           lat: homeBase.lat,
           lng: homeBase.lng,
-          startTime: availStart,
-          endTime: availStart
+          startTime: earliestStart,
+          endTime: earliestStart
         };
       }
     }
 
-    // Get available slots using the shared validation function
-    const availableSlots = await getAvailableTimeSlots(
-      availability,
-      bookings,
-      clientLocation,
-      isMultiSession ? sessionDurationsArray : appointmentDuration,
-      bufferTime,
-      null, // requestedGroupId
-      0,    // extraDepartureBuffer
-      providerId,
-      [],   // addons
-      homeAnchor // fallback anchor from provider home base
-    );
+    // Generate slots from ALL availability blocks and merge
+    let allSlots = [];
+    for (const availability of availabilityBlocks) {
+      // Use block's own anchor if it has one, otherwise fall back to home
+      const blockAnchor = (availability.anchor?.lat) ? null : homeAnchor;
+
+      const slots = await getAvailableTimeSlots(
+        availability,
+        bookings,
+        clientLocation,
+        isMultiSession ? sessionDurationsArray : appointmentDuration,
+        bufferTime,
+        null, // requestedGroupId
+        0,    // extraDepartureBuffer
+        providerId,
+        [],   // addons
+        blockAnchor
+      );
+      allSlots = allSlots.concat(slots);
+    }
+
+    // Deduplicate by ISO string (in case blocks overlap)
+    const seenTimes = new Set();
+    const availableSlots = allSlots.filter(slot => {
+      const key = slot.toISOString();
+      if (seenTimes.has(key)) return false;
+      seenTimes.add(key);
+      return true;
+    }).sort((a, b) => a - b);
     
     console.log(`Available slots: ${availableSlots.length} with shared validation logic`);
     
