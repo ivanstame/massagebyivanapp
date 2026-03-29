@@ -95,6 +95,49 @@ function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes
 }
 
 /**
+ * TRAFFIC PERIODS for LA metro area.
+ * Returns a representative departure time and traffic model
+ * based on what time of day the travel would occur.
+ *
+ * Periods:
+ *   6:00-9:00 AM  → Morning rush (pessimistic, depart 7:30 AM)
+ *   9:00-11:00 AM → Light traffic (best_guess, depart 10:00 AM)
+ *   11:00-1:00 PM → Midday (best_guess, depart 12:00 PM)
+ *   1:00-4:00 PM  → Light traffic (best_guess, depart 2:30 PM)
+ *   4:00-7:00 PM  → Evening rush (pessimistic, depart 5:30 PM)
+ *   7:00 PM+      → Evening (best_guess, depart 8:00 PM)
+ *   Before 6 AM   → Early (best_guess, depart 5:00 AM)
+ */
+function getTrafficProfile(minuteOfDay, slotDate) {
+  // minuteOfDay = hours * 60 + minutes (from midnight)
+  let representativeHour, representativeMinute, model;
+
+  if (minuteOfDay < 360) {        // before 6 AM
+    representativeHour = 5; representativeMinute = 0; model = 'best_guess';
+  } else if (minuteOfDay < 540) { // 6-9 AM rush
+    representativeHour = 7; representativeMinute = 30; model = 'pessimistic';
+  } else if (minuteOfDay < 660) { // 9-11 AM light
+    representativeHour = 10; representativeMinute = 0; model = 'best_guess';
+  } else if (minuteOfDay < 780) { // 11 AM - 1 PM midday
+    representativeHour = 12; representativeMinute = 0; model = 'best_guess';
+  } else if (minuteOfDay < 960) { // 1-4 PM light
+    representativeHour = 14; representativeMinute = 30; model = 'best_guess';
+  } else if (minuteOfDay < 1140) { // 4-7 PM rush
+    representativeHour = 17; representativeMinute = 30; model = 'pessimistic';
+  } else {                         // 7 PM+ evening
+    representativeHour = 20; representativeMinute = 0; model = 'best_guess';
+  }
+
+  const departureTime = DateTime.fromFormat(
+    `${slotDate} ${String(representativeHour).padStart(2, '0')}:${String(representativeMinute).padStart(2, '0')}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: DEFAULT_TZ }
+  ).toJSDate();
+
+  return { departureTime, model };
+}
+
+/**
  * Check if two locations are effectively the same place (within ~200m)
  */
 function isSameLocation(loc1, loc2) {
@@ -105,49 +148,57 @@ function isSameLocation(loc1, loc2) {
 }
 
 /**
- * Get travel time between two locations, using cache and same-location shortcut.
- * Uses a session-level route cache so the same origin→destination pair is only
- * called once per availability request regardless of direction consideration.
+ * Get travel time between two locations with traffic-aware caching.
+ *
+ * Cache is keyed by coords + traffic period so that a 7 AM route (rush hour)
+ * gets a different result than a 10 AM route (light traffic) for the same pair.
+ * Reverse direction reuse only happens within the same traffic period.
+ *
+ * @param {Object} from - { lat, lng }
+ * @param {Object} to - { lat, lng }
+ * @param {number} travelMinuteOfDay - approximate minute-of-day when travel occurs
+ * @param {string} slotDate - 'yyyy-MM-dd' date string for building departure time
+ * @param {string} providerId
+ * @param {Map} routeCache - shared cache for this request
  */
-async function getCachedTravelTime(from, to, departureTime, providerId, routeCache) {
-  // Same location = 0 travel time
+async function getCachedTravelTime(from, to, travelMinuteOfDay, slotDate, providerId, routeCache) {
   if (isSameLocation(from, to)) {
-    console.log('[Travel] Same location detected, 0 min travel');
     return 0;
   }
 
-  // Skip if coords are invalid
   if (!from?.lat || !from?.lng || !to?.lat || !to?.lng ||
       isNaN(from.lat) || isNaN(from.lng) || isNaN(to.lat) || isNaN(to.lng)) {
     console.log('[Travel] Invalid coords, returning 0');
     return 0;
   }
 
-  // Round coords to 3 decimal places for cache key (~100m precision)
-  const key = `${from.lat.toFixed(3)},${from.lng.toFixed(3)}→${to.lat.toFixed(3)},${to.lng.toFixed(3)}`;
+  const { departureTime, model } = getTrafficProfile(travelMinuteOfDay, slotDate);
+
+  // Cache key includes traffic model so rush hour ≠ light traffic
+  const coordKey = `${from.lat.toFixed(3)},${from.lng.toFixed(3)}→${to.lat.toFixed(3)},${to.lng.toFixed(3)}`;
+  const key = `${coordKey}@${model}`;
 
   if (routeCache.has(key)) {
-    console.log(`[Travel] Route cache hit: ${key} = ${routeCache.get(key)} min`);
     return routeCache.get(key);
   }
 
-  // Also check reverse direction — travel time is similar for nearby locations
-  const reverseKey = `${to.lat.toFixed(3)},${to.lng.toFixed(3)}→${from.lat.toFixed(3)},${from.lng.toFixed(3)}`;
+  // Check reverse direction within same traffic period
+  const reverseCoordKey = `${to.lat.toFixed(3)},${to.lng.toFixed(3)}→${from.lat.toFixed(3)},${from.lng.toFixed(3)}`;
+  const reverseKey = `${reverseCoordKey}@${model}`;
   if (routeCache.has(reverseKey)) {
     const reverseTime = routeCache.get(reverseKey);
-    console.log(`[Travel] Using reverse route: ${reverseKey} = ${reverseTime} min`);
     routeCache.set(key, reverseTime);
     return reverseTime;
   }
 
   try {
-    const travelMin = await calculateTravelTime(from, to, departureTime, providerId, 'pessimistic');
+    const travelMin = await calculateTravelTime(from, to, departureTime, providerId, model);
     routeCache.set(key, travelMin);
-    console.log(`[Travel] API call: ${key} = ${travelMin} min`);
+    console.log(`[Travel] ${coordKey} @${model}: ${travelMin} min`);
     return travelMin;
   } catch (err) {
-    console.error(`[Travel] API error for ${key}: ${err.message}`);
-    return 0; // Don't reject slots due to API failures
+    console.error(`[Travel] API error for ${coordKey}: ${err.message}`);
+    return 0;
   }
 }
 
@@ -211,7 +262,6 @@ async function validateSlotsByBoundary(
 
   // Build the list of valid time windows
   const windows = [];
-  const departurePlaceholder = DateTime.fromFormat(`${slotDate} 12:00`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }).toJSDate();
 
   console.log(`[Boundary] Building windows for ${commitments.length} bookings, duration=${duration}min`);
 
@@ -222,40 +272,29 @@ async function validateSlotsByBoundary(
     // --- Calculate earliest start (when can provider arrive at client?) ---
     let earliestMinute;
     if (prev) {
-      // After a booking: prevEnd + buffer + travel + arrivalBuffer
+      // Travel occurs right after previous booking ends
+      const travelMinuteOfDay = prev.endMinute + effectiveBuffer;
       const travelFromPrev = await getCachedTravelTime(
-        prev.location, clientLocation, prev.endDT.toJSDate(), providerId, routeCache
+        prev.location, clientLocation, travelMinuteOfDay, slotDate, providerId, routeCache
       );
       earliestMinute = prev.endMinute + effectiveBuffer + travelFromPrev + arrivalBuffer;
       console.log(`[Boundary] After booking ending ${prev.endMinute}: +${effectiveBuffer}buf +${travelFromPrev}travel +${arrivalBuffer}arrival = earliest ${earliestMinute}`);
     } else if (homeBase?.lat && homeBase?.lng) {
-      // First gap: provider at home, can leave to arrive by slot time
-      // Availability start means they can BEGIN work at that time
-      // So earliest = availability start (they leave home early enough to arrive)
+      // First gap: provider leaves home to arrive at client
+      // Availability start = earliest they're willing to begin work
+      // They leave home at (availStart - arrivalBuffer - travelFromHome)
       const firstSlotDT = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ);
+      const firstSlotMinute = toMinutes(firstSlotDT);
+      // Travel occurs before the first slot — estimate departure around that time
+      const travelMinuteOfDay = Math.max(0, firstSlotMinute - arrivalBuffer - 30);
       const travelFromHome = await getCachedTravelTime(
-        homeBase, clientLocation, departurePlaceholder, providerId, routeCache
+        homeBase, clientLocation, travelMinuteOfDay, slotDate, providerId, routeCache
       );
-      // Provider can start working at availStart, but needs travelFromHome + arrivalBuffer to get there
-      // So the earliest slot they can make is: they need to arrive at (slotStart - arrivalBuffer)
-      // They leave home at (slotStart - arrivalBuffer - travelFromHome)
-      // The slot is valid as long as they can physically get there
-      // Earliest slot = travelFromHome + arrivalBuffer (minutes after midnight, relative to availability start doesn't matter — they leave whenever needed)
-      // Actually: the constraint is just that the slot exists and they can drive there.
-      // For the FIRST gap, earliest = first available slot where travel + arrival fits
-      earliestMinute = toMinutes(firstSlotDT); // start from first generated slot
-      // But we need to check: can they arrive arrivalBuffer before the slot?
-      // They need to leave home at: slotStart - arrivalBuffer - travelFromHome
-      // That's fine as long as it's a reasonable time (no constraint — they leave whenever needed)
-      // So earliest is just the first slot
-      // BUT: if travel is very long, we might want to warn — for now, we just allow it
-      // Actually no — the constraint is availability start. Provider is willing to work starting at avail start.
-      // They need to leave home at (availStart - arrivalBuffer - travelFromHome) to make the first slot.
-      // Any slot within the avail window works for travel from home — they just leave earlier.
-      earliestMinute = toMinutes(firstSlotDT);
-      console.log(`[Boundary] From home: travel=${travelFromHome}min, earliest slot=${earliestMinute} (first available)`);
+      // Earliest = first slot in the availability block (provider leaves home whenever needed)
+      // No constraint beyond what's already in the generated slots
+      earliestMinute = firstSlotMinute;
+      console.log(`[Boundary] From home: travel=${travelFromHome}min, earliest=${earliestMinute}`);
     } else {
-      // No home base, no previous booking — no travel constraint
       const firstSlotDT = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ);
       earliestMinute = toMinutes(firstSlotDT);
     }
@@ -263,21 +302,23 @@ async function validateSlotsByBoundary(
     // --- Calculate latest start (latest slot that still gets provider to next commitment) ---
     let latestMinute;
     if (next) {
-      // Before a booking: must finish massage + buffer + travel + arrive arrivalBuffer early
+      // Travel occurs after massage ends: slotStart + duration + buffer
+      // Estimate travel time at the midpoint of when it would occur
+      const estimatedDepartureMinute = next.startMinute - 60; // rough estimate
       const travelToNext = await getCachedTravelTime(
-        clientLocation, next.location, departurePlaceholder, providerId, routeCache
+        clientLocation, next.location, Math.max(0, estimatedDepartureMinute), slotDate, providerId, routeCache
       );
       latestMinute = next.startMinute - arrivalBuffer - travelToNext - effectiveBuffer - duration;
       console.log(`[Boundary] Before booking at ${next.startMinute}: -${arrivalBuffer}arrival -${travelToNext}travel -${effectiveBuffer}buf -${duration}dur = latest ${latestMinute}`);
     } else {
-      // Last gap: just need to finish before availability ends
       latestMinute = toMinutes(availEnd) - duration;
       console.log(`[Boundary] End of day: avail ends ${toMinutes(availEnd)}, latest start=${latestMinute}`);
     }
 
     if (earliestMinute <= latestMinute) {
       windows.push({ earliestMinute, latestMinute });
-      console.log(`[Boundary] Window ${i}: ${earliestMinute}-${latestMinute} (${Math.floor(earliestMinute/60)}:${String(earliestMinute%60).padStart(2,'0')} - ${Math.floor(latestMinute/60)}:${String(latestMinute%60).padStart(2,'0')})`);
+      const fmtMin = (m) => `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+      console.log(`[Boundary] Window ${i}: ${fmtMin(earliestMinute)} - ${fmtMin(latestMinute)}`);
     } else {
       console.log(`[Boundary] Window ${i}: NO VALID SLOTS (earliest ${earliestMinute} > latest ${latestMinute})`);
     }
