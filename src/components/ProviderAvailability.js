@@ -7,10 +7,99 @@ import DaySchedule from './DaySchedule';
 import AddAvailabilityModal from './AddAvailabilityModal';
 import ModifyAvailabilityModal from './ModifyAvailabilityModal';
 import AvailabilityList from './AvailabilityList';
-import { Clock, AlertCircle, Calendar as CalendarIcon, List } from 'lucide-react';
+import { Clock, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS } from '../utils/timeConstants';
+import PinDropMap from './PinDropMap';
 
+
+const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCancel }) => {
+  const [mode, setMode] = useState(
+    currentAnchor?.lat ? 'custom' : 'homebase'
+  );
+  const [selectedLocId, setSelectedLocId] = useState(currentAnchor?.locationId || '');
+  const [pinLocation, setPinLocation] = useState(null);
+  const [showMap, setShowMap] = useState(false);
+
+  const handleSave = () => {
+    if (mode === 'homebase') {
+      // Clear anchor → revert to home base
+      onSave({});
+    } else if (mode === 'saved' && selectedLocId) {
+      onSave({ locationId: selectedLocId });
+    } else if (mode === 'pin' && pinLocation) {
+      onSave({ name: 'Pinned Location', address: pinLocation.address || '', lat: pinLocation.lat, lng: pinLocation.lng });
+    }
+  };
+
+  const nonHome = savedLocations.filter(l => !l.isHomeBase);
+
+  return (
+    <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg space-y-2">
+      {/* Home base */}
+      {homeBase && (
+        <label className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-sm ${
+          mode === 'homebase' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+        }`}>
+          <input type="radio" name="dep" checked={mode === 'homebase'} onChange={() => setMode('homebase')}
+            className="text-[#009ea5] focus:ring-[#009ea5]" />
+          <MapPin className="w-3.5 h-3.5 text-slate-500" />
+          <span className="truncate">Home Base — {homeBase.address}</span>
+        </label>
+      )}
+
+      {/* Saved locations */}
+      {nonHome.length > 0 && (
+        <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
+          mode === 'saved' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+        }`}>
+          <input type="radio" name="dep" checked={mode === 'saved'} onChange={() => setMode('saved')}
+            className="mt-0.5 text-[#009ea5] focus:ring-[#009ea5]" />
+          <div className="flex-1 min-w-0">
+            <span>Saved Location</span>
+            {mode === 'saved' && (
+              <select value={selectedLocId} onChange={(e) => setSelectedLocId(e.target.value)}
+                className="mt-1 w-full border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-[#009ea5]">
+                <option value="">Choose...</option>
+                {nonHome.map(loc => (
+                  <option key={loc._id} value={loc._id}>{loc.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </label>
+      )}
+
+      {/* Pin drop */}
+      <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
+        mode === 'pin' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+      }`}>
+        <input type="radio" name="dep" checked={mode === 'pin'} onChange={() => { setMode('pin'); setShowMap(true); }}
+          className="mt-0.5 text-[#009ea5] focus:ring-[#009ea5]" />
+        <div className="flex-1">
+          <span>Drop a Pin</span>
+          {mode === 'pin' && showMap && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-slate-200">
+              <PinDropMap onLocationConfirmed={(loc) => setPinLocation(loc)} initialLocation={pinLocation} />
+              {pinLocation && (
+                <div className="p-2 bg-slate-50 text-xs text-slate-600">{pinLocation.address}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </label>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button onClick={onCancel} className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
+          Cancel
+        </button>
+        <button onClick={handleSave} className="px-3 py-1.5 text-sm bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]">
+          Update
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const ProviderAvailability = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -26,8 +115,24 @@ const ProviderAvailability = () => {
   const [requestState, setRequestState] = useState('INITIAL');
   const [deleteConfirmBlock, setDeleteConfirmBlock] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline'); // 'timeline' or 'list'
+  const [showDepartureEditor, setShowDepartureEditor] = useState(false);
+  const [savedLocations, setSavedLocations] = useState([]);
+  const [homeBase, setHomeBase] = useState(null);
 
-  // Removed service area useEffect
+  // Fetch saved locations for departure editor
+  useEffect(() => {
+    const fetchLocs = async () => {
+      try {
+        const res = await axios.get('/api/saved-locations', { withCredentials: true });
+        const locs = res.data || [];
+        setSavedLocations(locs);
+        setHomeBase(locs.find(l => l.isHomeBase) || null);
+      } catch (err) {
+        console.error('Failed to fetch saved locations:', err);
+      }
+    };
+    fetchLocs();
+  }, []);
 
   const fetchAvailabilityBlocks = useCallback(async (date) => {
     try {
@@ -177,7 +282,29 @@ const ProviderAvailability = () => {
       }
     }
   }, [fetchAvailabilityBlocks, selectedDate]);
- 
+
+  const handleUpdateDeparture = useCallback(async (anchorData) => {
+    // Update anchor on all availability blocks for the selected date
+    try {
+      for (const block of availabilityBlocks) {
+        await axios.patch(`/api/availability/${block._id}/anchor`, anchorData, {
+          withCredentials: true
+        });
+      }
+      await fetchAvailabilityBlocks(selectedDate);
+      setShowDepartureEditor(false);
+    } catch (err) {
+      console.error('Failed to update departure location:', err);
+      setError('Failed to update departure location');
+    }
+  }, [availabilityBlocks, fetchAvailabilityBlocks, selectedDate]);
+
+  // Get the current departure location from today's blocks
+  const currentDeparture = availabilityBlocks.length > 0 && availabilityBlocks[0]?.anchor?.lat
+    ? { name: availabilityBlocks[0].anchor.name, address: availabilityBlocks[0].anchor.address }
+    : homeBase
+      ? { name: 'Home Base', address: homeBase.address }
+      : null;
 
 const formatTime = useCallback((time) => {
   if (!time) return "";
@@ -359,6 +486,38 @@ const formatTime = useCallback((time) => {
               </nav>
             </div>
 
+            {/* Departure Location */}
+            {availabilityBlocks.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Navigation className="w-4 h-4 text-[#009ea5] flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500">Departure location</p>
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {currentDeparture?.address || 'Not set'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDepartureEditor(!showDepartureEditor)}
+                    className="text-xs font-medium text-[#009ea5] hover:text-[#008a91] whitespace-nowrap ml-2"
+                  >
+                    Change
+                  </button>
+                </div>
+                {showDepartureEditor && (
+                  <DepartureEditor
+                    savedLocations={savedLocations}
+                    homeBase={homeBase}
+                    currentAnchor={availabilityBlocks[0]?.anchor}
+                    onSave={handleUpdateDeparture}
+                    onCancel={() => setShowDepartureEditor(false)}
+                  />
+                )}
+              </div>
+            )}
+
             {/* Tab Content */}
             {activeTab === 'timeline' ? (
               <DaySchedule
@@ -417,6 +576,38 @@ const formatTime = useCallback((time) => {
                 List
               </button>
           </div>
+
+          {/* Mobile Departure Location */}
+          {availabilityBlocks.length > 0 && (
+            <div className="flex-shrink-0 px-4 py-2 bg-white border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Navigation className="w-3.5 h-3.5 text-[#009ea5] flex-shrink-0" />
+                  <p className="text-xs text-slate-600 truncate">
+                    <span className="text-slate-400">From: </span>
+                    {currentDeparture?.address || 'Not set'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDepartureEditor(!showDepartureEditor)}
+                  className="text-xs font-medium text-[#009ea5] whitespace-nowrap ml-2"
+                >
+                  Change
+                </button>
+              </div>
+              {showDepartureEditor && (
+                <div className="mt-2">
+                  <DepartureEditor
+                    savedLocations={savedLocations}
+                    homeBase={homeBase}
+                    currentAnchor={availabilityBlocks[0]?.anchor}
+                    onSave={handleUpdateDeparture}
+                    onCancel={() => setShowDepartureEditor(false)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 overflow-hidden relative">
              {activeTab === 'timeline' ? (

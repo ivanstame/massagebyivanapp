@@ -613,8 +613,32 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       date: laDate.toJSDate(),
       start: startLA.toJSDate(),
       end: endLA.toJSDate(),
-      localDate: laDate.toFormat('yyyy-MM-dd')
+      localDate: laDate.toFormat('yyyy-MM-dd'),
+      source: 'manual'
     });
+
+    // Set departure location (anchor) if provided
+    const anchorData = availabilityData.anchor;
+    if (anchorData?.locationId) {
+      const loc = await SavedLocation.findById(anchorData.locationId);
+      if (loc && loc.provider.equals(req.user._id)) {
+        newAvailability.anchor = {
+          locationId: loc._id,
+          name: loc.name,
+          address: loc.address,
+          lat: loc.lat,
+          lng: loc.lng,
+        };
+      }
+    } else if (anchorData?.lat && anchorData?.lng) {
+      newAvailability.anchor = {
+        locationId: null,
+        name: anchorData.name || 'Custom Location',
+        address: anchorData.address || '',
+        lat: anchorData.lat,
+        lng: anchorData.lng,
+      };
+    }
     
     console.log('POST /api/availability - New availability object:', JSON.stringify(newAvailability, null, 2));
 
@@ -840,6 +864,56 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     res.json(availability);
   } catch (error) {
     console.error('Error updating availability:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PATCH /:id/anchor (Update departure location for a day)
+router.patch('/:id/anchor', ensureAuthenticated, async (req, res) => {
+  try {
+    const availability = await Availability.findById(req.params.id);
+
+    if (!availability) {
+      return res.status(404).json({ message: 'Availability not found' });
+    }
+
+    if (!availability.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const { locationId, name, address, lat, lng } = req.body;
+
+    if (locationId) {
+      // Using a saved location
+      const loc = await SavedLocation.findById(locationId);
+      if (!loc || !loc.provider.equals(req.user._id)) {
+        return res.status(404).json({ message: 'Location not found' });
+      }
+      availability.anchor = {
+        locationId: loc._id,
+        name: loc.name,
+        address: loc.address,
+        lat: loc.lat,
+        lng: loc.lng,
+      };
+    } else if (lat && lng) {
+      // Using a pin drop / manual coordinates
+      availability.anchor = {
+        locationId: null,
+        name: name || 'Custom Location',
+        address: address || '',
+        lat,
+        lng,
+      };
+    } else {
+      // Clear anchor — revert to home base
+      availability.anchor = undefined;
+    }
+
+    await availability.save();
+    res.json(availability);
+  } catch (error) {
+    console.error('Error updating availability anchor:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
