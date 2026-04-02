@@ -141,11 +141,14 @@ const BookingSchema = new mongoose.Schema({
     name: { type: String },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
     default: 'pending'
   },
+  cancelledAt: { type: Date, default: null },
+  cancelledBy: { type: String, enum: ['CLIENT', 'PROVIDER'], default: null },
+  completedAt: { type: Date, default: null },
   reminders: {
     sent24h: { type: Boolean, default: false },
     sent1h: { type: Boolean, default: false }

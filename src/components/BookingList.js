@@ -43,6 +43,7 @@ const BookingList = () => {
         
         const upcoming = response.data
           .filter(booking => {
+            if (booking.status === 'cancelled' || booking.status === 'completed') return false;
             const bookingEnd = DateTime.fromISO(booking.date)
               .setZone(DEFAULT_TZ)
               .set({
@@ -51,12 +52,13 @@ const BookingList = () => {
               });
             return bookingEnd > now;
           })
-          .sort((a, b) => 
+          .sort((a, b) =>
             DateTime.fromISO(a.date).diff(DateTime.fromISO(b.date)).milliseconds
           );
 
         const past = response.data
           .filter(booking => {
+            if (booking.status === 'cancelled' || booking.status === 'completed') return true;
             const bookingEnd = DateTime.fromISO(booking.date)
               .setZone(DEFAULT_TZ)
               .set({
@@ -219,16 +221,14 @@ const BookingList = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              DateTime.fromISO(booking.date)
-                .setZone(DEFAULT_TZ)
-                .plus({ minutes: booking.duration }) > DateTime.now().setZone(DEFAULT_TZ)
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-slate-100 text-slate-800'}`}
-            >
-              {DateTime.fromISO(booking.date)
-                .setZone(DEFAULT_TZ)
-                .plus({ minutes: booking.duration }) > DateTime.now().setZone(DEFAULT_TZ)
-                ? 'Upcoming' : 'Past'}
+              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+              booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+              booking.status === 'in-progress' ? 'bg-amber-100 text-amber-800' :
+              'bg-slate-100 text-slate-600'
+            }`}>
+              {booking.status === 'in-progress' ? 'In Progress' :
+               booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1)}
             </span>
           </div>
         </div>
@@ -264,13 +264,15 @@ const BookingList = () => {
             Add to Calendar
           </button>
 
-          <button 
-            onClick={() => handleCancelBooking(booking._id)}
-            className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
-              text-sm font-medium rounded-lg text-red-700 hover:bg-red-50"
-          >
-            Cancel
-          </button>
+          {booking.status !== 'cancelled' && booking.status !== 'completed' && (
+            <button
+              onClick={() => handleCancelBooking(booking._id)}
+              className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
+                text-sm font-medium rounded-lg text-red-700 hover:bg-red-50"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     </div>

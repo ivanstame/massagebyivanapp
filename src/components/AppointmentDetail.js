@@ -5,7 +5,8 @@ import { AuthContext } from '../AuthContext';
 import { DateTime } from 'luxon';
 import {
   ArrowLeft, Calendar, Clock, MapPin, User, Phone,
-  DollarSign, Trash2, AlertCircle, Tag, Plus, Banknote, CheckCircle
+  DollarSign, Trash2, AlertCircle, Tag, Plus, Banknote, CheckCircle,
+  PlayCircle, CircleCheck, Loader2
 } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
 
@@ -18,6 +19,7 @@ const AppointmentDetail = () => {
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -43,6 +45,21 @@ const AppointmentDetail = () => {
       setError(err.response?.data?.message || 'Failed to cancel appointment');
       setCancelling(false);
       setShowCancelConfirm(false);
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      setUpdatingStatus(true);
+      const res = await axios.patch(`/api/bookings/${id}/status`,
+        { status: newStatus },
+        { withCredentials: true }
+      );
+      setBooking(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -341,6 +358,52 @@ const AppointmentDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Status Actions — Provider only */}
+        {isProvider && booking.status !== 'cancelled' && booking.status !== 'completed' && (
+          <div className="mt-6 flex gap-3">
+            {booking.status === 'pending' && (
+              <button
+                onClick={() => handleStatusUpdate('confirmed')}
+                disabled={updatingStatus}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-[#009ea5] text-white rounded-lg font-medium hover:bg-[#008a91] disabled:opacity-50 transition-colors"
+              >
+                {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Confirm
+              </button>
+            )}
+            {booking.status === 'confirmed' && (
+              <>
+                <button
+                  onClick={() => handleStatusUpdate('in-progress')}
+                  disabled={updatingStatus}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                >
+                  {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
+                  Start Session
+                </button>
+                <button
+                  onClick={() => handleStatusUpdate('completed')}
+                  disabled={updatingStatus}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
+                  Complete
+                </button>
+              </>
+            )}
+            {booking.status === 'in-progress' && (
+              <button
+                onClick={() => handleStatusUpdate('completed')}
+                disabled={updatingStatus}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CircleCheck className="w-4 h-4" />}
+                Mark Completed
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Cancel button */}
         {booking.status !== 'cancelled' && booking.status !== 'completed' && (

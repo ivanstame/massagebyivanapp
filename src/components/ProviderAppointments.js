@@ -83,6 +83,18 @@ const ProviderAppointments = () => {
     }
   };
 
+  const handleStatusUpdate = async (appointmentId, newStatus) => {
+    try {
+      await axios.patch(`/api/bookings/${appointmentId}/status`,
+        { status: newStatus },
+        { withCredentials: true }
+      );
+      await fetchAppointments();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update status');
+    }
+  };
+
   const handleTogglePayment = async (appointmentId, currentStatus) => {
     try {
       const newStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
@@ -133,9 +145,21 @@ const ProviderAppointments = () => {
               <UserIcon className="w-4 h-4 text-[#009ea5]" />
               <span className="text-sm text-slate-500">Massage Recipient</span>
             </div>
-            <h3 className="text-lg font-medium text-slate-900 mb-1">
-              {getRecipientName(appointment)}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-medium text-slate-900">
+                {getRecipientName(appointment)}
+              </h3>
+              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                appointment.status === 'in-progress' ? 'bg-amber-100 text-amber-800' :
+                'bg-slate-100 text-slate-600'
+              }`}>
+                {appointment.status === 'in-progress' ? 'In Progress' :
+                 appointment.status?.charAt(0).toUpperCase() + appointment.status?.slice(1)}
+              </span>
+            </div>
 
             {/* Booked by (only shown when booked for someone else) */}
             {isBookedForOther(appointment) && (
@@ -189,6 +213,26 @@ const ProviderAppointments = () => {
             </div>
           </div>
           <div className="ml-4 flex flex-col gap-2">
+            {/* Status action buttons */}
+            {appointment.status === 'pending' && (
+              <button
+                onClick={() => handleStatusUpdate(appointment._id, 'confirmed')}
+                className="inline-flex items-center px-3 py-2 bg-[#009ea5] text-white text-sm font-medium rounded-lg hover:bg-[#008a91] transition-colors duration-200"
+              >
+                <CheckCircle className="w-4 h-4 mr-1.5" />
+                Confirm
+              </button>
+            )}
+            {(appointment.status === 'confirmed' || appointment.status === 'in-progress') && (
+              <button
+                onClick={() => handleStatusUpdate(appointment._id, 'completed')}
+                className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200"
+              >
+                <CheckCircle className="w-4 h-4 mr-1.5" />
+                Complete
+              </button>
+            )}
+            {/* Payment toggle */}
             <button
               onClick={() => handleTogglePayment(appointment._id, appointment.paymentStatus)}
               className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-lg transition-colors duration-200 ${
@@ -201,16 +245,19 @@ const ProviderAppointments = () => {
               <CheckCircle className="w-4 h-4 mr-1.5" />
               {appointment.paymentStatus === 'paid' ? 'Paid' : 'Mark Paid'}
             </button>
-            <button
-              onClick={() => handleCancelAppointment(appointment._id)}
-              className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200
-                text-sm font-medium rounded-lg text-red-700 hover:bg-red-100 hover:border-red-300
-                transition-colors duration-200"
-              title="Cancel appointment"
-            >
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              Cancel
-            </button>
+            {/* Cancel — only if not already completed/cancelled */}
+            {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
+              <button
+                onClick={() => handleCancelAppointment(appointment._id)}
+                className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200
+                  text-sm font-medium rounded-lg text-red-700 hover:bg-red-100 hover:border-red-300
+                  transition-colors duration-200"
+                title="Cancel appointment"
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Cancel
+              </button>
+            )}
           </div>
         </div>
 

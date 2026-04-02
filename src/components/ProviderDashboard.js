@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Users, Settings, MapPin, Clock, DollarSign } from 'lucide-react';
+import { Calendar, Users, Settings, MapPin, Clock, DollarSign, TrendingUp } from 'lucide-react';
 import api from '../services/api';
 import { SkeletonCard } from './ui/Skeleton';
 
@@ -33,6 +33,8 @@ const ProviderDashboard = () => {
 
   const [stats, setStats] = useState({ total: 0, completed: 0, upcoming: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [revenue, setRevenue] = useState(null);
+  const [revenueLoading, setRevenueLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -45,7 +47,20 @@ const ProviderDashboard = () => {
         setStatsLoading(false);
       }
     };
+
+    const fetchRevenue = async () => {
+      try {
+        const response = await api.get('/api/bookings/revenue');
+        setRevenue(response.data);
+      } catch (err) {
+        console.error('Failed to fetch revenue:', err);
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+
     fetchStats();
+    fetchRevenue();
   }, []);
 
   return (
@@ -91,6 +106,41 @@ const ProviderDashboard = () => {
             </>
           )}
         </div>
+
+        {/* Revenue Summary */}
+        {revenueLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : revenue && (
+          <div className="mb-8">
+            <h2 className="text-lg font-medium text-slate-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-[#009ea5]" />
+              Revenue
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatCard
+                icon={DollarSign}
+                label="This Week"
+                value={`$${(revenue.weekRevenue || 0).toLocaleString()}`}
+                description={`${revenue.paidCount || 0} paid sessions total`}
+              />
+              <StatCard
+                icon={DollarSign}
+                label="This Month"
+                value={`$${(revenue.monthRevenue || 0).toLocaleString()}`}
+              />
+              <StatCard
+                icon={DollarSign}
+                label="All Time"
+                value={`$${(revenue.totalRevenue || 0).toLocaleString()}`}
+                description={revenue.unpaidCount > 0 ? `${revenue.unpaidCount} unpaid` : undefined}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <h2 className="text-lg font-medium text-slate-900 mb-4">Quick Actions</h2>

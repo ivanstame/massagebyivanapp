@@ -550,6 +550,49 @@ router.get('/', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// GET /revenue (Provider revenue summary) — must be before /:id
+router.get('/revenue', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Only providers can view revenue' });
+    }
+
+    const now = DateTime.now().setZone('America/Los_Angeles');
+    const startOfWeek = now.startOf('week').toJSDate();
+    const startOfMonth = now.startOf('month').toJSDate();
+
+    const bookings = await Booking.find({
+      provider: req.user._id,
+      status: { $in: ['confirmed', 'completed', 'in-progress'] },
+    }).lean();
+
+    let weekRevenue = 0;
+    let monthRevenue = 0;
+    let totalRevenue = 0;
+    let paidCount = 0;
+    let unpaidCount = 0;
+
+    for (const b of bookings) {
+      const price = b.pricing?.totalPrice || 0;
+      const bookingDate = new Date(b.date);
+
+      if (b.paymentStatus === 'paid') {
+        totalRevenue += price;
+        paidCount++;
+        if (bookingDate >= startOfWeek) weekRevenue += price;
+        if (bookingDate >= startOfMonth) monthRevenue += price;
+      } else {
+        unpaidCount++;
+      }
+    }
+
+    res.json({ weekRevenue, monthRevenue, totalRevenue, paidCount, unpaidCount });
+  } catch (error) {
+    console.error('Error fetching revenue:', error);
+    res.status(500).json({ message: 'Error fetching revenue' });
+  }
+});
+
 // GET /:id (Get a single booking by ID)
 router.get('/:id', ensureAuthenticated, async (req, res) => {
   try {
@@ -576,39 +619,73 @@ router.get('/:id', ensureAuthenticated, async (req, res) => {
   }
 });
 
-// DELETE /:id (Cancel a booking)
+// DELETE /:id (Cancel a booking — soft delete, sets status to 'cancelled' and sends SMS)
 router.delete('/:id', ensureAuthenticated, async (req, res) => {
   try {
-    console.log('=== CANCELLING BOOKING ===');
-    console.log('Booking ID:', req.params.id);
-    console.log('User:', req.user.email, 'Type:', req.user.accountType);
-    
     const booking = await Booking.findById(req.params.id);
-    
+
     if (!booking) {
-      console.log('Booking not found');
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    console.log('Found booking:', booking);
-    console.log('Booking provider:', booking.provider);
-    console.log('Booking client:', booking.client);
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ message: 'Booking is already cancelled' });
+    }
 
     // Check authorization
     if (req.user.accountType === 'PROVIDER' && !booking.provider.equals(req.user._id)) {
-      console.log('Provider not authorized');
-      return res.status(403).json({ message: 'Not authorized to cancel this booking' });
-    }
-    
-    if (req.user.accountType === 'CLIENT' && !booking.client.equals(req.user._id)) {
-      console.log('Client not authorized');
       return res.status(403).json({ message: 'Not authorized to cancel this booking' });
     }
 
-    // Use deleteOne instead of deprecated remove()
-    await Booking.findByIdAndDelete(req.params.id);
-    console.log('✅ Booking deleted successfully');
-    
+    if (req.user.accountType === 'CLIENT' && !booking.client.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to cancel this booking' });
+    }
+
+    // Soft delete: mark as cancelled instead of deleting
+    booking.status = 'cancelled';
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = req.user.accountType;
+    await booking.save();
+    console.log('✅ Booking cancelled (soft delete):', booking._id);
+
+    // Send cancellation SMS notifications
+    try {
+      const provider = await User.findById(booking.provider);
+      const client = await User.findById(booking.client);
+      const cancelledByType = req.user.accountType;
+
+      // Determine recipient details
+      let recipientPhone, recipientName;
+      if (booking.recipientType === 'self') {
+        recipientPhone = client.profile.phoneNumber;
+        recipientName = client.profile.fullName || client.email;
+      } else {
+        recipientPhone = booking.recipientInfo.phone;
+        recipientName = booking.recipientInfo.name;
+      }
+
+      const providerName = provider.profile.fullName || provider.email;
+      const dateStr = booking.localDate;
+      const timeStr = booking.startTime;
+
+      if (cancelledByType === 'CLIENT') {
+        // Notify provider that client cancelled
+        const formattedProviderPhone = formatPhoneNumber(provider.profile.phoneNumber);
+        const providerMsg = `Cancelled: ${recipientName}'s appointment on ${dateStr} at ${timeStr} has been cancelled by the client.`;
+        await smsService.sendSms(formattedProviderPhone, providerMsg);
+        console.log('✅ Cancellation SMS sent to provider');
+      } else {
+        // Notify client that provider cancelled
+        const formattedRecipientPhone = formatPhoneNumber(recipientPhone);
+        const clientMsg = `Hi ${recipientName}, your massage with ${providerName} on ${dateStr} at ${timeStr} has been cancelled. Please rebook at your convenience.`;
+        await smsService.sendSms(formattedRecipientPhone, clientMsg);
+        console.log('✅ Cancellation SMS sent to client');
+      }
+    } catch (smsError) {
+      console.error('❌ Error sending cancellation SMS:', smsError);
+      // Don't fail the cancellation if SMS fails
+    }
+
     res.json({ message: 'Booking cancelled successfully' });
   } catch (error) {
     console.error('❌ Error cancelling booking:', error);
@@ -643,6 +720,53 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error updating payment status:', error);
     res.status(500).json({ message: 'Error updating payment status' });
+  }
+});
+
+// PATCH /:id/status (Update booking status — provider only)
+router.patch('/:id/status', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Only the provider on this booking can update status
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can update booking status' });
+    }
+
+    const { status } = req.body;
+    const allowed = ['confirmed', 'in-progress', 'completed'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: `Invalid status. Allowed: ${allowed.join(', ')}` });
+    }
+
+    // Validate status transitions
+    const transitions = {
+      'pending': ['confirmed', 'cancelled'],
+      'confirmed': ['in-progress', 'completed', 'cancelled'],
+      'in-progress': ['completed', 'cancelled'],
+    };
+
+    const allowedFrom = transitions[booking.status];
+    if (!allowedFrom || !allowedFrom.includes(status)) {
+      return res.status(400).json({
+        message: `Cannot change status from '${booking.status}' to '${status}'`
+      });
+    }
+
+    booking.status = status;
+    if (status === 'completed') {
+      booking.completedAt = new Date();
+    }
+    await booking.save();
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Error updating booking status:', error);
+    res.status(500).json({ message: 'Error updating booking status' });
   }
 });
 
