@@ -92,7 +92,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full 
+    <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full 
       flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
         <div className="flex justify-between items-start mb-4">
@@ -115,7 +115,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
               id="startTime"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -129,7 +129,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
               id="endTime"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -141,7 +141,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md 
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg 
                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
@@ -149,7 +149,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60] 
+              className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] 
                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                 flex items-center justify-center min-w-[120px]"
             >

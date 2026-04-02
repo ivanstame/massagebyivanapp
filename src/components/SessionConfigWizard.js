@@ -76,7 +76,7 @@ const SessionConfigWizard = ({
             value={currentName}
             onChange={(e) => setCurrentName(e.target.value)}
             placeholder="Aunt Nancy"
-            className="w-full p-2 border border-slate-200 rounded-md"
+            className="w-full p-2 border border-slate-200 rounded-lg"
           />
         </div>
 
@@ -90,7 +90,7 @@ const SessionConfigWizard = ({
               <button
                 key={dur.minutes}
                 onClick={() => setCurrentDuration(dur.minutes)}
-                className={`w-full p-2 rounded-md text-left transition-all ${
+                className={`w-full p-2 rounded-lg text-left transition-all ${
                   currentDuration === dur.minutes
                     ? 'bg-blue-50 border-blue-200 text-blue-700'
                     : 'border border-slate-200 hover:border-blue-200'
@@ -108,7 +108,7 @@ const SessionConfigWizard = ({
           <button
             type="button"
             onClick={handleBack}
-            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300"
+            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300"
           >
             {wizardStep === 0 ? 'Cancel' : 'Back'}
           </button>
@@ -116,7 +116,7 @@ const SessionConfigWizard = ({
             type="button"
             onClick={handleNext}
             disabled={currentDuration === null || currentName.trim() === ''}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-cyan-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-cyan-900 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {wizardStep < numSessions - 1 ? 'Next' : 'Done'}
           </button>

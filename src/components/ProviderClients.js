@@ -232,14 +232,14 @@ const ProviderClients = () => {
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-lg"
               placeholder="client@example.com"
               required
             />
           </div>
 
           {inviteStatus && (
-            <div className={`mb-4 p-3 rounded-md ${
+            <div className={`mb-4 p-3 rounded-lg ${
               inviteStatus.type === 'success'
                 ? 'bg-green-50 text-green-700'
                 : inviteStatus.type === 'exists'
@@ -268,7 +268,7 @@ const ProviderClients = () => {
                   type="text"
                   value={invitationCode}
                   readOnly
-                  className="flex-1 px-3 py-2 border rounded-md bg-slate-50 mr-2"
+                  className="flex-1 px-3 py-2 border rounded-lg bg-slate-50 mr-2"
                 />
                 <button
                   type="button"
@@ -276,7 +276,7 @@ const ProviderClients = () => {
                     navigator.clipboard.writeText(invitationCode);
                     // Optional: show a quick copied message
                   }}
-                  className="px-3 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+                  className="px-3 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
                 >
                   Copy
                 </button>
@@ -298,14 +298,14 @@ const ProviderClients = () => {
                 setInvitationExpires('');
                 setInviteStatus(null);
               }}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md"
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
             >
               Close
             </button>
             {!invitationCode && (
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#009ea5] text-white rounded-md
+                className="px-4 py-2 bg-[#009ea5] text-white rounded-lg
                   hover:bg-[#2c5f60]"
               >
                 Send Invitation
@@ -353,7 +353,7 @@ const ProviderClients = () => {
           <button
             onClick={() => setShowInviteModal(true)}
             className="inline-flex items-center justify-center px-4 py-2 bg-[#009ea5]
-              text-white rounded-md hover:bg-[#2c5f60] w-full sm:w-auto"
+              text-white rounded-lg hover:bg-[#2c5f60] w-full sm:w-auto"
           >
             <UserPlus className="w-5 h-5 mr-2" />
             Invite Client
@@ -372,13 +372,13 @@ const ProviderClients = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-lg font-bold tracking-wider text-[#009ea5] bg-white px-4 py-1.5 rounded-md border border-[#009ea5]/20">
+                <span className="text-lg font-bold tracking-wider text-[#009ea5] bg-white px-4 py-1.5 rounded-lg border border-[#009ea5]/20">
                   {joinCode.toUpperCase()}
                 </span>
                 <button
                   onClick={copyJoinCode}
                   className="inline-flex items-center px-3 py-1.5 text-sm text-[#009ea5]
-                    hover:bg-[#009ea5]/10 rounded-md transition"
+                    hover:bg-[#009ea5]/10 rounded-lg transition"
                 >
                   {joinCodeCopied ? (
                     <>
@@ -395,7 +395,7 @@ const ProviderClients = () => {
                 <button
                   onClick={() => { setIsEditingJoinCode(true); setJoinCodeInput(joinCode); }}
                   className="inline-flex items-center px-2 py-1.5 text-sm text-slate-500
-                    hover:bg-slate-100 rounded-md transition"
+                    hover:bg-slate-100 rounded-lg transition"
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -424,7 +424,7 @@ const ProviderClients = () => {
                   }}
                   placeholder="e.g. ivan"
                   maxLength={20}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-lg tracking-wider
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-lg tracking-wider
                     focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                   onKeyPress={(e) => { if (e.key === 'Enter') saveJoinCode(); }}
                   autoFocus
@@ -433,7 +433,7 @@ const ProviderClients = () => {
                   <button
                     onClick={saveJoinCode}
                     disabled={isSavingJoinCode || !joinCodeInput.trim()}
-                    className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]
+                    className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]
                       disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSavingJoinCode ? 'Saving...' : 'Save'}
@@ -441,7 +441,7 @@ const ProviderClients = () => {
                   {joinCode && (
                     <button
                       onClick={() => { setIsEditingJoinCode(false); setJoinCodeInput(''); setJoinCodeError(''); }}
-                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50"
+                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
                     >
                       Cancel
                     </button>
@@ -502,7 +502,7 @@ const ProviderClients = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={activeTab === 'clients' ? "Search by name, email, or phone..." : "Search by email..."}
-                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md
+                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg
                   focus:ring-[#009ea5] focus:border-[#009ea5]"
               />
             </div>
@@ -511,7 +511,7 @@ const ProviderClients = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-md
+                className="px-4 py-2 border border-slate-300 rounded-lg
                   focus:ring-[#009ea5] focus:border-[#009ea5]"
               >
                 <option value="name">Sort by Name</option>
@@ -568,7 +568,7 @@ const ProviderClients = () => {
                   <p className="text-slate-600 mb-4">No clients yet.</p>
                   <button
                     onClick={() => setShowInviteModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+                    className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
                   >
                     <UserPlus className="w-5 h-5 mr-2" />
                     Invite Your First Client
@@ -665,7 +665,7 @@ const ProviderClients = () => {
                               <button
                                 onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
                                 className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                  hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
+                                  hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
                               >
                                 <Phone className="w-4 h-4 mr-1" />
                                 Call
@@ -675,7 +675,7 @@ const ProviderClients = () => {
                               <button
                                 onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
                                 className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                  hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
+                                  hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
                               >
                                 <MessageSquare className="w-4 h-4 mr-1" />
                                 Text
@@ -684,7 +684,7 @@ const ProviderClients = () => {
                             <button
                               onClick={() => navigate(`/provider/clients/${client._id}`)}
                               className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-[#009ea5]
-                                hover:bg-[#009ea5]/10 rounded-md flex-1 sm:flex-initial"
+                                hover:bg-[#009ea5]/10 rounded-lg flex-1 sm:flex-initial"
                             >
                               View Details
                             </button>
@@ -726,7 +726,7 @@ const ProviderClients = () => {
                   <p className="text-slate-600 mb-4">No pending invitations.</p>
                   <button
                     onClick={() => setShowInviteModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+                    className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
                   >
                     <UserPlus className="w-5 h-5 mr-2" />
                     Send Your First Invitation
@@ -774,7 +774,7 @@ const ProviderClients = () => {
                               // Optional: show a quick copied message
                             }}
                             className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                              hover:bg-slate-100 rounded-md border border-slate-200 flex-1 sm:flex-initial"
+                              hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
                           >
                             Copy Invite Code
                           </button>

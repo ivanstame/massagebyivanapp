@@ -233,7 +233,7 @@ const formatTime = useCallback((time) => {
               <p className="font-medium mb-2">{conflictInfo.message}</p>
               
               {conflictInfo.conflicts && conflictInfo.conflicts.length > 0 && (
-                <div className="mt-3 bg-white rounded-md p-3 border border-amber-200">
+                <div className="mt-3 bg-white rounded-lg p-3 border border-amber-200">
                   <p className="font-medium text-amber-900 mb-2">
                     Affected Appointments ({conflictInfo.conflicts.length}):
                   </p>
@@ -270,7 +270,7 @@ const formatTime = useCallback((time) => {
                 </div>
               )}
               
-              <div className="mt-4 p-3 bg-amber-100 rounded-md">
+              <div className="mt-4 p-3 bg-amber-100 rounded-lg">
                 <p className="text-sm text-amber-900 font-medium">
                   ⚠️ Important: Contact all affected clients before attempting to {actionWord} this availability block.
                 </p>
@@ -283,7 +283,7 @@ const formatTime = useCallback((time) => {
             <div className="mt-4 flex justify-end">
               <button 
                 onClick={() => setConflictInfo(null)}
-                className="px-4 py-2 bg-white text-amber-700 border border-amber-300 rounded-md 
+                className="px-4 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg 
                   hover:bg-amber-50 transition-colors duration-200 text-sm font-medium
                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
               >
@@ -306,7 +306,7 @@ const formatTime = useCallback((time) => {
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white
-              rounded-md hover:bg-[#008a91] transition-colors"
+              rounded-lg hover:bg-[#008a91] transition-colors"
           >
             <Clock className="w-5 h-5 mr-2" />
             Add Availability
@@ -499,7 +499,7 @@ const formatTime = useCallback((time) => {
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => setDeleteConfirmBlock(null)}
-                  className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md"
+                  className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
                 >
                   Cancel
                 </button>
@@ -508,7 +508,7 @@ const formatTime = useCallback((time) => {
                     handleDeleteAvailability(deleteConfirmBlock._id);
                     setDeleteConfirmBlock(null);
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                   Delete
                 </button>

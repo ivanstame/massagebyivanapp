@@ -94,7 +94,7 @@ const InvitationHandling = () => {
                   type="email"
                   value={email}
                   disabled
-                  className="w-full px-3 py-2 border rounded-md bg-slate-50"
+                  className="w-full px-3 py-2 border rounded-lg bg-slate-50"
                 />
               </div>
 
@@ -107,7 +107,7 @@ const InvitationHandling = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#009ea5]"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
 
@@ -120,7 +120,7 @@ const InvitationHandling = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-[#009ea5]"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
 
@@ -135,7 +135,7 @@ const InvitationHandling = () => {
 
               <button
                 type="submit"
-                className="w-full py-2 bg-[#009ea5] text-white rounded-md 
+                className="w-full py-2 bg-[#009ea5] text-white rounded-lg 
                   hover:bg-[#2c5f60] transition-colors"
               >
                 Create Account
@@ -171,7 +171,7 @@ const InvitationHandling = () => {
             <button
               onClick={() => navigate('/login')}
               className="mt-6 inline-flex items-center px-4 py-2 bg-[#009ea5] 
-                text-white rounded-md hover:bg-[#2c5f60]"
+                text-white rounded-lg hover:bg-[#2c5f60]"
             >
               <LogIn className="w-4 h-4 mr-2" />
               Return to Login
@@ -185,7 +185,7 @@ const InvitationHandling = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {renderContent()}

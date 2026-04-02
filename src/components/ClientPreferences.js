@@ -111,7 +111,7 @@ const ClientPreferences = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-gray-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50 py-12">
       <div className="w-full max-w-md">
         <ProgressIndicator currentStep={3} />
         
@@ -135,7 +135,7 @@ const ClientPreferences = () => {
               <select
                 value={preferences.primaryArea}
                 onChange={(e) => handleChange('primaryArea', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
               >
                 <option value="">Select an area</option>
                 <option value="neck_shoulders">Neck & Shoulders</option>
@@ -175,7 +175,7 @@ const ClientPreferences = () => {
                 value={preferences.notes}
                 onChange={(e) => handleChange('notes', e.target.value)}
                 placeholder="Any specific instructions or concerns for your therapist..."
-                className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5] h-24"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009ea5] h-24"
               />
             </div>
 
@@ -184,7 +184,7 @@ const ClientPreferences = () => {
                 type="button"
                 onClick={handleSkip}
                 disabled={isLoading}
-                className="px-6 py-3 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50"
+                className="px-6 py-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50"
               >
                 Skip for Now
               </button>
@@ -192,7 +192,7 @@ const ClientPreferences = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-6 py-3 rounded-md bg-[#009ea5] hover:bg-[#2c5f60] text-white font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50"
+                className="px-6 py-3 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60] text-white font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50"
               >
                 {isLoading ? 'Saving...' : 'Save Preferences'}
               </button>

@@ -48,7 +48,7 @@ const ResetPassword = () => {
             alt="Massage by Ivan"
             className="mx-auto h-32 w-auto"
           />
-          <h2 className="mt-6 text-center text-2xl font-semibold text-gray-900">
+          <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
             Set new password
           </h2>
         </div>
@@ -57,7 +57,7 @@ const ResetPassword = () => {
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {success ? (
               <div>
-                <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-md">
+                <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
                   <div className="flex">
                     <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
                     <div className="ml-3">
@@ -68,7 +68,7 @@ const ResetPassword = () => {
                 <div className="mt-6 text-center">
                   <Link
                     to="/login"
-                    className="w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] transition-colors duration-200"
+                    className="w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] transition-colors duration-200"
                   >
                     Sign in
                   </Link>
@@ -77,7 +77,7 @@ const ResetPassword = () => {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                     New password
                   </label>
                   <div className="mt-1 relative">
@@ -88,7 +88,7 @@ const ResetPassword = () => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm pr-10"
+                      className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm pr-10"
                       placeholder="At least 6 characters"
                     />
                     <button
@@ -97,16 +97,16 @@ const ResetPassword = () => {
                       className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     >
                       {showPassword ? (
-                        <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                        <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
                       ) : (
-                        <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                        <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
                       )}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700">
                     Confirm new password
                   </label>
                   <div className="mt-1">
@@ -117,14 +117,14 @@ const ResetPassword = () => {
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm"
                       placeholder="Confirm your password"
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
                     <div className="flex">
                       <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
                       <div className="ml-3">
@@ -138,7 +138,7 @@ const ResetPassword = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {isLoading ? 'Resetting...' : 'Reset password'}
                   </button>

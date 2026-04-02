@@ -118,7 +118,7 @@ const ProviderSelection = () => {
 
   if (isLoading && !currentRequest) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#009ea5] mx-auto mb-4"></div>
           <p className="text-slate-600">Loading available providers...</p>
@@ -129,7 +129,7 @@ const ProviderSelection = () => {
 
   if (error && !currentRequest) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-red-600 mb-4">
             <AlertCircle className="h-12 w-12 mx-auto" />
@@ -138,7 +138,7 @@ const ProviderSelection = () => {
           <p className="text-slate-600 mb-6 text-center">{error}</p>
           <button
             onClick={fetchAvailableProviders}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
           >
             Try Again
           </button>
@@ -149,7 +149,7 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'PENDING') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-blue-600 mb-4">
             <Clock className="h-12 w-12 mx-auto" />
@@ -164,7 +164,7 @@ const ProviderSelection = () => {
           </p>
           <button
             onClick={handleContinueToDashboard}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
           >
             Continue to Dashboard
           </button>
@@ -175,7 +175,7 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'ACCEPTED') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-green-600 mb-4">
             <CheckCircle className="h-12 w-12 mx-auto" />
@@ -189,7 +189,7 @@ const ProviderSelection = () => {
           </p>
           <button
             onClick={handleContinueToDashboard}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
           >
             Continue to Dashboard
           </button>
@@ -200,7 +200,7 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'DENIED') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-red-600 mb-4">
             <XCircle className="h-12 w-12 mx-auto" />
@@ -218,7 +218,7 @@ const ProviderSelection = () => {
               setRequestStatus(null);
               setSelectedProvider(null);
             }}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60] mb-4"
+            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] mb-4"
           >
             Choose Another Provider
           </button>
@@ -228,7 +228,7 @@ const ProviderSelection = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-4 bg-[#009ea5] rounded-full mb-4">
@@ -241,7 +241,7 @@ const ProviderSelection = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
             <p className="text-red-700">{error}</p>
           </div>
         )}
@@ -267,7 +267,7 @@ const ProviderSelection = () => {
                 <button
                   onClick={() => handleProviderSelect(provider)}
                   disabled={isLoading}
-                  className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading && selectedProvider?.id === provider.id ? (
                     <div className="flex items-center justify-center">
@@ -298,7 +298,7 @@ const ProviderSelection = () => {
         <div className="mt-8 text-center">
           <button
             onClick={handleContinueToDashboard}
-            className="inline-flex items-center px-6 py-3 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition"
+            className="inline-flex items-center px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition"
           >
             Skip for now and continue to dashboard
           </button>

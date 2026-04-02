@@ -67,11 +67,11 @@ const BookingConfirmationModal = ({
   // Render booking details
   const renderBookingDetails = () => {
     if (!selectedDate || !selectedTime || !fullAddress) {
-      return <p className="text-sm text-gray-500 mb-6">Booking details not available.</p>;
+      return <p className="text-sm text-slate-500 mb-6">Booking details not available.</p>;
     }
     
     return (
-      <div className="text-sm text-gray-600 mb-6">
+      <div className="text-sm text-slate-600 mb-6">
         {numSessions === 1 ? (
           <>
             <div className="bg-blue-50 p-4 rounded-lg mb-4 text-left">
@@ -166,7 +166,7 @@ const BookingConfirmationModal = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Booking Confirmed!</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Booking Confirmed!</h3>
           {renderBookingDetails()}
 
           {/* Next Actions */}

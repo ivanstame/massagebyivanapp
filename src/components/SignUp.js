@@ -197,7 +197,7 @@ const SignUp = () => {
               const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
               setFormData(prev => ({ ...prev, joinCode: val }));
             }}
-            className="w-full px-4 py-3 border border-slate-200 rounded-md text-center text-lg tracking-wider
+            className="w-full px-4 py-3 border border-slate-200 rounded-lg text-center text-lg tracking-wider
               focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
             placeholder="e.g. ivan"
             maxLength={20}
@@ -217,7 +217,7 @@ const SignUp = () => {
               setFormData(prev => ({ ...prev, joinCode: '', accountType: '' }));
               setError('');
             }}
-            className="flex-1 py-2 px-4 border border-slate-300 rounded-md text-slate-700
+            className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-slate-700
               hover:bg-slate-50 transition"
           >
             Back
@@ -225,7 +225,7 @@ const SignUp = () => {
           <button
             onClick={verifyJoinCode}
             disabled={isVerifyingJoinCode || !formData.joinCode.trim()}
-            className="flex-1 py-2 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60]
+            className="flex-1 py-2 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60]
               text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingJoinCode ? 'Verifying...' : 'Continue'}
@@ -296,7 +296,7 @@ const SignUp = () => {
             type="password"
             value={providerAccessPassword}
             onChange={(e) => setProviderAccessPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-200 rounded-md
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg
               focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
             placeholder="Enter provider access password"
             onKeyPress={(e) => {
@@ -317,7 +317,7 @@ const SignUp = () => {
               setProviderAccessPassword('');
               setError('');
             }}
-            className="flex-1 py-2 px-4 border border-slate-300 rounded-md text-slate-700
+            className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-slate-700
               hover:bg-slate-50 transition"
           >
             Back
@@ -325,7 +325,7 @@ const SignUp = () => {
           <button
             onClick={verifyProviderAccess}
             disabled={isVerifyingProviderAccess || !providerAccessPassword.trim()}
-            className="flex-1 py-2 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60]
+            className="flex-1 py-2 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60]
               text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingProviderAccess ? 'Verifying...' : 'Continue'}
@@ -348,7 +348,7 @@ const SignUp = () => {
           required
           value={formData.email}
           onChange={handleChange}
-          className="w-full px-4 py-2 border border-slate-200 rounded-md 
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg 
             focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
           placeholder="Enter your email"
         />
@@ -369,7 +369,7 @@ const SignUp = () => {
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-md 
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg 
               focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
             placeholder="Create a password (min 6 characters)"
           />
@@ -379,9 +379,9 @@ const SignUp = () => {
             className="absolute inset-y-0 right-0 pr-3 flex items-center"
           >
             {showPassword ? (
-              <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
             ) : (
-              <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
             )}
           </button>
         </div>
@@ -400,7 +400,7 @@ const SignUp = () => {
             required
             value={formData.confirmPassword}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-md 
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg 
               focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
             placeholder="Re-enter your password"
           />
@@ -410,9 +410,9 @@ const SignUp = () => {
             className="absolute inset-y-0 right-0 pr-3 flex items-center"
           >
             {showConfirmPassword ? (
-              <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
             ) : (
-              <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
             )}
           </button>
         </div>
@@ -429,14 +429,14 @@ const SignUp = () => {
               type="checkbox"
               checked={smsConsent}
               onChange={() => setSmsConsent(!smsConsent)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
             />
           </div>
           <div className="ml-3 text-sm">
-            <label htmlFor="sms-consent" className="font-medium text-gray-700">
+            <label htmlFor="sms-consent" className="font-medium text-slate-700">
               I agree to receive automated SMS messages for appointment-related communications.
             </label>
-            <p className="text-gray-500">
+            <p className="text-slate-500">
               Standard message and data rates may apply. You can opt out at any time.
               <a href="/sms-consent-policy.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 ml-1">
                 View our SMS consent policy.
@@ -448,7 +448,7 @@ const SignUp = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60] 
+          className="w-full py-3 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60] 
             text-white font-medium transition duration-150 ease-in-out
             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
             disabled:opacity-50 disabled:cursor-not-allowed"
@@ -459,7 +459,7 @@ const SignUp = () => {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-gray-50">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50">
       <div className="mb-8">
         <img 
           src="/imgs/logo.png"
@@ -489,7 +489,7 @@ const SignUp = () => {
               </h2>
 
               {verifiedJoinProvider && formData.accountType === 'CLIENT' && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-center">
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-center">
                   <div className="flex items-center justify-center text-green-700">
                     <CheckCircle className="w-4 h-4 mr-2" />
                     <span className="text-sm font-medium">

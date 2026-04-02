@@ -143,7 +143,7 @@ const AvailableTimeSlots = ({
                   disabled={slotCount === 0}
                   className={`
                     flex-1 flex items-center justify-between sm:justify-center 
-                    space-x-2 py-3 px-4 rounded-md
+                    space-x-2 py-3 px-4 rounded-lg
                     transition-all duration-200 font-medium text-base
                     ${isActive 
                       ? 'bg-white text-teal-700 shadow-sm' 

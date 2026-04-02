@@ -328,7 +328,7 @@ const AppointmentDetail = () => {
                 {isProvider && booking.status !== 'cancelled' && (
                   <button
                     onClick={handleTogglePayment}
-                    className={`ml-2 px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+                    className={`ml-2 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
                       booking.paymentStatus === 'paid'
                         ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
                         : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'

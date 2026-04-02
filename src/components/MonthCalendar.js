@@ -175,7 +175,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
 
                     disabled={isPast}
                     className={`
-                      relative h-12 flex items-center justify-center rounded-md
+                      relative h-12 flex items-center justify-center rounded-lg
                       transition-all duration-200 ease-in-out
                       ${isPast ? 'text-slate-300 line-through bg-slate-50' : 
                         hasSlots ? 'text-slate-700 hover:bg-[#f8f4ef]' :

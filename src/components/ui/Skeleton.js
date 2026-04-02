@@ -7,7 +7,7 @@ const Skeleton = ({ className = '', variant = 'text', width, height }) => {
     text: 'h-4 w-full',
     title: 'h-8 w-3/4',
     circle: 'rounded-full',
-    rectangular: 'rounded-md',
+    rectangular: 'rounded-lg',
     card: 'h-24 w-full rounded-lg'
   };
 

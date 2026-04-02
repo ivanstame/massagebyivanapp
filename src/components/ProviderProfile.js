@@ -144,7 +144,7 @@ const ProviderProfile = () => {
                 <button
                   onClick={() => window.location.href = `tel:${provider.profile.phoneNumber}`}
                   className="inline-flex items-center px-3 py-1.5 border border-slate-300
-                    rounded-md text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                    rounded-lg text-slate-700 hover:bg-slate-50 text-sm font-medium"
                 >
                   <Phone className="w-4 h-4 mr-1.5" />
                   Call
@@ -153,7 +153,7 @@ const ProviderProfile = () => {
               <button
                 onClick={() => window.location.href = `mailto:${provider.email}`}
                 className="inline-flex items-center px-3 py-1.5 border border-slate-300
-                  rounded-md text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                  rounded-lg text-slate-700 hover:bg-slate-50 text-sm font-medium"
               >
                 <Mail className="w-4 h-4 mr-1.5" />
                 Email
@@ -161,7 +161,7 @@ const ProviderProfile = () => {
               <button
                 onClick={() => navigate('/book')}
                 className="inline-flex items-center px-4 py-2 bg-[#009ea5]
-                  text-white rounded-md hover:bg-[#2c5f60]"
+                  text-white rounded-lg hover:bg-[#2c5f60]"
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Book Appointment

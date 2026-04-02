@@ -56,7 +56,7 @@ const ProviderAssignmentRequests = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-gray-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#009ea5] mx-auto mb-4"></div>
           <p className="text-slate-600">Loading assignment requests...</p>
@@ -66,7 +66,7 @@ const ProviderAssignmentRequests = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 py-8">
+    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-normal text-slate-800 mb-2">Client Assignment Requests</h1>
@@ -76,7 +76,7 @@ const ProviderAssignmentRequests = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
             <p className="text-red-700">{error}</p>
           </div>
         )}
@@ -124,7 +124,7 @@ const ProviderAssignmentRequests = () => {
                 </div>
 
                 {request.clientMessage && (
-                  <div className="mb-4 p-4 bg-slate-50 rounded-md">
+                  <div className="mb-4 p-4 bg-slate-50 rounded-lg">
                     <div className="flex items-start mb-2">
                       <MessageSquare className="h-4 w-4 text-slate-500 mr-2 mt-0.5" />
                       <span className="text-sm font-medium text-slate-700">Client Message:</span>
@@ -137,7 +137,7 @@ const ProviderAssignmentRequests = () => {
                   <button
                     onClick={() => handleAcceptRequest(request.id)}
                     disabled={processingRequest === request.id}
-                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {processingRequest === request.id ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -149,7 +149,7 @@ const ProviderAssignmentRequests = () => {
                   <button
                     onClick={() => handleDenyRequest(request.id)}
                     disabled={processingRequest === request.id}
-                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {processingRequest === request.id ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

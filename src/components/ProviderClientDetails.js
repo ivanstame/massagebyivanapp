@@ -144,13 +144,13 @@ const ProviderClientDetails = () => {
         <div className="flex justify-end space-x-3">
           <button
             onClick={() => setShowDeleteConfirm(false)}
-            className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md"
+            className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
           >
             Cancel
           </button>
           <button
             onClick={handleRemoveClient}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
             Remove Client
           </button>
@@ -166,19 +166,19 @@ const ProviderClientDetails = () => {
         <textarea
           value={clientNotes}
           onChange={(e) => setClientNotes(e.target.value)}
-          className="w-full p-3 border border-slate-300 rounded-md mb-4 h-40"
+          className="w-full p-3 border border-slate-300 rounded-lg mb-4 h-40"
           placeholder="Enter notes about this client..."
         />
         <div className="flex justify-end space-x-3">
           <button
             onClick={() => setShowEditNotes(false)}
-            className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md"
+            className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg"
           >
             Cancel
           </button>
           <button
             onClick={handleUpdateNotes}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-cyan-900"
+            className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]"
           >
             Save Notes
           </button>
@@ -251,7 +251,7 @@ const ProviderClientDetails = () => {
               {client?.profile?.phoneNumber && (
                 <button
                   onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                   title="Call client"
                 >
                   <Phone className="w-5 h-5" />
@@ -260,7 +260,7 @@ const ProviderClientDetails = () => {
               {client?.profile?.phoneNumber && (
                 <button
                   onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                   title="Text client"
                 >
                   <MessageSquare className="w-5 h-5" />
@@ -272,7 +272,7 @@ const ProviderClientDetails = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
@@ -301,12 +301,12 @@ const ProviderClientDetails = () => {
               <p className="text-2xl font-bold text-green-900">{stats.completedAppointments}</p>
             </div>
             
-            <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="bg-teal-50 p-4 rounded-lg">
               <div className="flex items-center mb-2">
-                <Clock8 className="w-5 h-5 text-purple-500 mr-2" />
-                <h3 className="text-sm font-medium text-purple-700">Upcoming</h3>
+                <Clock8 className="w-5 h-5 text-teal-500 mr-2" />
+                <h3 className="text-sm font-medium text-teal-700">Upcoming</h3>
               </div>
-              <p className="text-2xl font-bold text-purple-900">{stats.upcomingAppointments}</p>
+              <p className="text-2xl font-bold text-teal-900">{stats.upcomingAppointments}</p>
             </div>
             
             <div className="bg-amber-50 p-4 rounded-lg">

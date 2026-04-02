@@ -191,8 +191,8 @@ const ProviderLocations = () => {
               <div key={loc._id} className="flex items-center gap-3 p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
                 <div className="flex-shrink-0">
                   {loc.isHomeBase ? (
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Home className="w-4 h-4 text-blue-600" />
+                    <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                      <Home className="w-4 h-4 text-teal-600" />
                     </div>
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
@@ -206,11 +206,11 @@ const ProviderLocations = () => {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {loc.isHomeBase ? (
-                    <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded-full font-medium">Home Base</span>
+                    <span className="px-2 py-1 text-xs bg-blue-50 text-teal-600 rounded-full font-medium">Home Base</span>
                   ) : (
                     <button
                       onClick={() => handleSetHomeBase(loc._id)}
-                      className="px-2 py-1 text-xs text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                      className="px-2 py-1 text-xs text-slate-500 hover:text-teal-600 hover:bg-blue-50 rounded-full transition-colors"
                       title="Set as home base"
                     >
                       Set as Home
@@ -388,7 +388,7 @@ const ProviderLocations = () => {
         )}
 
         {/* Info box */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">How locations work</p>
             <ul className="list-disc ml-4 space-y-1 text-blue-700">

@@ -332,10 +332,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 mt-20">
         <div className="text-center mb-6 pt-16">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-slate-900">
             {provider?.providerProfile?.businessName
               ? `You are booking with ${provider.providerProfile.businessName}`
               : 'Book Your Massage'}

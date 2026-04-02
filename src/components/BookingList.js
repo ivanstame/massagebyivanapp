@@ -238,7 +238,7 @@ const BookingList = () => {
             <>
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                  text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
+                  text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
                 onClick={() => window.location.href = `tel:${provider.profile?.phoneNumber}`}
               >
                 <Phone className="w-4 h-4 mr-1.5" />
@@ -246,7 +246,7 @@ const BookingList = () => {
               </button>
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                  text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
+                  text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
                 onClick={() => window.location.href = `sms:${provider.profile?.phoneNumber}`}
               >
                 <MessageSquare className="w-4 h-4 mr-1.5" />
@@ -258,7 +258,7 @@ const BookingList = () => {
           <button
             onClick={() => handleAddToCalendar(booking)}
             className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-              text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
+              text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
           >
             <Calendar className="w-4 h-4 mr-1.5" />
             Add to Calendar
@@ -267,7 +267,7 @@ const BookingList = () => {
           <button 
             onClick={() => handleCancelBooking(booking._id)}
             className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
-              text-sm font-medium rounded-md text-red-700 hover:bg-red-50"
+              text-sm font-medium rounded-lg text-red-700 hover:bg-red-50"
           >
             Cancel
           </button>
@@ -295,7 +295,7 @@ const BookingList = () => {
       <div className="max-w-7xl mx-auto p-4">
         <div className="bg-white shadow-sm rounded-lg overflow-hidden">
           <div className="p-6">
-            <h1 className="text-[40px] leading-tight text-slate-900 mb-6">
+            <h1 className="text-2xl font-bold text-slate-900 mb-6">
               My Bookings
             </h1>
 

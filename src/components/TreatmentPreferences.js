@@ -210,7 +210,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
           <select
             value={formData.defaultDuration || 60}
             onChange={(e) => onChange('defaultDuration', parseInt(e.target.value))}
-            className="w-full p-2 border rounded-md"
+            className="w-full p-2 border rounded-lg"
           >
             <option value={60}>60 minutes</option>
             <option value={90}>90 minutes</option>
@@ -225,7 +225,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
           <select
             value={formData.bufferTime || 15}
             onChange={(e) => onChange('bufferTime', parseInt(e.target.value))}
-            className="w-full p-2 border rounded-md"
+            className="w-full p-2 border rounded-lg"
           >
             <option value={15}>15 minutes</option>
             <option value={30}>30 minutes</option>
@@ -240,7 +240,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
           <select
             value={formData.advanceBooking || 30}
             onChange={(e) => onChange('advanceBooking', parseInt(e.target.value))}
-            className="w-full p-2 border rounded-md"
+            className="w-full p-2 border rounded-lg"
           >
             <option value={7}>1 week</option>
             <option value={14}>2 weeks</option>
@@ -289,7 +289,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Travel Fee (per mile)
           </label>
-          <div className="relative mt-1 rounded-md shadow-sm">
+          <div className="relative mt-1 rounded-lg shadow-sm">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <span className="text-slate-500 sm:text-sm">$</span>
             </div>
@@ -299,7 +299,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
               min="0"
               value={formData.travelFee || 0}
               onChange={(e) => onChange('travelFee', parseFloat(e.target.value))}
-              className="block w-full rounded-md pl-7 pr-12 focus:border-[#009ea5] focus:ring-[#009ea5] sm:text-sm"
+              className="block w-full rounded-lg pl-7 pr-12 focus:border-[#009ea5] focus:ring-[#009ea5] sm:text-sm"
               placeholder="0.00"
             />
           </div>
@@ -638,7 +638,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
   const isRegistrationComplete = currentStep >= 3;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-gray-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50 py-12">
       <div className="w-full max-w-4xl">
         {!isRegistrationComplete && <ProgressIndicator currentStep={3} />}
         
@@ -656,7 +656,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
               <button
                 onClick={() => setIsEditing(!isEditing)}
                 disabled={isLoading}
-                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md
+                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg
                   ${isEditing 
                     ? 'text-green-700 bg-green-50 hover:bg-green-100' 
                     : 'text-[#009ea5] hover:bg-[#009ea5]/10'} 
@@ -718,7 +718,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
                 type="button"
                 onClick={() => isRegistrationComplete ? navigate(-1) : navigate('/profile-setup')}
                 disabled={isLoading}
-                className={`px-6 py-3 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 
+                className={`px-6 py-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 
                   transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 
                   focus:ring-slate-500 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
@@ -729,7 +729,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
                 type="submit"
                 disabled={isLoading || (user.accountType === 'CLIENT' && Object.keys(selectedAreas).length === 0)}
                 className={`
-                  flex-1 py-3 px-4 rounded-md
+                  flex-1 py-3 px-4 rounded-lg
                   bg-[#009ea5] hover:bg-[#2c5f60]
                   text-white font-medium
                   transition duration-150 ease-in-out

@@ -191,7 +191,7 @@ const ProviderAppointments = () => {
           <div className="ml-4 flex flex-col gap-2">
             <button
               onClick={() => handleTogglePayment(appointment._id, appointment.paymentStatus)}
-              className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-md transition-colors duration-200 ${
+              className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-lg transition-colors duration-200 ${
                 appointment.paymentStatus === 'paid'
                   ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
                   : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
@@ -204,7 +204,7 @@ const ProviderAppointments = () => {
             <button
               onClick={() => handleCancelAppointment(appointment._id)}
               className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200
-                text-sm font-medium rounded-md text-red-700 hover:bg-red-100 hover:border-red-300
+                text-sm font-medium rounded-lg text-red-700 hover:bg-red-100 hover:border-red-300
                 transition-colors duration-200"
               title="Cancel appointment"
             >
@@ -218,7 +218,7 @@ const ProviderAppointments = () => {
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200">
             <button
               className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
+                text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
               onClick={() => window.location.href = `tel:${appointment.client.profile.phoneNumber}`}
             >
               <Phone className="w-4 h-4 mr-1.5" />
@@ -227,7 +227,7 @@ const ProviderAppointments = () => {
 
             <button
               className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50"
+                text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
               onClick={() => window.location.href = `sms:${appointment.client.profile.phoneNumber}`}
             >
               <MessageSquare className="w-4 h-4 mr-1.5" />

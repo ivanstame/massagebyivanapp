@@ -28,7 +28,7 @@ const ProviderConfirmationModal = ({ provider, onConfirm, onCancel }) => (
       <div className="flex flex-col sm:flex-row-reverse gap-3">
         <button
           onClick={onConfirm}
-          className="flex-1 py-2 px-4 bg-[#009ea5] text-white rounded-md 
+          className="flex-1 py-2 px-4 bg-[#009ea5] text-white rounded-lg 
             hover:bg-[#2c5f60] transition-colors"
         >
           Continue Setup
@@ -36,7 +36,7 @@ const ProviderConfirmationModal = ({ provider, onConfirm, onCancel }) => (
         <button
           onClick={onCancel}
           className="flex-1 py-2 px-4 border border-slate-300 text-slate-700 
-            rounded-md hover:bg-slate-50 transition-colors"
+            rounded-lg hover:bg-slate-50 transition-colors"
         >
           Cancel
         </button>

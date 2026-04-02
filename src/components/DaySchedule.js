@@ -120,7 +120,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                   key={`availability-${index}`}
                   onClick={() => onModify && onModify(block)}
                   className="absolute left-0 right-0 bg-green-50 border-green-200
-                    border rounded-md transition-all duration-200 hover:shadow-md cursor-pointer hover:bg-green-100"
+                    border rounded-lg transition-all duration-200 hover:shadow-md cursor-pointer hover:bg-green-100"
                   style={{
                     top: `${blockStart}px`,
                     height: `${blockEnd - blockStart}px`,
@@ -150,7 +150,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                   <div
                     key={`anchor-${index}`}
                     className="absolute left-0 right-0 bg-amber-50 border border-amber-300
-                      rounded-md z-10"
+                      rounded-lg z-10"
                     style={{
                       top: `${anchorStart}px`,
                       height: `${Math.max(anchorEnd - anchorStart, 30)}px`,
@@ -185,7 +185,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                   key={`booking-${index}`}
                   onClick={() => handleAppointmentClick(booking._id)}
                   className="absolute left-1 right-1 bg-[#f8f4ef] border border-[#009ea5]
-                   rounded-md shadow-sm cursor-pointer transition-all duration-200
+                   rounded-lg shadow-sm cursor-pointer transition-all duration-200
                    hover:shadow-md hover:bg-[#f0e8e0] z-20"
                   style={{
                     top: `${bookingStart}px`,

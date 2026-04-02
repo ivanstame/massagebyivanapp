@@ -55,7 +55,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full 
+    <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full 
       flex items-center justify-center z-50 modal-overlay"
     >
       <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md modal-content">
@@ -84,7 +84,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               id="startTime"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -98,7 +98,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               id="endTime"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -108,14 +108,14 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-md 
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg 
                 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60] 
+              className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] 
                 transition-colors"
             >
               Add Block

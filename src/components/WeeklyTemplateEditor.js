@@ -382,7 +382,7 @@ const WeeklyTemplateEditor = () => {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`inline-flex items-center px-6 py-2.5 rounded-md text-white font-medium transition-colors ${
+            className={`inline-flex items-center px-6 py-2.5 rounded-lg text-white font-medium transition-colors ${
               saving
                 ? 'bg-slate-400 cursor-not-allowed'
                 : 'bg-[#009ea5] hover:bg-[#008a91]'
@@ -400,12 +400,12 @@ const WeeklyTemplateEditor = () => {
         </div>
 
         {/* Info box */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
           <div className="flex items-start">
-            <Clock className="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
+            <Clock className="w-5 h-5 text-teal-500 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="text-sm text-teal-800">
               <p className="font-medium mb-1">How this works</p>
-              <ul className="list-disc ml-4 space-y-1 text-blue-700">
+              <ul className="list-disc ml-4 space-y-1 text-teal-700">
                 <li>This template generates availability <strong>{forecastWeeks} weeks</strong> into the future</li>
                 <li>You can edit or delete individual days from the Availability page</li>
                 <li>Manual changes to a specific day always take priority</li>

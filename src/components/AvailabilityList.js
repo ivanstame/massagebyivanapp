@@ -46,7 +46,7 @@ const AvailabilityList = ({
         </p>
         <button
           onClick={onAdd}
-          className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#008a91] text-white rounded-md
+          className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#008a91] text-white rounded-lg
             transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
             focus:ring-[#009ea5] shadow-sm"
         >
@@ -91,7 +91,7 @@ const AvailabilityList = ({
                     Available
                   </span>
                   {block.source === 'template' && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-600">
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-600">
                       From template
                     </span>
                   )}
@@ -111,7 +111,7 @@ const AvailabilityList = ({
                 <button 
                   onClick={() => onModify(block)}
                   className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                    text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50
+                    text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50
                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
                     transition-colors duration-200 ease-in-out"
                 >
@@ -121,7 +121,7 @@ const AvailabilityList = ({
                 <button 
                   onClick={() => onDelete(block)}
                   className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
-                    text-sm font-medium rounded-md text-red-700 hover:bg-red-50
+                    text-sm font-medium rounded-lg text-red-700 hover:bg-red-50
                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
                     transition-colors duration-200 ease-in-out"
                 >
@@ -136,7 +136,7 @@ const AvailabilityList = ({
       <button 
         onClick={onAdd}
         className="w-full flex items-center justify-center px-4 py-3 bg-[#009ea5] text-white
-          rounded-md hover:bg-[#008a91] transition-colors duration-200 ease-in-out
+          rounded-lg hover:bg-[#008a91] transition-colors duration-200 ease-in-out
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
           shadow-sm"
       >

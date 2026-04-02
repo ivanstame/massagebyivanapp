@@ -110,7 +110,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
         <button
           type="button"
           onClick={() => setInputMode('map')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
             inputMode === 'map'
               ? 'bg-white text-teal-700 shadow-sm'
               : 'text-slate-500 hover:text-slate-700'
@@ -122,7 +122,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
         <button
           type="button"
           onClick={() => setInputMode('search')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
             inputMode === 'search'
               ? 'bg-white text-teal-700 shadow-sm'
               : 'text-slate-500 hover:text-slate-700'
