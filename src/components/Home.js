@@ -1,80 +1,151 @@
-// src/components/Home.js
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../AuthContext';
 import { Link } from 'react-router-dom';
+import { Calendar, Clock, MapPin, ArrowRight, AlertCircle } from 'lucide-react';
+import api from '../services/api';
+import { DateTime } from 'luxon';
 
 const Home = () => {
   const { user } = useContext(AuthContext);
+  const [nextBooking, setNextBooking] = useState(null);
+  const [loadingBooking, setLoadingBooking] = useState(true);
+
+  useEffect(() => {
+    const fetchNext = async () => {
+      try {
+        const res = await api.get('/api/bookings');
+        const now = new Date();
+        const upcoming = (res.data || [])
+          .filter(b => new Date(b.date) >= now && b.status !== 'cancelled')
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+        setNextBooking(upcoming[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch bookings:', err);
+      } finally {
+        setLoadingBooking(false);
+      }
+    };
+    fetchNext();
+  }, []);
+
+  const formatBookingDate = (date, startTime) => {
+    try {
+      const dt = DateTime.fromISO(new Date(date).toISOString().split('T')[0] + 'T' + startTime, { zone: 'America/Los_Angeles' });
+      return {
+        day: dt.toFormat('cccc, MMMM d'),
+        time: dt.toFormat('h:mm a')
+      };
+    } catch {
+      return { day: 'Upcoming', time: startTime };
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-white shadow-lg rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          Welcome, {user.profile?.fullName || user.email}!
-        </h1>
-        
-        {user.isAdmin ? (
-          <div className="space-y-4">
-            <h2 className="text-xl text-gray-700">Admin Dashboard</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link
-                to="/admin/availability"
-                className="bg-blue-100 p-4 rounded-lg hover:bg-blue-200 transition-colors"
-              >
-                <h3 className="font-bold text-blue-800">Manage Availability</h3>
-                <p className="text-blue-600">Set your working hours and breaks</p>
-              </Link>
-              <Link
-                to="/admin/bookings"
-                className="bg-green-100 p-4 rounded-lg hover:bg-green-200 transition-colors"
-              >
-                <h3 className="font-bold text-green-800">View Bookings</h3>
-                <p className="text-green-600">Manage upcoming appointments</p>
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <h2 className="text-xl text-gray-700">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link
-                to="/book"
-                className="bg-blue-100 p-4 rounded-lg hover:bg-blue-200 transition-colors"
-              >
-                <h3 className="font-bold text-blue-800">Book Appointment</h3>
-                <p className="text-blue-600">Schedule your next massage</p>
-              </Link>
-              <Link
-                to="/my-bookings"
-                className="bg-purple-100 p-4 rounded-lg hover:bg-purple-200 transition-colors"
-              >
-                <h3 className="font-bold text-purple-800">My Appointments</h3>
-                <p className="text-purple-600">View your upcoming sessions</p>
-              </Link>
-            </div>
-          </div>
-        )}
-        
+    <div className="pt-16">
+      <div className="max-w-2xl mx-auto p-4">
+        {/* Welcome */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Welcome back, {user.profile?.fullName?.split(' ')[0] || 'there'}
+          </h1>
+          <p className="text-slate-500 mt-1">Manage your massage appointments</p>
+        </div>
+
+        {/* Profile incomplete warning */}
         {!user.profile?.fullName && (
-          <div className="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">Complete Your Profile</h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>Please complete your profile to get personalized massage recommendations.</p>
-                  <Link to="/my-profile" className="font-medium underline hover:text-yellow-600">
-                    Update Profile
-                  </Link>
-                </div>
-              </div>
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Complete your profile</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Add your details for a better booking experience.{' '}
+                <Link to="/my-profile" className="font-medium underline hover:text-amber-900">
+                  Update profile
+                </Link>
+              </p>
             </div>
           </div>
         )}
+
+        {/* Next Appointment Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+          <div className="px-6 py-4 bg-gradient-to-r from-[#009ea5] to-[#00b4bc]">
+            <h2 className="text-white font-semibold text-lg">Next Appointment</h2>
+          </div>
+          <div className="p-6">
+            {loadingBooking ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+              </div>
+            ) : nextBooking ? (
+              <div className="space-y-3">
+                {(() => {
+                  const { day, time } = formatBookingDate(nextBooking.date, nextBooking.startTime);
+                  return (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-[#009ea5]" />
+                        <span className="text-slate-900 font-medium">{day}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-5 h-5 text-[#009ea5]" />
+                        <span className="text-slate-700">{time} — {nextBooking.duration} minutes</span>
+                      </div>
+                    </>
+                  );
+                })()}
+                {nextBooking.location?.address && (
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-[#009ea5]" />
+                    <span className="text-slate-700">{nextBooking.location.address}</span>
+                  </div>
+                )}
+                <Link
+                  to={`/appointments/${nextBooking._id}`}
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#009ea5] hover:text-[#008a91] transition-colors"
+                >
+                  View details <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-slate-500">No upcoming appointments</p>
+                <Link
+                  to="/book"
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#009ea5] hover:text-[#008a91] transition-colors"
+                >
+                  Book your next session <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Link
+            to="/book"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 transition-all"
+          >
+            <div className="bg-teal-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-teal-100 transition-colors">
+              <Calendar className="w-6 h-6 text-[#009ea5]" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Book Appointment</h3>
+            <p className="text-sm text-slate-500">Schedule your next massage session</p>
+          </Link>
+
+          <Link
+            to="/my-bookings"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 transition-all"
+          >
+            <div className="bg-teal-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-teal-100 transition-colors">
+              <Clock className="w-6 h-6 text-[#009ea5]" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">My Appointments</h3>
+            <p className="text-sm text-slate-500">View and manage your bookings</p>
+          </Link>
+        </div>
       </div>
     </div>
   );

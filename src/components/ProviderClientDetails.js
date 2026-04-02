@@ -325,7 +325,7 @@ const ProviderClientDetails = () => {
             <h2 className="text-lg font-medium text-slate-900">Client Notes</h2>
             <button
               onClick={() => setShowEditNotes(true)}
-              className="text-[#387c7e] hover:text-[#2c5f60] flex items-center"
+              className="text-[#009ea5] hover:text-[#2c5f60] flex items-center"
             >
               <Edit className="w-4 h-4 mr-1" />
               Edit Notes
@@ -366,7 +366,7 @@ const ProviderClientDetails = () => {
             <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
             <button
               onClick={() => navigate('/provider/calendar')}
-              className="text-[#387c7e] hover:text-[#2c5f60]"
+              className="text-[#009ea5] hover:text-[#2c5f60]"
             >
               Schedule New
             </button>

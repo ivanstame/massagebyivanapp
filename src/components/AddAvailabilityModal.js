@@ -84,7 +84,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               id="startTime"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#387c7e] focus:border-[#387c7e]"
+              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -98,7 +98,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               id="endTime"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full border rounded-md p-2 focus:ring-[#387c7e] focus:border-[#387c7e]"
+              className="w-full border rounded-md p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
             >
               {generateTimeOptions()}
             </select>
@@ -115,7 +115,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60] 
+              className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60] 
                 transition-colors"
             >
               Add Block

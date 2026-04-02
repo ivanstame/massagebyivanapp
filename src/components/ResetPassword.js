@@ -68,7 +68,7 @@ const ResetPassword = () => {
                 <div className="mt-6 text-center">
                   <Link
                     to="/login"
-                    className="w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#387c7e] hover:bg-[#2c5f60] transition-colors duration-200"
+                    className="w-full inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] transition-colors duration-200"
                   >
                     Sign in
                   </Link>
@@ -88,7 +88,7 @@ const ResetPassword = () => {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#387c7e] focus:border-[#387c7e] sm:text-sm pr-10"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm pr-10"
                       placeholder="At least 6 characters"
                     />
                     <button
@@ -117,7 +117,7 @@ const ResetPassword = () => {
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#387c7e] focus:border-[#387c7e] sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm"
                       placeholder="Confirm your password"
                     />
                   </div>
@@ -138,7 +138,7 @@ const ResetPassword = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#387c7e] hover:bg-[#2c5f60] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {isLoading ? 'Resetting...' : 'Reset password'}
                   </button>
@@ -147,7 +147,7 @@ const ResetPassword = () => {
                 <div className="text-center">
                   <Link
                     to="/login"
-                    className="font-medium text-sm text-[#387c7e] hover:text-[#2c5f60] inline-flex items-center gap-1"
+                    className="font-medium text-sm text-[#009ea5] hover:text-[#2c5f60] inline-flex items-center gap-1"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Back to sign in

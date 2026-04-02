@@ -21,7 +21,7 @@ const ProfileSection = ({
           {canEdit && !isEditing && (
             <button
               onClick={onEdit}
-              className="text-slate-400 hover:text-[#387c7e] transition-colors"
+              className="text-slate-400 hover:text-[#009ea5] transition-colors"
               aria-label="Edit section"
             >
               <Edit2 size={18} />
@@ -39,7 +39,7 @@ const ProfileSection = ({
           {onToggle && (
             <button
               onClick={onToggle}
-              className="text-slate-400 hover:text-[#387c7e] transition-colors"
+              className="text-slate-400 hover:text-[#009ea5] transition-colors"
               aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
             >
               {isExpanded ? (

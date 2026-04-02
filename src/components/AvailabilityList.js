@@ -16,7 +16,7 @@ const AvailabilityList = ({
   
   const renderLoadingState = () => (
     <div className="text-center py-8">
-      <div className="animate-spin inline-block w-8 h-8 border-4 border-[#387c7e] border-t-transparent rounded-full mb-4" />
+      <div className="animate-spin inline-block w-8 h-8 border-4 border-[#009ea5] border-t-transparent rounded-full mb-4" />
       <p className="text-slate-600">Loading availability data...</p>
     </div>
   );
@@ -46,7 +46,7 @@ const AvailabilityList = ({
         </p>
         <button
           onClick={onAdd}
-          className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#a5825d] text-white rounded-md
+          className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#008a91] text-white rounded-md
             transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
             focus:ring-[#009ea5] shadow-sm"
         >
@@ -112,7 +112,7 @@ const AvailabilityList = ({
                   onClick={() => onModify(block)}
                   className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
                     text-sm font-medium rounded-md text-slate-700 hover:bg-slate-50
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
                     transition-colors duration-200 ease-in-out"
                 >
                   Edit
@@ -136,7 +136,7 @@ const AvailabilityList = ({
       <button 
         onClick={onAdd}
         className="w-full flex items-center justify-center px-4 py-3 bg-[#009ea5] text-white
-          rounded-md hover:bg-[#a5825d] transition-colors duration-200 ease-in-out
+          rounded-md hover:bg-[#008a91] transition-colors duration-200 ease-in-out
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
           shadow-sm"
       >

@@ -9,7 +9,7 @@ const PressureIndicator = ({ value, isInteractive = false, onChange }) => (
   <div className="relative w-full">
     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
       <div 
-        className="h-full bg-[#387c7e] rounded-r-none transition-all duration-300"
+        className="h-full bg-[#009ea5] rounded-r-none transition-all duration-300"
         style={{ width: `${value}%` }}
       />
     </div>
@@ -17,7 +17,7 @@ const PressureIndicator = ({ value, isInteractive = false, onChange }) => (
       className="absolute top-1/2 -translate-y-1/2"
       style={{ left: `${value}%` }}
     >
-      <div className="w-4 h-4 bg-[#387c7e] rounded-full shadow-md -translate-x-1/2" />
+      <div className="w-4 h-4 bg-[#009ea5] rounded-full shadow-md -translate-x-1/2" />
     </div>
     {isInteractive && (
       <input
@@ -38,7 +38,7 @@ const PressureIndicator = ({ value, isInteractive = false, onChange }) => (
         -webkit-appearance: none;
         width: 16px;
         height: 16px;
-        background: #387c7e;
+        background: #009ea5;
         border-radius: 50%;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         cursor: pointer;
@@ -46,7 +46,7 @@ const PressureIndicator = ({ value, isInteractive = false, onChange }) => (
       input[type='range']::-moz-range-thumb {
         width: 16px;
         height: 16px;
-        background: #387c7e;
+        background: #009ea5;
         border-radius: 50%;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         cursor: pointer;
@@ -198,7 +198,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
     {/* Scheduling Preferences */}
     <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
       <div className="flex items-center gap-2 mb-4">
-        <Clock className="w-5 h-5 text-[#387c7e]" />
+        <Clock className="w-5 h-5 text-[#009ea5]" />
         <h4 className="font-medium text-slate-900">Scheduling Settings</h4>
       </div>
 
@@ -254,7 +254,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
     {/* Service Settings */}
     <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
       <div className="flex items-center gap-2 mb-4">
-        <Settings className="w-5 h-5 text-[#387c7e]" />
+        <Settings className="w-5 h-5 text-[#009ea5]" />
         <h4 className="font-medium text-slate-900">Service Settings</h4>
       </div>
 
@@ -277,7 +277,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
                       onChange('services', services.filter(s => s !== service));
                     }
                   }}
-                  className="form-checkbox h-5 w-5 text-[#387c7e]"
+                  className="form-checkbox h-5 w-5 text-[#009ea5]"
                 />
                 <span className="text-slate-700">{service}</span>
               </label>
@@ -299,7 +299,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
               min="0"
               value={formData.travelFee || 0}
               onChange={(e) => onChange('travelFee', parseFloat(e.target.value))}
-              className="block w-full rounded-md pl-7 pr-12 focus:border-[#387c7e] focus:ring-[#387c7e] sm:text-sm"
+              className="block w-full rounded-md pl-7 pr-12 focus:border-[#009ea5] focus:ring-[#009ea5] sm:text-sm"
               placeholder="0.00"
             />
           </div>
@@ -312,19 +312,19 @@ const ProviderPreferences = ({ formData, onChange }) => (
 const ProgressIndicator = ({ currentStep }) => (
   <div className="mb-8 w-full max-w-4xl">
     <div className="flex justify-between mb-2">
-      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
         Account
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
         Profile
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
         Preferences
       </div>
     </div>
     <div className="h-1 bg-slate-100 rounded-full">
       <div 
-        className="h-full bg-[#387c7e] rounded-full transition-all duration-500"
+        className="h-full bg-[#009ea5] rounded-full transition-all duration-500"
         style={{ width: `${(currentStep / 3) * 100}%` }}
       />
     </div>
@@ -340,7 +340,7 @@ const AnatomicalTerms = ({ terms, area }) => {
         <span key={term} className="flex items-center">
           {term}
           <Popover>
-            <PopoverTrigger className="ml-1 text-[#387c7e] hover:opacity-80">
+            <PopoverTrigger className="ml-1 text-[#009ea5] hover:opacity-80">
               <Info size={14} />
             </PopoverTrigger>
             <PopoverContent className="w-64 p-3">
@@ -360,7 +360,7 @@ const AnatomicalTerms = ({ terms, area }) => {
 const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle, onUpdate }) => (
   <div 
     className={`bg-white rounded-lg border transition-all duration-300 ${
-      isExpanded ? 'border-[#387c7e] bg-[#387c7e]/5' : 'border-slate-200'
+      isExpanded ? 'border-[#009ea5] bg-[#009ea5]/5' : 'border-slate-200'
     }`}
   >
     <div className="p-4">
@@ -377,7 +377,7 @@ const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle,
             <label className="text-sm font-medium text-slate-700">
               Pressure Level: {data.pressure || 50}
             </label>
-            <span className="text-sm text-[#387c7e] font-medium">
+            <span className="text-sm text-[#009ea5] font-medium">
               {(data.pressure || 50) <= 33 ? 'Gentle' : (data.pressure || 50) <= 66 ? 'Moderate' : 'Deep'}
             </span>
           </div>
@@ -392,7 +392,7 @@ const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle,
           type="button"
           disabled={isLoading}
           onClick={onToggle}
-          className={`flex items-center text-sm font-bold text-[#387c7e] hover:opacity-80 transition-colors ${
+          className={`flex items-center text-sm font-bold text-[#009ea5] hover:opacity-80 transition-colors ${
             isLoading ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
@@ -430,7 +430,7 @@ const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle,
                     }}
                     className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
                       (data.conditions || []).includes(condition)
-                        ? 'bg-[#387c7e] bg-opacity-10 text-[#387c7e]'
+                        ? 'bg-[#009ea5] bg-opacity-10 text-[#009ea5]'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     } ${(!isEditing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
@@ -479,7 +479,7 @@ const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle,
                 disabled={!isEditing || isLoading}
                 placeholder="Any specific notes about this area..."
                 className={`w-full h-20 px-3 py-2 text-sm border border-slate-200 rounded-lg 
-                  placeholder:text-slate-400 focus:border-[#387c7e] focus:ring-1 focus:ring-[#387c7e] 
+                  placeholder:text-slate-400 focus:border-[#009ea5] focus:ring-1 focus:ring-[#009ea5] 
                   outline-none ${(!isEditing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
             </div>
@@ -659,7 +659,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
                 className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md
                   ${isEditing 
                     ? 'text-green-700 bg-green-50 hover:bg-green-100' 
-                    : 'text-[#387c7e] hover:bg-[#387c7e]/10'} 
+                    : 'text-[#009ea5] hover:bg-[#009ea5]/10'} 
                   transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {isEditing ? (
@@ -730,10 +730,10 @@ const handleAreaSelect = useCallback((areaId, updates) => {
                 disabled={isLoading || (user.accountType === 'CLIENT' && Object.keys(selectedAreas).length === 0)}
                 className={`
                   flex-1 py-3 px-4 rounded-md
-                  bg-[#387c7e] hover:bg-[#2c5f60]
+                  bg-[#009ea5] hover:bg-[#2c5f60]
                   text-white font-medium
                   transition duration-150 ease-in-out
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
                   ${(isLoading || (user.accountType === 'CLIENT' && Object.keys(selectedAreas).length === 0)) ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
               >

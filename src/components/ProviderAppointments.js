@@ -283,7 +283,7 @@ const ProviderAppointments = () => {
                 <div className="mt-8">
                   <button
                     onClick={() => setShowPastAppointments(!showPastAppointments)}
-                    className="text-[#387c7e] hover:text-[#2c5f60] font-medium"
+                    className="text-[#009ea5] hover:text-[#2c5f60] font-medium"
                   >
                     {showPastAppointments ? 'Hide' : 'Show'} Past Appointments ({pastAppointments.length})
                   </button>

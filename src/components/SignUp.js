@@ -9,21 +9,21 @@ const ProgressIndicator = ({ currentStep, accountType }) => {
   return (
     <div className="mb-8 w-full max-w-md">
       <div className="flex justify-between mb-2">
-        <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+        <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
           Account
         </div>
-        <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+        <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
           Profile
         </div>
         {accountType === 'CLIENT' && (
-          <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#387c7e]' : 'text-slate-400'}`}>
+          <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
             Preferences
           </div>
         )}
       </div>
       <div className="h-1 bg-slate-100 rounded-full">
         <div
-          className="h-full bg-[#387c7e] rounded-full transition-all duration-500"
+          className="h-full bg-[#009ea5] rounded-full transition-all duration-500"
           style={{ width: `${(currentStep / totalSteps) * 100}%` }}
         />
       </div>
@@ -198,7 +198,7 @@ const SignUp = () => {
               setFormData(prev => ({ ...prev, joinCode: val }));
             }}
             className="w-full px-4 py-3 border border-slate-200 rounded-md text-center text-lg tracking-wider
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
             placeholder="e.g. ivan"
             maxLength={20}
             autoFocus
@@ -225,7 +225,7 @@ const SignUp = () => {
           <button
             onClick={verifyJoinCode}
             disabled={isVerifyingJoinCode || !formData.joinCode.trim()}
-            className="flex-1 py-2 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60]
+            className="flex-1 py-2 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60]
               text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingJoinCode ? 'Verifying...' : 'Continue'}
@@ -245,9 +245,9 @@ const SignUp = () => {
       <div className="grid grid-cols-1 gap-4">
         <button
           onClick={() => setStep(2)} // Go to provider password gate
-          className="p-6 border-2 rounded-lg hover:border-[#387c7e]
-            hover:bg-[#387c7e]/5 transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+          className="p-6 border-2 rounded-lg hover:border-[#009ea5]
+            hover:bg-[#009ea5]/5 transition-all duration-200
+            focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
         >
           <h4 className="text-lg font-medium text-slate-900">Massage Provider</h4>
           <p className="mt-2 text-slate-600">
@@ -260,9 +260,9 @@ const SignUp = () => {
             setFormData(prev => ({ ...prev, accountType: 'CLIENT' }));
             setStep(2.5); // Go to join code entry
           }}
-          className="p-6 border-2 rounded-lg hover:border-[#387c7e]
-            hover:bg-[#387c7e]/5 transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+          className="p-6 border-2 rounded-lg hover:border-[#009ea5]
+            hover:bg-[#009ea5]/5 transition-all duration-200
+            focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
         >
           <h4 className="text-lg font-medium text-slate-900">Client</h4>
           <p className="mt-2 text-slate-600">
@@ -297,7 +297,7 @@ const SignUp = () => {
             value={providerAccessPassword}
             onChange={(e) => setProviderAccessPassword(e.target.value)}
             className="w-full px-4 py-2 border border-slate-200 rounded-md
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
             placeholder="Enter provider access password"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
@@ -325,7 +325,7 @@ const SignUp = () => {
           <button
             onClick={verifyProviderAccess}
             disabled={isVerifyingProviderAccess || !providerAccessPassword.trim()}
-            className="flex-1 py-2 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60]
+            className="flex-1 py-2 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60]
               text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingProviderAccess ? 'Verifying...' : 'Continue'}
@@ -349,7 +349,7 @@ const SignUp = () => {
           value={formData.email}
           onChange={handleChange}
           className="w-full px-4 py-2 border border-slate-200 rounded-md 
-            focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+            focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
           placeholder="Enter your email"
         />
       </div>
@@ -370,7 +370,7 @@ const SignUp = () => {
             value={formData.password}
             onChange={handleChange}
             className="w-full px-4 py-2 border border-slate-200 rounded-md 
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e] pr-10"
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
             placeholder="Create a password (min 6 characters)"
           />
           <button
@@ -401,7 +401,7 @@ const SignUp = () => {
             value={formData.confirmPassword}
             onChange={handleChange}
             className="w-full px-4 py-2 border border-slate-200 rounded-md 
-              focus:outline-none focus:ring-2 focus:ring-[#387c7e] pr-10"
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
             placeholder="Re-enter your password"
           />
           <button
@@ -448,9 +448,9 @@ const SignUp = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 rounded-md bg-[#387c7e] hover:bg-[#2c5f60] 
+          className="w-full py-3 px-4 rounded-md bg-[#009ea5] hover:bg-[#2c5f60] 
             text-white font-medium transition duration-150 ease-in-out
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#387c7e]
+            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
             disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? 'Creating Account...' : 'Continue'}

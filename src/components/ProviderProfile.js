@@ -51,7 +51,7 @@ const ProviderProfile = () => {
       <h3 className="text-lg font-medium text-slate-900">{service.name}</h3>
       <p className="mt-2 text-slate-600">{service.description}</p>
       <div className="mt-4 flex items-center justify-between">
-        <span className="text-[#387c7e] font-medium">
+        <span className="text-[#009ea5] font-medium">
           {service.duration} minutes
         </span>
         <span className="text-slate-900 font-medium">
@@ -77,25 +77,25 @@ const ProviderProfile = () => {
   const Stats = () => (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="text-center">
-        <div className="text-2xl font-bold text-[#387c7e]">
+        <div className="text-2xl font-bold text-[#009ea5]">
           {stats.totalClients}
         </div>
         <div className="text-sm text-slate-600">Active Clients</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-bold text-[#387c7e]">
+        <div className="text-2xl font-bold text-[#009ea5]">
           {stats.completedAppointments}
         </div>
         <div className="text-sm text-slate-600">Appointments</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-bold text-[#387c7e]">
+        <div className="text-2xl font-bold text-[#009ea5]">
           {stats.yearsInBusiness}
         </div>
         <div className="text-sm text-slate-600">Years Experience</div>
       </div>
       <div className="text-center">
-        <div className="text-2xl font-bold text-[#387c7e]">
+        <div className="text-2xl font-bold text-[#009ea5]">
           {stats.servicedAreas.length}
         </div>
         <div className="text-sm text-slate-600">Areas Served</div>
@@ -160,7 +160,7 @@ const ProviderProfile = () => {
               </button>
               <button
                 onClick={() => navigate('/book')}
-                className="inline-flex items-center px-4 py-2 bg-[#387c7e]
+                className="inline-flex items-center px-4 py-2 bg-[#009ea5]
                   text-white rounded-md hover:bg-[#2c5f60]"
               >
                 <Calendar className="w-4 h-4 mr-2" />

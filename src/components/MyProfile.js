@@ -347,7 +347,7 @@ const [provider, setProvider] = useState(null);
                   name="fullName"
                   value={formData.fullName}
                   onChange={(e) => handleInputChange(e, 'basic')}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
               <div>
@@ -359,7 +359,7 @@ const [provider, setProvider] = useState(null);
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={(e) => handleInputChange(e, 'basic')}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
               <div className="flex justify-end space-x-4 pt-4">
@@ -372,7 +372,7 @@ const [provider, setProvider] = useState(null);
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60]"
+                  className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
                 >
                   Save Changes
                 </button>
@@ -429,7 +429,7 @@ const [provider, setProvider] = useState(null);
                     value={formData.address.street}
                     onChange={(e) => handleInputChange(e, 'contact')}
                     placeholder="Street Address"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                   />
                   <input
                     type="text"
@@ -437,7 +437,7 @@ const [provider, setProvider] = useState(null);
                     value={formData.address.unit}
                     onChange={(e) => handleInputChange(e, 'contact')}
                     placeholder="Apt, Suite, Unit (optional)"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                   />
                   <div className="grid grid-cols-3 gap-4">
                     <input
@@ -446,13 +446,13 @@ const [provider, setProvider] = useState(null);
                       value={formData.address.city}
                       onChange={(e) => handleInputChange(e, 'contact')}
                       placeholder="City"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                     />
                     <select
                       name="address.state"
                       value={formData.address.state}
                       onChange={(e) => handleInputChange(e, 'contact')}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                     >
                       <option value="">State</option>
                       {STATES.map(([code, name]) => (
@@ -467,7 +467,7 @@ const [provider, setProvider] = useState(null);
                       placeholder="ZIP"
                       maxLength="5"
                       pattern="[0-9]{5}"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                      className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                     />
                   </div>
                 </div>
@@ -483,7 +483,7 @@ const [provider, setProvider] = useState(null);
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60]"
+                  className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
                 >
                   Save Changes
                 </button>
@@ -520,7 +520,7 @@ const [provider, setProvider] = useState(null);
                 {provider?.profile?.phoneNumber && (
                   <a
                     href={`tel:${provider.profile.phoneNumber}`}
-                    className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                    className="flex-1 py-2 px-4 bg-[#009ea5] text-white rounded-md
                       hover:bg-[#2c5f60] transition-colors text-center"
                   >
                     Call Provider
@@ -528,14 +528,14 @@ const [provider, setProvider] = useState(null);
                 )}
                 <a
                   href={`sms:${provider?.profile?.phoneNumber}`}
-                  className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                  className="flex-1 py-2 px-4 bg-[#009ea5] text-white rounded-md
                     hover:bg-[#2c5f60] transition-colors text-center"
                 >
                   Text Provider
                 </a>
                 <a
                   href={`mailto:${provider?.email}`}
-                  className="flex-1 py-2 px-4 bg-[#387c7e] text-white rounded-md
+                  className="flex-1 py-2 px-4 bg-[#009ea5] text-white rounded-md
                     hover:bg-[#2c5f60] transition-colors text-center"
                 >
                   Email Provider
@@ -587,7 +587,7 @@ const [provider, setProvider] = useState(null);
                   value={formData.allergies}
                   onChange={(e) => handleInputChange(e, 'medical')}
                   placeholder="List any allergies"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
               <div>
@@ -600,7 +600,7 @@ const [provider, setProvider] = useState(null);
                   onChange={(e) => handleInputChange(e, 'medical')}
                   placeholder="List any medical conditions or concerns"
                   rows={4}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#387c7e]"
+                  className="w-full px-4 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
                 />
               </div>
               <div className="flex justify-end space-x-4 pt-4">
@@ -613,7 +613,7 @@ const [provider, setProvider] = useState(null);
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#387c7e] text-white rounded-md hover:bg-[#2c5f60]"
+                  className="px-4 py-2 bg-[#009ea5] text-white rounded-md hover:bg-[#2c5f60]"
                 >
                   Save Changes
                 </button>
