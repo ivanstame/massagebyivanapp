@@ -62,19 +62,22 @@ const WeeklyTemplateEditor = () => {
         axios.get('/api/saved-locations', { withCredentials: true })
       ]);
 
-      setSavedLocations(locationsRes.data);
+      const locs = locationsRes.data;
+      setSavedLocations(locs);
+      const homeLoc = locs.find(l => l.isHomeBase);
 
       if (templateRes.data.length > 0) {
         const merged = DAY_NAMES.map((_, i) => {
           const serverDay = templateRes.data.find(d => d.dayOfWeek === i);
           if (serverDay) {
+            const anchorLocId = serverDay.anchor?.locationId?._id || serverDay.anchor?.locationId || null;
             return {
               dayOfWeek: i,
               startTime: serverDay.startTime,
               endTime: serverDay.endTime,
               isActive: serverDay.isActive,
               anchor: {
-                locationId: serverDay.anchor?.locationId?._id || serverDay.anchor?.locationId || null,
+                locationId: anchorLocId || (serverDay.isActive && homeLoc ? homeLoc._id : null),
                 startTime: serverDay.anchor?.startTime || serverDay.startTime,
                 endTime: serverDay.anchor?.endTime || serverDay.endTime
               }
@@ -85,7 +88,7 @@ const WeeklyTemplateEditor = () => {
             startTime: DEFAULT_START,
             endTime: DEFAULT_END,
             isActive: false,
-            anchor: { locationId: null, startTime: DEFAULT_START, endTime: DEFAULT_END }
+            anchor: { locationId: homeLoc?._id || null, startTime: DEFAULT_START, endTime: DEFAULT_END }
           };
         });
         setDays(merged);
@@ -106,10 +109,18 @@ const WeeklyTemplateEditor = () => {
     fetchTemplate();
   }, [user, navigate, fetchTemplate]);
 
+  const homeBaseLocation = savedLocations.find(l => l.isHomeBase);
+
   const handleToggleDay = (dayIndex) => {
-    setDays(prev => prev.map(d =>
-      d.dayOfWeek === dayIndex ? { ...d, isActive: !d.isActive } : d
-    ));
+    setDays(prev => prev.map(d => {
+      if (d.dayOfWeek !== dayIndex) return d;
+      const toggling = !d.isActive;
+      // When activating a day with no anchor, auto-set to home base
+      if (toggling && !d.anchor.locationId && homeBaseLocation) {
+        return { ...d, isActive: true, anchor: { ...d.anchor, locationId: homeBaseLocation._id } };
+      }
+      return { ...d, isActive: toggling };
+    }));
     setSaved(false);
   };
 
@@ -133,8 +144,13 @@ const WeeklyTemplateEditor = () => {
 
   const handleSave = async () => {
     for (const day of days) {
-      if (day.isActive && day.endTime <= day.startTime) {
+      if (!day.isActive) continue;
+      if (day.endTime <= day.startTime) {
         setError(`${DAY_NAMES[day.dayOfWeek]}: End time must be after start time`);
+        return;
+      }
+      if (!day.anchor.locationId) {
+        setError(`${DAY_NAMES[day.dayOfWeek]}: A departure location is required. Select where you'll be starting from.`);
         return;
       }
     }
@@ -330,30 +346,43 @@ const WeeklyTemplateEditor = () => {
               {day.isActive && (
                 <div className="mt-3 ml-[76px] p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">Anchor:</span>
-                    <select
-                      value={day.anchor.locationId || ''}
-                      onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
-                      className="border border-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#009ea5] focus:border-[#009ea5]"
-                    >
-                      <option value="">No anchor (mobile day)</option>
-                      {savedLocations.map(loc => (
-                        <option key={loc._id} value={loc._id}>
-                          {loc.name}{loc.isHomeBase ? ' (Home)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <MapPin className="w-3.5 h-3.5 text-[#009ea5] flex-shrink-0" />
+                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">Starting from:</span>
+                    {savedLocations.length > 0 ? (
+                      <select
+                        value={day.anchor.locationId || ''}
+                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
+                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#009ea5] focus:border-[#009ea5] ${
+                          !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                        }`}
+                      >
+                        <option value="">— Select a location —</option>
+                        {savedLocations.map(loc => (
+                          <option key={loc._id} value={loc._id}>
+                            {loc.name}{loc.isHomeBase ? ' (Home Base)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-amber-600">
+                        <Link to="/provider/locations" className="underline">Add a location</Link> first
+                      </span>
+                    )}
                   </div>
+                  {!day.anchor.locationId && (
+                    <p className="mt-1 ml-5 text-xs text-red-500">
+                      Required — drive time is calculated from this location
+                    </p>
+                  )}
 
                   {/* Anchor time range */}
                   {day.anchor.locationId && (
                     <div className="mt-2 flex items-center gap-2 ml-5">
-                      <span className="text-xs text-amber-600 flex-shrink-0">At location:</span>
+                      <span className="text-xs text-slate-500 flex-shrink-0">At location:</span>
                       <select
                         value={day.anchor.startTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="border border-amber-200 rounded px-1.5 py-0.5 text-xs bg-amber-50 flex-1 min-w-0"
+                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#009ea5]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -363,7 +392,7 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.endTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="border border-amber-200 rounded px-1.5 py-0.5 text-xs bg-amber-50 flex-1 min-w-0"
+                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#009ea5]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -409,8 +438,9 @@ const WeeklyTemplateEditor = () => {
                 <li>This template generates availability <strong>{forecastWeeks} weeks</strong> into the future</li>
                 <li>You can edit or delete individual days from the Availability page</li>
                 <li>Manual changes to a specific day always take priority</li>
-                <li><strong>Anchor locations</strong> block off time on your calendar for that location</li>
-                <li>Drive time calculates from your anchor location on anchored days</li>
+                <li>Every active day requires a <strong>departure location</strong> — this is where you'll start from</li>
+                <li>Drive time to clients is calculated from your departure location</li>
+                <li>You can change your departure location for a specific day from the Availability page</li>
               </ul>
             </div>
           </div>
