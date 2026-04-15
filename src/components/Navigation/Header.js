@@ -42,6 +42,7 @@ const Header = () => {
         { href: '/provider/locations', label: 'Locations' },
         { href: '/provider/services', label: 'Services' },
         { href: '/provider/clients', label: 'Clients' },
+        { href: '/provider/mileage', label: 'Mileage' },
         { href: '/provider/settings', label: 'Settings' }
       ];
     }

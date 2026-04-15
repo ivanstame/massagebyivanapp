@@ -52,6 +52,7 @@ import ProviderAssignmentRequests from './components/ProviderAssignmentRequests'
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
 import PublicProviderProfile from './components/PublicProviderProfile';
+import MileageReport from './components/MileageReport';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -307,6 +308,14 @@ function App() {
             element={
               <ProtectedRoute providerOnly>
                 <ProviderSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/mileage"
+            element={
+              <ProtectedRoute providerOnly>
+                <MileageReport />
               </ProtectedRoute>
             }
           />

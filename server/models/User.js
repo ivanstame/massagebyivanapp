@@ -83,6 +83,8 @@ const UserSchema = new mongoose.Schema({
       extraTime: { type: Number, default: 0 },  // additional minutes
       isActive: { type: Boolean, default: true }
     }],
+    // Home office designation (affects mileage deduction rules)
+    homeOffice: { type: Boolean, default: false },
     // Cancellation policy
     cancellationPolicy: {
       windowHours: { type: Number, default: 24 },  // hours before appointment

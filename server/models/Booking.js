@@ -125,6 +125,12 @@ const BookingSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Mileage tracking (distance from previous stop to this booking's location)
+  travelDistance: {
+    miles: { type: Number, default: null },
+    fromAddress: { type: String, default: null },
+    toAddress: { type: String, default: null },
+  },
   // Recipient information
   recipientType: {
     type: String,

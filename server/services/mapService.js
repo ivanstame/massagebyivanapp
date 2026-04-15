@@ -171,7 +171,7 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
       // Cache the result using centralized cache manager
       cacheManager.set('travelTime', cacheKey, durationInMinutes);
       console.log(`[Cache] Stored travel time for ${cacheKey}: ${durationInMinutes} mins`);
-      
+
       return durationInMinutes;
     } else {
       throw new Error(`Unable to calculate travel time. API Status: ${response.data.status}, Element Status: ${response.data.rows[0].elements[0].status}`);
@@ -182,8 +182,58 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
   }
 }
 
+/**
+ * Calculate driving distance in miles between two locations.
+ * Uses the Distance Matrix API (same as travel time) but returns miles.
+ * Results are cached to avoid duplicate API calls.
+ */
+async function calculateDistanceMiles(origin, destination) {
+  if (!origin?.lat || !origin?.lng || !destination?.lat || !destination?.lng) {
+    return 0;
+  }
+
+  // Same-location check (~200m)
+  if (Math.abs(origin.lat - destination.lat) < 0.002 && Math.abs(origin.lng - destination.lng) < 0.002) {
+    return 0;
+  }
+
+  // Check cache
+  const cacheKey = `dist_${origin.lat.toFixed(3)},${origin.lng.toFixed(3)}_${destination.lat.toFixed(3)},${destination.lng.toFixed(3)}`;
+  const cached = cacheManager.get('travelTime', cacheKey);
+  if (cached !== null) return cached;
+
+  try {
+    const response = await safeApiCall(() => axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
+      params: {
+        origins: `${origin.lat},${origin.lng}`,
+        destinations: `${destination.lat},${destination.lng}`,
+        mode: 'driving',
+        key: process.env.GOOGLE_MAPS_API_KEY
+      }
+    }));
+
+    if (response.data.status === 'OK' && response.data.rows[0].elements[0].status === 'OK') {
+      const meters = response.data.rows[0].elements[0].distance.value;
+      const miles = parseFloat((meters / 1609.344).toFixed(2));
+      cacheManager.set('travelTime', cacheKey, miles);
+      return miles;
+    }
+  } catch (err) {
+    console.error('[Distance] API error:', err.message);
+  }
+
+  // Fallback: haversine approximation
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (destination.lat - origin.lat) * Math.PI / 180;
+  const dLng = (destination.lng - origin.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(origin.lat * Math.PI / 180) * Math.cos(destination.lat * Math.PI / 180) * Math.sin(dLng/2) ** 2;
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return parseFloat((dist * 1.3).toFixed(2)); // 1.3x factor for road vs straight-line
+}
+
 module.exports = {
   calculateTravelTime,
+  calculateDistanceMiles,
   validateProviderTravel,
   isWithinServiceArea,
   safeApiCall

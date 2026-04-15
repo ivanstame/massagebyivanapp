@@ -6,7 +6,7 @@ const User = require('../models/User');
 const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
-const { calculateTravelTime } = require('../services/mapService');
+const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
 const { DateTime } = require('luxon');
 const smsService = require('../services/smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
@@ -245,10 +245,40 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       console.log('Saved booking ID:', savedBooking._id);
       console.log('Saved booking data:', JSON.stringify(savedBooking.toObject(), null, 2));
       
-      // Verify it was actually saved by trying to find it
-      const verifyBooking = await Booking.findById(savedBooking._id);
-      console.log('Verification - booking found in DB:', verifyBooking ? 'YES' : 'NO');
-      
+      // Calculate and store travel distance (non-blocking)
+      try {
+        // Find the previous booking on the same day (or use home base)
+        const dayBookings = await Booking.find({
+          provider: providerId,
+          localDate: localDateStr,
+          status: { $ne: 'cancelled' },
+          _id: { $ne: savedBooking._id },
+          startTime: { $lt: savedBooking.startTime }
+        }).sort({ startTime: -1 }).limit(1);
+
+        let fromLocation, fromAddress;
+        if (dayBookings.length > 0) {
+          fromLocation = dayBookings[0].location;
+          fromAddress = dayBookings[0].location?.address || 'Previous appointment';
+        } else if (homeBase) {
+          fromLocation = homeBase;
+          const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
+          fromAddress = homeLoc?.address || 'Home base';
+        }
+
+        if (fromLocation && savedBooking.location) {
+          const miles = await calculateDistanceMiles(fromLocation, savedBooking.location);
+          savedBooking.travelDistance = {
+            miles,
+            fromAddress,
+            toAddress: savedBooking.location.address || 'Client location',
+          };
+          await savedBooking.save();
+        }
+      } catch (distErr) {
+        console.error('Error calculating travel distance:', distErr.message);
+      }
+
       // Send SMS notifications
       try {
         // Get provider details
@@ -650,6 +680,149 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error fetching revenue:', error);
     res.status(500).json({ message: 'Error fetching revenue' });
+  }
+});
+
+// GET /mileage-report (Provider mileage report with IRS deduction rules)
+router.get('/mileage-report', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Only providers can view mileage reports' });
+    }
+
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'startDate and endDate are required (YYYY-MM-DD)' });
+    }
+
+    // Get provider's home office setting and home base location
+    const provider = await User.findById(req.user._id);
+    const hasHomeOffice = provider.providerProfile?.homeOffice || false;
+    const homeLoc = await SavedLocation.findOne({ provider: req.user._id, isHomeBase: true });
+    const homeBase = homeLoc ? { lat: homeLoc.lat, lng: homeLoc.lng, address: homeLoc.address } : null;
+
+    // IRS standard mileage rate (2025)
+    const IRS_RATE = 0.70;
+
+    // Get all completed/confirmed bookings in date range
+    const bookings = await Booking.find({
+      provider: req.user._id,
+      localDate: { $gte: startDate, $lte: endDate },
+      status: { $in: ['confirmed', 'completed', 'in-progress'] },
+    }).sort({ localDate: 1, startTime: 1 }).lean();
+
+    // Group bookings by date
+    const byDate = {};
+    for (const b of bookings) {
+      if (!byDate[b.localDate]) byDate[b.localDate] = [];
+      byDate[b.localDate].push(b);
+    }
+
+    // Build daily mileage reports
+    const dailyReports = [];
+    let totalMiles = 0;
+    let deductibleMiles = 0;
+
+    for (const [date, dayBookings] of Object.entries(byDate)) {
+      const legs = [];
+      let dayTotal = 0;
+      let dayDeductible = 0;
+
+      for (let i = 0; i < dayBookings.length; i++) {
+        const booking = dayBookings[i];
+
+        // Leg: previous stop → this booking
+        let fromLabel, toLabel, miles, isDeductible;
+
+        if (i === 0) {
+          // First leg: home → first client
+          fromLabel = homeBase?.address || 'Home';
+          toLabel = booking.location?.address || 'Client';
+
+          if (booking.travelDistance?.miles != null) {
+            miles = booking.travelDistance.miles;
+          } else if (homeBase && booking.location) {
+            miles = await calculateDistanceMiles(homeBase, booking.location);
+          } else {
+            miles = 0;
+          }
+
+          // IRS rule: home → first client is deductible ONLY if home office
+          isDeductible = hasHomeOffice;
+        } else {
+          // Middle leg: previous client → this client
+          const prev = dayBookings[i - 1];
+          fromLabel = prev.location?.address || 'Previous client';
+          toLabel = booking.location?.address || 'Client';
+
+          if (booking.travelDistance?.miles != null) {
+            miles = booking.travelDistance.miles;
+          } else if (prev.location && booking.location) {
+            miles = await calculateDistanceMiles(prev.location, booking.location);
+          } else {
+            miles = 0;
+          }
+
+          // Client-to-client is always deductible
+          isDeductible = true;
+        }
+
+        legs.push({ from: fromLabel, to: toLabel, miles, isDeductible });
+        dayTotal += miles;
+        if (isDeductible) dayDeductible += miles;
+      }
+
+      // Last leg: last client → home
+      if (dayBookings.length > 0 && homeBase) {
+        const lastBooking = dayBookings[dayBookings.length - 1];
+        let returnMiles = 0;
+
+        if (lastBooking.location && homeBase) {
+          returnMiles = await calculateDistanceMiles(lastBooking.location, homeBase);
+        }
+
+        const isReturnDeductible = hasHomeOffice;
+        legs.push({
+          from: lastBooking.location?.address || 'Last client',
+          to: homeBase.address || 'Home',
+          miles: returnMiles,
+          isDeductible: isReturnDeductible,
+        });
+        dayTotal += returnMiles;
+        if (isReturnDeductible) dayDeductible += returnMiles;
+      }
+
+      dailyReports.push({
+        date,
+        appointments: dayBookings.length,
+        legs,
+        totalMiles: parseFloat(dayTotal.toFixed(2)),
+        deductibleMiles: parseFloat(dayDeductible.toFixed(2)),
+        deduction: parseFloat((dayDeductible * IRS_RATE).toFixed(2)),
+      });
+
+      totalMiles += dayTotal;
+      deductibleMiles += dayDeductible;
+    }
+
+    res.json({
+      startDate,
+      endDate,
+      hasHomeOffice,
+      irsRate: IRS_RATE,
+      summary: {
+        totalDays: dailyReports.length,
+        totalAppointments: bookings.length,
+        totalMiles: parseFloat(totalMiles.toFixed(2)),
+        deductibleMiles: parseFloat(deductibleMiles.toFixed(2)),
+        nonDeductibleMiles: parseFloat((totalMiles - deductibleMiles).toFixed(2)),
+        estimatedDeduction: parseFloat((deductibleMiles * IRS_RATE).toFixed(2)),
+      },
+      days: dailyReports,
+    });
+  } catch (error) {
+    console.error('Error generating mileage report:', error);
+    res.status(500).json({ message: 'Error generating mileage report' });
   }
 });
 

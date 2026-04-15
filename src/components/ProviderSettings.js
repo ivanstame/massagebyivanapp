@@ -53,7 +53,9 @@ const ProviderSettings = () => {
           zip: user.profile?.address?.zip || ''
         },
         scheduling: user.providerProfile?.scheduling || prev.scheduling,
-        services: user.providerProfile?.services || []
+        services: user.providerProfile?.services || [],
+        homeOffice: user.providerProfile?.homeOffice || false,
+        cancellationPolicy: user.providerProfile?.cancellationPolicy || { enabled: false, windowHours: 24, lateCancelFee: 0 }
       }));
     }
   }, [user]);
@@ -296,6 +298,91 @@ const ProviderSettings = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Tax & Mileage */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Home className="w-5 h-5 text-[#009ea5]" />
+            <h3 className="font-medium text-slate-900">Tax & Mileage</h3>
+          </div>
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-slate-800 font-medium">Home Office</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                If you use your home as your principal place of business, all miles (including home ↔ first/last client) are tax-deductible.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer ml-4">
+              <input
+                type="checkbox"
+                checked={settings.homeOffice || false}
+                onChange={(e) => setSettings({ ...settings, homeOffice: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#009ea5]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#009ea5]"></div>
+            </label>
+          </div>
+        </div>
+
+        {/* Cancellation Policy */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="w-5 h-5 text-[#009ea5]" />
+            <h3 className="font-medium text-slate-900">Cancellation Policy</h3>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-slate-100">
+            <div>
+              <p className="text-slate-800 font-medium">Enable Policy</p>
+              <p className="text-xs text-slate-500 mt-0.5">Warn or charge clients for late cancellations</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer ml-4">
+              <input
+                type="checkbox"
+                checked={settings.cancellationPolicy?.enabled || false}
+                onChange={(e) => setSettings({
+                  ...settings,
+                  cancellationPolicy: { ...settings.cancellationPolicy, enabled: e.target.checked }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#009ea5]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#009ea5]"></div>
+            </label>
+          </div>
+          {settings.cancellationPolicy?.enabled && (
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Window (hours)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="72"
+                  value={settings.cancellationPolicy?.windowHours || 24}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    cancellationPolicy: { ...settings.cancellationPolicy, windowHours: parseInt(e.target.value) || 24 }
+                  })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent"
+                />
+                <p className="text-xs text-slate-400 mt-1">Clients cancelling within this window get warned</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Late Cancel Fee ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={settings.cancellationPolicy?.lateCancelFee || 0}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    cancellationPolicy: { ...settings.cancellationPolicy, lateCancelFee: parseInt(e.target.value) || 0 }
+                  })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent"
+                />
+                <p className="text-xs text-slate-400 mt-1">$0 = warning only, no fee</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stripe Connect */}
