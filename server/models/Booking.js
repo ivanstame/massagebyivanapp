@@ -147,7 +147,9 @@ const BookingSchema = new mongoose.Schema({
     default: 'pending'
   },
   cancelledAt: { type: Date, default: null },
-  cancelledBy: { type: String, enum: ['CLIENT', 'PROVIDER'], default: null },
+  cancelledBy: { type: String, enum: ['CLIENT', 'PROVIDER', null], default: null },
+  lateCancellation: { type: Boolean, default: false },
+  lateCancelFee: { type: Number, default: 0 },
   completedAt: { type: Date, default: null },
   reminders: {
     sent24h: { type: Boolean, default: false },

@@ -23,7 +23,7 @@ router.get('/available-providers', ensureAuthenticated, async (req, res) => {
       providers: providers.map(provider => ({
         id: provider._id,
         email: provider.email,
-        businessName: provider.providerProfile.businessName
+        businessName: provider.providerProfile?.businessName || ''
       }))
     });
   } catch (error) {
@@ -60,7 +60,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           id: existingRequest._id,
           provider: {
             id: existingRequest.provider._id,
-            businessName: existingRequest.provider.providerProfile.businessName,
+            businessName: existingRequest.provider.providerProfile?.businessName || '',
             email: existingRequest.provider.email
           },
           status: existingRequest.status,
@@ -100,7 +100,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         id: assignmentRequest._id,
         provider: {
           id: assignmentRequest.provider._id,
-          businessName: assignmentRequest.provider.providerProfile.businessName,
+          businessName: assignmentRequest.provider.providerProfile?.businessName || '',
           email: assignmentRequest.provider.email
         },
         status: assignmentRequest.status,
@@ -124,7 +124,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
               id: existingRequest._id,
               provider: {
                 id: existingRequest.provider._id,
-                businessName: existingRequest.provider.providerProfile.businessName,
+                businessName: existingRequest.provider.providerProfile?.businessName || '',
                 email: existingRequest.provider.email
               },
               status: existingRequest.status,
@@ -278,7 +278,7 @@ router.get('/client/status', ensureAuthenticated, async (req, res) => {
         id: pendingRequest._id,
         provider: {
           id: pendingRequest.provider._id,
-          businessName: pendingRequest.provider.providerProfile.businessName,
+          businessName: pendingRequest.provider.providerProfile?.businessName || '',
           email: pendingRequest.provider.email
         },
         status: pendingRequest.status,

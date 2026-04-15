@@ -51,6 +51,7 @@ import ProviderSelection from './components/ProviderSelection';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
+import PublicProviderProfile from './components/PublicProviderProfile';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -140,6 +141,10 @@ function App() {
           <Route
             path="/reset-password/:token"
             element={user ? <Navigate to="/" /> : <ResetPassword />}
+          />
+          <Route
+            path="/p/:joinCode"
+            element={<PublicProviderProfile />}
           />
 
           {/* Registration Flow Routes */}

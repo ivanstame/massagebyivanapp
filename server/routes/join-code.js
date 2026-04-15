@@ -37,6 +37,54 @@ router.get('/verify/:code', async (req, res) => {
   }
 });
 
+// @route   GET /api/join-code/profile/:code
+// @desc    Get public provider profile by join code (for shareable profile pages)
+// @access  Public
+router.get('/profile/:code', async (req, res) => {
+  try {
+    const code = req.params.code.toLowerCase().trim();
+
+    if (!code || code.length < 3 || code.length > 20) {
+      return res.status(400).json({ message: 'Invalid join code format' });
+    }
+
+    const provider = await User.findOne({
+      joinCode: code,
+      accountType: 'PROVIDER'
+    }).select('joinCode profile.fullName providerProfile.businessName providerProfile.basePricing providerProfile.addons providerProfile.acceptedPaymentMethods');
+
+    if (!provider) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    // Filter addons to only active ones
+    const activeAddons = (provider.providerProfile?.addons || [])
+      .filter(addon => addon.isActive)
+      .map(addon => ({
+        name: addon.name,
+        price: addon.price,
+        description: addon.description || '',
+        extraTime: addon.extraTime || 0
+      }));
+
+    res.json({
+      joinCode: provider.joinCode,
+      businessName: provider.providerProfile?.businessName || '',
+      providerName: provider.profile?.fullName || '',
+      basePricing: (provider.providerProfile?.basePricing || []).map(p => ({
+        duration: p.duration,
+        price: p.price,
+        label: p.label || `${p.duration} Minutes`
+      })),
+      addons: activeAddons,
+      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || []
+    });
+  } catch (error) {
+    console.error('Error fetching provider profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/join-code/check/:code
 // @desc    Check if a join code is available (used by providers when setting their code)
 // @access  Private (provider only)

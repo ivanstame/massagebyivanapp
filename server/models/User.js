@@ -82,7 +82,13 @@ const UserSchema = new mongoose.Schema({
       description: String,
       extraTime: { type: Number, default: 0 },  // additional minutes
       isActive: { type: Boolean, default: true }
-    }]
+    }],
+    // Cancellation policy
+    cancellationPolicy: {
+      windowHours: { type: Number, default: 24 },  // hours before appointment
+      lateCancelFee: { type: Number, default: 0 },  // fee in dollars (0 = no fee, just warning)
+      enabled: { type: Boolean, default: false }
+    }
   },
   // Add the new clientProfile field here
   clientProfile: {

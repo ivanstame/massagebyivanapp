@@ -53,7 +53,7 @@ const Home = () => {
 
         {/* Profile incomplete warning */}
         {!user.profile?.fullName && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-amber-900">Complete your profile</p>
@@ -69,14 +69,14 @@ const Home = () => {
 
         {/* Next Appointment Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-          <div className="px-6 py-4 bg-gradient-to-r from-[#009ea5] to-[#00b4bc]">
+          <div className="px-6 py-4 bg-gradient-to-r from-[#009ea5] to-[#007a80]">
             <h2 className="text-white font-semibold text-lg">Next Appointment</h2>
           </div>
           <div className="p-6">
             {loadingBooking ? (
               <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                <div className="h-4 bg-slate-200 rounded-xl w-3/4"></div>
+                <div className="h-4 bg-slate-200 rounded-xl w-1/2"></div>
               </div>
             ) : nextBooking ? (
               <div className="space-y-3">
@@ -126,9 +126,9 @@ const Home = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             to="/book"
-            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 transition-all"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 hover:-translate-y-0.5 transition-all duration-200"
           >
-            <div className="bg-teal-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-teal-100 transition-colors">
+            <div className="bg-[#009ea5]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#009ea5]/20 transition-colors">
               <Calendar className="w-6 h-6 text-[#009ea5]" />
             </div>
             <h3 className="font-semibold text-slate-900 mb-1">Book Appointment</h3>
@@ -137,9 +137,9 @@ const Home = () => {
 
           <Link
             to="/my-bookings"
-            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 transition-all"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 hover:-translate-y-0.5 transition-all duration-200"
           >
-            <div className="bg-teal-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-teal-100 transition-colors">
+            <div className="bg-[#009ea5]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#009ea5]/20 transition-colors">
               <Clock className="w-6 h-6 text-[#009ea5]" />
             </div>
             <h3 className="font-semibold text-slate-900 mb-1">My Appointments</h3>

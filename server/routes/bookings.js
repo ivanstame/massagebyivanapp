@@ -3,12 +3,19 @@ const router = express.Router();
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
 const User = require('../models/User');
+const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime } = require('../services/mapService');
 const { DateTime } = require('luxon');
 const smsService = require('../services/smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
+const {
+  sendBookingConfirmationEmail,
+  sendBookingNotificationToProvider,
+  sendBookingCancellationEmail,
+  sendBookingCompletedEmail,
+} = require('../utils/email');
 
 // Calculate price helper (fallback when provider has no pricing configured)
 const calculatePrice = (duration) => {
@@ -66,35 +73,67 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const bookingEndTimeLA = bookingStartTimeLA.plus({ minutes: duration });
     const endTime = bookingEndTimeLA.toFormat('HH:mm');
 
-    // Get availability for the day
-    const availability = await Availability.findOne({
-      localDate: bookingDateLA.toFormat('yyyy-MM-dd')
-    });
+    // Get ALL availability blocks for the day (manual + template may coexist)
+    const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
+    const availabilityBlocks = await Availability.find({
+      provider: providerId,
+      localDate: localDateStr
+    }).sort({ start: 1 });
 
-    if (!availability) {
+    if (availabilityBlocks.length === 0) {
       return res.status(400).json({ message: 'No availability for the selected date' });
     }
 
-    // Get existing bookings
+    // Get existing bookings for this provider on this date
+    const startOfDay = bookingDateLA.startOf('day').toUTC().toJSDate();
+    const endOfDay = bookingDateLA.endOf('day').toUTC().toJSDate();
     const existingBookings = await Booking.find({
-      date: bookingDate
+      provider: providerId,
+      date: { $gte: startOfDay, $lt: endOfDay },
+      status: { $ne: 'cancelled' }
     }).sort({ startTime: 1 });
 
-    // Check if the slot is still available
-    const availableSlots = await getAvailableTimeSlots(
-      availability,
-      existingBookings,
-      location,
-      duration,
-      15 // Default buffer minutes - TEMPORARY: Should be replaced with provider-specific value in the future
-    );
+    // Fetch provider's home base for travel time calculations
+    let homeBase = null;
+    const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
+    if (homeLoc) {
+      homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
+    }
+
+    // Check slot availability across ALL blocks (same logic as GET /available/:date)
+    const bufferMinutes = 15;
+    let allSlots = [];
+    for (const availability of availabilityBlocks) {
+      const slots = await getAvailableTimeSlots(
+        availability,
+        existingBookings,
+        location,
+        duration,
+        bufferMinutes,
+        null,  // requestedGroupId
+        0,     // extraDepartureBuffer
+        providerId,
+        [],    // addons
+        homeBase
+      );
+      allSlots = allSlots.concat(slots);
+    }
+
+    // Deduplicate by time string
+    const seenTimes = new Set();
+    const availableSlots = allSlots.filter(slot => {
+      const key = DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toFormat('HH:mm');
+      if (seenTimes.has(key)) return false;
+      seenTimes.add(key);
+      return true;
+    });
 
     // Convert available slots to LA time strings for comparison
     const availableTimeStrings = availableSlots.map(slot => {
       const slotLA = DateTime.fromJSDate(slot).setZone('America/Los_Angeles');
       return slotLA.toFormat('HH:mm');
     });
-    
+
     // Check if the requested time is in the available slots
     const isSlotAvailable = availableTimeStrings.includes(time);
 
@@ -243,7 +282,28 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       } catch (smsError) {
         console.error('❌ Error sending SMS notifications:', smsError);
       }
-      
+
+      // Send email notifications (non-blocking)
+      try {
+        const provider = await User.findById(savedBooking.provider);
+        const client = await User.findById(savedBooking.client);
+        const providerName = provider.profile?.fullName || provider.providerProfile?.businessName || provider.email;
+        const clientName = savedBooking.recipientType === 'other'
+          ? savedBooking.recipientInfo?.name || 'Guest'
+          : (client.profile?.fullName || client.email);
+
+        // Email to client with calendar invite
+        if (client.email) {
+          sendBookingConfirmationEmail(client.email, savedBooking, providerName, clientName);
+        }
+        // Email to provider
+        if (provider.email) {
+          sendBookingNotificationToProvider(provider.email, savedBooking, providerName, clientName);
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending email notifications:', emailError);
+      }
+
       res.status(201).json(savedBooking);
     } catch (saveError) {
       console.error('❌ FAILED TO SAVE BOOKING TO MONGODB!');
@@ -641,6 +701,42 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to cancel this booking' });
     }
 
+    // Enforce cancellation policy (clients only — providers can always cancel)
+    if (req.user.accountType === 'CLIENT') {
+      const provider = await User.findById(booking.provider);
+      const policy = provider?.providerProfile?.cancellationPolicy;
+
+      if (policy?.enabled && policy.windowHours > 0) {
+        const bookingStartLA = DateTime.fromFormat(
+          `${booking.localDate} ${booking.startTime}`,
+          'yyyy-MM-dd HH:mm',
+          { zone: 'America/Los_Angeles' }
+        );
+        const hoursUntil = bookingStartLA.diff(DateTime.now().setZone('America/Los_Angeles'), 'hours').hours;
+
+        if (hoursUntil < policy.windowHours) {
+          const force = req.body?.force === true;
+
+          if (!force) {
+            return res.status(400).json({
+              message: 'Late cancellation',
+              lateCancellation: true,
+              windowHours: policy.windowHours,
+              hoursUntilAppointment: Math.max(0, Math.round(hoursUntil)),
+              fee: policy.lateCancelFee || 0,
+              feeMessage: policy.lateCancelFee > 0
+                ? `Cancelling within ${policy.windowHours} hours of your appointment incurs a $${policy.lateCancelFee} fee.`
+                : `Cancellations within ${policy.windowHours} hours of your appointment are discouraged. Please confirm to proceed.`,
+            });
+          }
+
+          // Client confirmed — proceed but flag as late cancellation
+          booking.lateCancellation = true;
+          booking.lateCancelFee = policy.lateCancelFee || 0;
+        }
+      }
+    }
+
     // Soft delete: mark as cancelled instead of deleting
     booking.status = 'cancelled';
     booking.cancelledAt = new Date();
@@ -683,7 +779,24 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       }
     } catch (smsError) {
       console.error('❌ Error sending cancellation SMS:', smsError);
-      // Don't fail the cancellation if SMS fails
+    }
+
+    // Send cancellation email (non-blocking)
+    try {
+      const provider = await User.findById(booking.provider);
+      const client = await User.findById(booking.client);
+      const providerName = provider.profile?.fullName || provider.email;
+      const clientName = booking.recipientType === 'other'
+        ? booking.recipientInfo?.name || 'Guest'
+        : (client.profile?.fullName || client.email);
+
+      if (req.user.accountType === 'CLIENT' && provider.email) {
+        sendBookingCancellationEmail(provider.email, booking, providerName, clientName, 'CLIENT');
+      } else if (client.email) {
+        sendBookingCancellationEmail(client.email, booking, providerName, clientName, 'PROVIDER');
+      }
+    } catch (emailError) {
+      console.error('❌ Error sending cancellation email:', emailError);
     }
 
     res.json({ message: 'Booking cancelled successfully' });
@@ -720,6 +833,143 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error updating payment status:', error);
     res.status(500).json({ message: 'Error updating payment status' });
+  }
+});
+
+// PUT /:id/reschedule (Reschedule a booking to a new date/time)
+router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // Only the client or provider on this booking can reschedule
+    const isProvider = req.user.accountType === 'PROVIDER' && booking.provider.equals(req.user._id);
+    const isClient = req.user.accountType === 'CLIENT' && booking.client.equals(req.user._id);
+
+    if (!isProvider && !isClient) {
+      return res.status(403).json({ message: 'Not authorized to reschedule this booking' });
+    }
+
+    // Can only reschedule pending or confirmed bookings
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(400).json({
+        message: `Cannot reschedule a booking with status '${booking.status}'`
+      });
+    }
+
+    const { date, time } = req.body;
+    if (!date || !time) {
+      return res.status(400).json({ message: 'New date and time are required' });
+    }
+
+    // Validate time format
+    const timeFormat24h = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeFormat24h.test(time)) {
+      return res.status(400).json({ message: 'Invalid time format. Use 24-hour format (HH:mm)' });
+    }
+
+    const providerId = booking.provider;
+    const duration = booking.duration;
+    const location = booking.location;
+
+    const bookingDateLA = DateTime.fromISO(date, { zone: 'America/Los_Angeles' }).startOf('day');
+    const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
+
+    // Validate the new slot is available (same logic as POST /)
+    const availabilityBlocks = await Availability.find({
+      provider: providerId,
+      localDate: localDateStr
+    }).sort({ start: 1 });
+
+    if (availabilityBlocks.length === 0) {
+      return res.status(400).json({ message: 'No availability for the selected date' });
+    }
+
+    const startOfDay = bookingDateLA.startOf('day').toUTC().toJSDate();
+    const endOfDay = bookingDateLA.endOf('day').toUTC().toJSDate();
+
+    // Exclude the current booking from conflict checks
+    const existingBookings = await Booking.find({
+      provider: providerId,
+      date: { $gte: startOfDay, $lt: endOfDay },
+      status: { $ne: 'cancelled' },
+      _id: { $ne: booking._id }
+    }).sort({ startTime: 1 });
+
+    let homeBase = null;
+    const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
+    if (homeLoc) {
+      homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
+    }
+
+    let allSlots = [];
+    for (const availability of availabilityBlocks) {
+      const slots = await getAvailableTimeSlots(
+        availability, existingBookings, location, duration,
+        15, null, 0, providerId, [], homeBase
+      );
+      allSlots = allSlots.concat(slots);
+    }
+
+    const availableTimeStrings = allSlots.map(slot =>
+      DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toFormat('HH:mm')
+    );
+
+    if (!availableTimeStrings.includes(time)) {
+      return res.status(400).json({ message: 'This time slot is not available' });
+    }
+
+    // Store old details for notification
+    const oldDate = booking.localDate;
+    const oldTime = booking.startTime;
+
+    // Update the booking
+    const newStartLA = DateTime.fromFormat(`${localDateStr} ${time}`, 'yyyy-MM-dd HH:mm', { zone: 'America/Los_Angeles' });
+    const newEndLA = newStartLA.plus({ minutes: duration });
+
+    booking.date = bookingDateLA.toUTC().toJSDate();
+    booking.localDate = localDateStr;
+    booking.startTime = time;
+    booking.endTime = newEndLA.toFormat('HH:mm');
+    booking.status = 'pending'; // Reset to pending after reschedule
+
+    await booking.save();
+
+    // Send notifications (non-blocking)
+    try {
+      const provider = await User.findById(booking.provider);
+      const client = await User.findById(booking.client);
+      const providerName = provider.profile?.fullName || provider.email;
+      const clientName = client.profile?.fullName || client.email;
+      const rescheduledBy = isClient ? clientName : providerName;
+
+      const fmtTime = (t) => DateTime.fromFormat(t, 'HH:mm').toFormat('h:mm a');
+      const fmtDate = (d) => DateTime.fromFormat(d, 'yyyy-MM-dd').toFormat('EEE, MMM d');
+
+      const smsMsg = `Rescheduled: Appointment moved from ${fmtDate(oldDate)} at ${fmtTime(oldTime)} to ${fmtDate(localDateStr)} at ${fmtTime(time)} by ${rescheduledBy}.`;
+
+      // Notify the other party via SMS
+      if (isClient && provider.profile?.phoneNumber) {
+        await smsService.sendSms(formatPhoneNumber(provider.profile.phoneNumber), smsMsg);
+      } else if (isProvider && client.profile?.phoneNumber) {
+        await smsService.sendSms(formatPhoneNumber(client.profile.phoneNumber), smsMsg);
+      }
+
+      // Send updated confirmation email with new calendar invite to client
+      if (client.email) {
+        sendBookingConfirmationEmail(client.email, booking, providerName, clientName);
+      }
+    } catch (notifyError) {
+      console.error('Error sending reschedule notifications:', notifyError);
+    }
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Error rescheduling booking:', error);
+    res.status(500).json({ message: 'Error rescheduling booking' });
   }
 });
 
@@ -762,6 +1012,24 @@ router.patch('/:id/status', ensureAuthenticated, async (req, res) => {
       booking.completedAt = new Date();
     }
     await booking.save();
+
+    // Send completion receipt email to client (non-blocking)
+    if (status === 'completed') {
+      try {
+        const provider = await User.findById(booking.provider);
+        const client = await User.findById(booking.client);
+        const providerName = provider.profile?.fullName || provider.providerProfile?.businessName || provider.email;
+        const clientName = booking.recipientType === 'other'
+          ? booking.recipientInfo?.name || 'Guest'
+          : (client.profile?.fullName || client.email);
+
+        if (client.email) {
+          sendBookingCompletedEmail(client.email, booking, providerName, clientName);
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending completion email:', emailError);
+      }
+    }
 
     res.json(booking);
   } catch (error) {

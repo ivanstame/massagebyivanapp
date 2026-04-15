@@ -82,12 +82,6 @@ const [provider, setProvider] = useState(null);
   // If user is available from AuthContext and we haven't set profile yet, use it
   useEffect(() => {
     const synchronizePreferences = async () => {
-      console.log('Loading states:', {
-        mainLoading: loading,
-        preferencesLoading,
-        isLoading
-      });
-   
       if (loading) return;
       
       try {
@@ -128,50 +122,33 @@ const [provider, setProvider] = useState(null);
         // If this is a client, fetch provider info
         if (userData.accountType === 'CLIENT' && userData.providerId) {
           try {
-            console.log('Fetching provider data for providerId:', userData.providerId);
             const providerResponse = await fetch(`/api/users/provider/${userData.providerId}/profile`, {
               credentials: 'include'
             });
             
             if (providerResponse.ok) {
               const providerData = await providerResponse.json();
-              console.log('Provider data from API:', providerData);
               setProvider(providerData);
             } else {
-              console.error('Error fetching provider details:', providerResponse.statusText);
               setProvider({ error: 'Failed to load provider data' });
             }
           } catch (providerError) {
-            console.error('Error fetching provider details:', providerError);
             setProvider({ error: 'Failed to load provider data' });
           }
         }
         
         setProfile(userData);
-        console.log('Profile data loaded:', userData);
       } catch (error) {
-        console.error('Error fetching profile:', error);
         setError('Failed to load profile data');
       } finally {
         setIsLoading(false);
         setPreferencesLoading(false);  // Clear both loading states
-        console.log('Loading states cleared');
       }
     };
    
     synchronizePreferences();
    }, [loading]);
   
-
-  useEffect(() => {
-    console.log('Profile updated:', profile);
-    console.log('FormData updated:', formData);
-  }, [profile, formData]);
-
-  // Add debugging for provider data
-  useEffect(() => {
-    console.log('Provider data updated:', provider);
-  }, [provider]);
 
   const handleSectionEdit = (section) => {
     setEditingSections(prev => ({
@@ -287,7 +264,6 @@ const [provider, setProvider] = useState(null);
         throw new Error('Failed to update profile');
       }
     } catch (error) {
-      console.error(`Error updating ${section}:`, error);
       // You might add error feedback to the user here
     }
   };
@@ -300,8 +276,6 @@ const [provider, setProvider] = useState(null);
     );
   }
   
-
-  console.log('Profile in MyProfile:', profile);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -679,7 +653,6 @@ const [provider, setProvider] = useState(null);
                     alert(`Error deleting account: ${errorData.message}`);
                   }
                 } catch (error) {
-                  console.error('Error deleting account:', error);
                   alert('An error occurred while deleting your account.');
                 }
               }

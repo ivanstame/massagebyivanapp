@@ -21,9 +21,9 @@ const ProgressIndicator = ({ currentStep, accountType }) => {
           </div>
         )}
       </div>
-      <div className="h-1 bg-slate-100 rounded-full">
+      <div className="h-1.5 bg-slate-100 rounded-full">
         <div
-          className="h-full bg-[#009ea5] rounded-full transition-all duration-500"
+          className="h-full bg-gradient-to-r from-[#009ea5] to-[#008a91] rounded-full transition-all duration-500"
           style={{ width: `${(currentStep / totalSteps) * 100}%` }}
         />
       </div>
@@ -172,19 +172,20 @@ const SignUp = () => {
   };
 
   const renderJoinCodeStep = () => (
-    <div className="bg-white p-8 rounded-lg shadow-md">
+    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
       <div className="text-center mb-6">
         <h3 className="text-xl font-medium text-slate-900">Enter Your Provider's Code</h3>
         <p className="mt-2 text-slate-500">Your massage provider should have given you a short join code</p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
-          <p>{error}</p>
+        <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">{error}</p>
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
           <label htmlFor="joinCode" className="block text-sm font-medium text-slate-600 mb-2">
             Join Code
@@ -197,8 +198,8 @@ const SignUp = () => {
               const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
               setFormData(prev => ({ ...prev, joinCode: val }));
             }}
-            className="w-full px-4 py-3 border border-slate-200 rounded-lg text-center text-lg tracking-wider
-              focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-lg tracking-wider
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all duration-200"
             placeholder="e.g. ivan"
             maxLength={20}
             autoFocus
@@ -217,16 +218,16 @@ const SignUp = () => {
               setFormData(prev => ({ ...prev, joinCode: '', accountType: '' }));
               setError('');
             }}
-            className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-slate-700
-              hover:bg-slate-50 transition"
+            className="flex-1 py-3 px-4 border border-slate-200 rounded-xl text-slate-700 font-medium
+              hover:bg-slate-50 transition-all duration-200"
           >
             Back
           </button>
           <button
             onClick={verifyJoinCode}
             disabled={isVerifyingJoinCode || !formData.joinCode.trim()}
-            className="flex-1 py-2 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60]
-              text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 rounded-xl bg-[#009ea5] hover:bg-[#008a91] active:bg-[#007a80]
+              text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingJoinCode ? 'Verifying...' : 'Continue'}
           </button>
@@ -245,7 +246,7 @@ const SignUp = () => {
       <div className="grid grid-cols-1 gap-4">
         <button
           onClick={() => setStep(2)} // Go to provider password gate
-          className="p-6 border-2 rounded-lg hover:border-[#009ea5]
+          className="p-6 border-2 border-slate-200 rounded-xl hover:border-[#009ea5]
             hover:bg-[#009ea5]/5 transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
         >
@@ -260,7 +261,7 @@ const SignUp = () => {
             setFormData(prev => ({ ...prev, accountType: 'CLIENT' }));
             setStep(2.5); // Go to join code entry
           }}
-          className="p-6 border-2 rounded-lg hover:border-[#009ea5]
+          className="p-6 border-2 border-slate-200 rounded-xl hover:border-[#009ea5]
             hover:bg-[#009ea5]/5 transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
         >
@@ -274,19 +275,20 @@ const SignUp = () => {
   );
 
   const renderProviderPasswordGate = () => (
-    <div className="bg-white p-8 rounded-lg shadow-md">
+    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
       <div className="text-center mb-6">
         <h3 className="text-xl font-medium text-slate-900">Provider Access Required</h3>
         <p className="mt-2 text-slate-500">Enter the provider access password to continue</p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
-          <p>{error}</p>
+        <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">{error}</p>
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
           <label htmlFor="providerAccessPassword" className="block text-sm font-medium text-slate-600 mb-2">
             Provider Access Password
@@ -296,8 +298,8 @@ const SignUp = () => {
             type="password"
             value={providerAccessPassword}
             onChange={(e) => setProviderAccessPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all duration-200"
             placeholder="Enter provider access password"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
@@ -305,7 +307,7 @@ const SignUp = () => {
               }
             }}
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             Contact support to obtain the provider access password
           </p>
         </div>
@@ -317,16 +319,16 @@ const SignUp = () => {
               setProviderAccessPassword('');
               setError('');
             }}
-            className="flex-1 py-2 px-4 border border-slate-300 rounded-lg text-slate-700
-              hover:bg-slate-50 transition"
+            className="flex-1 py-3 px-4 border border-slate-200 rounded-xl text-slate-700 font-medium
+              hover:bg-slate-50 transition-all duration-200"
           >
             Back
           </button>
           <button
             onClick={verifyProviderAccess}
             disabled={isVerifyingProviderAccess || !providerAccessPassword.trim()}
-            className="flex-1 py-2 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60]
-              text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 rounded-xl bg-[#009ea5] hover:bg-[#008a91] active:bg-[#007a80]
+              text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifyingProviderAccess ? 'Verifying...' : 'Continue'}
           </button>
@@ -336,9 +338,9 @@ const SignUp = () => {
   );
 
   const renderForm = () => (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-slate-600 mb-2">
+        <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
           Email Address
         </label>
         <input
@@ -348,17 +350,14 @@ const SignUp = () => {
           required
           value={formData.email}
           onChange={handleChange}
-          className="w-full px-4 py-2 border border-slate-200 rounded-lg 
-            focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
+          className="w-full px-4 py-3 border border-slate-200 rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all duration-200"
           placeholder="Enter your email"
         />
       </div>
 
-
-
-
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-slate-600 mb-2">
+        <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
           Create Password
         </label>
         <div className="relative">
@@ -369,27 +368,27 @@ const SignUp = () => {
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg 
-              focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
+            className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all duration-200"
             placeholder="Create a password (min 6 characters)"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-all duration-200"
           >
             {showPassword ? (
-              <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+              <EyeOff className="h-5 w-5" />
             ) : (
-              <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+              <Eye className="h-5 w-5" />
             )}
           </button>
         </div>
-        <p className="mt-1 text-xs text-slate-500">Must be at least 6 characters</p>
+        <p className="mt-1 text-xs text-slate-400">Must be at least 6 characters</p>
       </div>
 
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-600 mb-2">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1.5">
           Confirm Password
         </label>
         <div className="relative">
@@ -400,19 +399,19 @@ const SignUp = () => {
             required
             value={formData.confirmPassword}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-slate-200 rounded-lg 
-              focus:outline-none focus:ring-2 focus:ring-[#009ea5] pr-10"
+            className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all duration-200"
             placeholder="Re-enter your password"
           />
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-all duration-200"
           >
             {showConfirmPassword ? (
-              <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+              <EyeOff className="h-5 w-5" />
             ) : (
-              <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+              <Eye className="h-5 w-5" />
             )}
           </button>
         </div>
@@ -420,25 +419,25 @@ const SignUp = () => {
           <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
         )}
         </div>
-        
+
         {/* SMS Consent Checkbox */}
-        <div className="mt-4 flex items-start">
+        <div className="mt-1 flex items-start">
           <div className="flex items-center h-5">
             <input
               id="sms-consent"
               type="checkbox"
               checked={smsConsent}
               onChange={() => setSmsConsent(!smsConsent)}
-              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-[#009ea5] border-slate-300 rounded focus:ring-[#009ea5] accent-[#009ea5]"
             />
           </div>
           <div className="ml-3 text-sm">
             <label htmlFor="sms-consent" className="font-medium text-slate-700">
               I agree to receive automated SMS messages for appointment-related communications.
             </label>
-            <p className="text-slate-500">
+            <p className="text-slate-400">
               Standard message and data rates may apply. You can opt out at any time.
-              <a href="/sms-consent-policy.html" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 ml-1">
+              <a href="/sms-consent-policy.html" target="_blank" rel="noopener noreferrer" className="text-[#009ea5] hover:text-[#008a91] ml-1 transition-all duration-200">
                 View our SMS consent policy.
               </a>
             </p>
@@ -448,10 +447,10 @@ const SignUp = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60] 
-            text-white font-medium transition duration-150 ease-in-out
+          className="w-full py-3 px-6 rounded-xl bg-[#009ea5] hover:bg-[#008a91] active:bg-[#007a80]
+            text-white font-semibold transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
-            disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {isLoading ? 'Creating Account...' : 'Continue'}
         </button>
@@ -470,7 +469,7 @@ const SignUp = () => {
 
       <div className="w-full max-w-md">
         {step === 1 && (
-          <div className="bg-white p-8 rounded-lg shadow-md">
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
             {renderTypeSelection()}
           </div>
         )}
@@ -483,13 +482,13 @@ const SignUp = () => {
           <>
             <ProgressIndicator currentStep={1} accountType={formData.accountType} />
             
-            <div className="bg-white p-8 rounded-lg shadow-md">
-              <h2 className="text-2xl font-normal text-center text-slate-700 mb-2">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-2xl font-medium text-center text-slate-900 mb-2">
                 {formData.accountType === 'PROVIDER' ? 'Create Provider Account' : 'Create Client Account'}
               </h2>
 
               {verifiedJoinProvider && formData.accountType === 'CLIENT' && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-center">
                   <div className="flex items-center justify-center text-green-700">
                     <CheckCircle className="w-4 h-4 mr-2" />
                     <span className="text-sm font-medium">
@@ -500,8 +499,9 @@ const SignUp = () => {
               )}
 
               {error && (
-                <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 text-red-700">
-                  <p>{error}</p>
+                <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm">{error}</p>
                 </div>
               )}
 
@@ -513,7 +513,7 @@ const SignUp = () => {
         <div className="mt-6 text-center">
           <Link 
             to="/login" 
-            className="text-sm text-slate-600 hover:text-slate-800 transition"
+            className="text-sm font-medium text-[#009ea5] hover:text-[#008a91] transition-all duration-200"
           >
             Already have an account? Sign in
           </Link>

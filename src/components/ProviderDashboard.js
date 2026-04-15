@@ -6,7 +6,7 @@ import api from '../services/api';
 import { SkeletonCard } from './ui/Skeleton';
 
 const StatCard = ({ icon: Icon, label, value, description }) => (
-  <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm font-medium text-slate-600">{label}</p>
@@ -15,7 +15,7 @@ const StatCard = ({ icon: Icon, label, value, description }) => (
           <p className="mt-1 text-sm text-slate-500">{description}</p>
         )}
       </div>
-      <div className="bg-[#009ea5]/10 p-3 rounded-lg">
+      <div className="bg-[#009ea5]/10 p-3 rounded-xl">
         <Icon className="w-6 h-6 text-[#009ea5]" />
       </div>
     </div>
@@ -147,8 +147,8 @@ const ProviderDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link
             to="/provider/availability"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -161,8 +161,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/schedule-template"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <Clock className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -175,8 +175,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/locations"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <MapPin className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -189,8 +189,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/services"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <DollarSign className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -203,8 +203,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/clients"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <Users className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -217,8 +217,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/appointments"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
@@ -231,8 +231,8 @@ const ProviderDashboard = () => {
 
           <Link
             to="/provider/settings"
-            className="bg-white p-6 rounded-lg shadow-sm border border-slate-200
-              hover:border-[#009ea5] hover:shadow-md transition-all duration-200"
+            className="bg-white p-6 rounded-xl shadow-sm border border-slate-200
+              hover:border-[#009ea5] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="flex items-center mb-3">
               <Settings className="w-5 h-5 text-[#009ea5] mr-2" />

@@ -151,10 +151,10 @@ const BookingList = () => {
   const renderBooking = (booking) => (
     <div
       key={booking._id}
-      className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden
-        transition duration-200 ease-in-out hover:shadow-md mb-4"
+      className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden
+        transition-shadow duration-200 ease-in-out hover:shadow-md mb-4"
     >
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         <div className="flex justify-between items-start mb-4">
           <div>
             {user.accountType === 'CLIENT' && provider && (
@@ -221,10 +221,10 @@ const BookingList = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-              booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-              booking.status === 'in-progress' ? 'bg-amber-100 text-amber-800' :
+              booking.status === 'cancelled' ? 'bg-red-50 text-red-700' :
+              booking.status === 'completed' ? 'bg-green-50 text-green-700' :
+              booking.status === 'confirmed' ? 'bg-blue-50 text-blue-700' :
+              booking.status === 'in-progress' ? 'bg-amber-50 text-amber-700' :
               'bg-slate-100 text-slate-600'
             }`}>
               {booking.status === 'in-progress' ? 'In Progress' :
@@ -238,7 +238,7 @@ const BookingList = () => {
             <>
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                  text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
+                  text-sm font-medium rounded-xl text-slate-700 hover:bg-slate-50 transition-all duration-200"
                 onClick={() => window.location.href = `tel:${provider.profile?.phoneNumber}`}
               >
                 <Phone className="w-4 h-4 mr-1.5" />
@@ -246,7 +246,7 @@ const BookingList = () => {
               </button>
               <button
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                  text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
+                  text-sm font-medium rounded-xl text-slate-700 hover:bg-slate-50 transition-all duration-200"
                 onClick={() => window.location.href = `sms:${provider.profile?.phoneNumber}`}
               >
                 <MessageSquare className="w-4 h-4 mr-1.5" />
@@ -258,7 +258,7 @@ const BookingList = () => {
           <button
             onClick={() => handleAddToCalendar(booking)}
             className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-              text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50"
+              text-sm font-medium rounded-xl text-slate-700 hover:bg-slate-50 transition-all duration-200"
           >
             <Calendar className="w-4 h-4 mr-1.5" />
             Add to Calendar
@@ -268,7 +268,7 @@ const BookingList = () => {
             <button
               onClick={() => handleCancelBooking(booking._id)}
               className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
-                text-sm font-medium rounded-lg text-red-700 hover:bg-red-50"
+                text-sm font-medium rounded-xl text-red-700 hover:bg-red-50 transition-all duration-200"
             >
               Cancel
             </button>
@@ -295,7 +295,7 @@ const BookingList = () => {
   return (
     <div className="pt-16"> 
       <div className="max-w-7xl mx-auto p-4">
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+        <div className="bg-white shadow-sm rounded-xl overflow-hidden">
           <div className="p-6">
             <h1 className="text-2xl font-bold text-slate-900 mb-6">
               My Bookings

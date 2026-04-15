@@ -7,8 +7,8 @@ const Skeleton = ({ className = '', variant = 'text', width, height }) => {
     text: 'h-4 w-full',
     title: 'h-8 w-3/4',
     circle: 'rounded-full',
-    rectangular: 'rounded-lg',
-    card: 'h-24 w-full rounded-lg'
+    rectangular: 'rounded-xl',
+    card: 'h-24 w-full rounded-xl'
   };
 
   const style = {};
@@ -36,7 +36,7 @@ export const SkeletonText = ({ lines = 1, className = '' }) => (
 );
 
 export const SkeletonCard = ({ className = '' }) => (
-  <div className={`bg-white p-6 rounded-lg shadow-sm border border-slate-200 ${className}`}>
+  <div className={`bg-white p-6 rounded-xl shadow-sm border border-slate-200 ${className}`}>
     <div className="flex items-center justify-between">
       <div className="flex-1">
         <Skeleton variant="text" className="w-24 h-3 mb-2" />
