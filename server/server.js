@@ -185,6 +185,7 @@ app.use('/api/provider', ensureProvider);
 app.use('/api/provider', providerApiLimiter);
 app.use('/api/provider/availability', require('./routes/availability'));
 app.use('/api/provider/bookings', require('./routes/bookings'));
+app.use('/api/provider/blocked-times', require('./routes/blocked-times'));
 
 // Explicit route for SMS consent policy
 app.get('/sms-consent-policy.html', (req, res) => {

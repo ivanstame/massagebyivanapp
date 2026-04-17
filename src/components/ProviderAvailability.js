@@ -6,6 +6,7 @@ import ResponsiveCalendar from './ResponsiveCalendar';
 import DaySchedule from './DaySchedule';
 import AddAvailabilityModal from './AddAvailabilityModal';
 import ModifyAvailabilityModal from './ModifyAvailabilityModal';
+import BlockOffTimeModal from './BlockOffTimeModal';
 import AvailabilityList from './AvailabilityList';
 import { Clock, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
 import { DateTime } from 'luxon';
@@ -118,6 +119,9 @@ const ProviderAvailability = () => {
   const [showDepartureEditor, setShowDepartureEditor] = useState(false);
   const [savedLocations, setSavedLocations] = useState([]);
   const [homeBase, setHomeBase] = useState(null);
+  const [blockedTimes, setBlockedTimes] = useState([]);
+  const [blockOffModalOpen, setBlockOffModalOpen] = useState(false);
+  const [blockOffTargetBlock, setBlockOffTargetBlock] = useState(null);
 
   // Fetch saved locations for departure editor
   useEffect(() => {
@@ -163,19 +167,35 @@ const ProviderAvailability = () => {
     }
   }, []);
 
+  const fetchBlockedTimes = useCallback(async (date) => {
+    try {
+      const laDate = DateTime.fromJSDate(date)
+        .setZone('America/Los_Angeles')
+        .toFormat('yyyy-MM-dd');
+      const response = await axios.get(
+        `/api/provider/blocked-times/${laDate}`,
+        { withCredentials: true }
+      );
+      setBlockedTimes(response.data);
+    } catch (error) {
+      console.error('Error fetching blocked times:', error);
+    }
+  }, []);
+
   const fetchData = useCallback(async (date) => {
     try {
       setRequestState('LOADING');
       await Promise.all([
         fetchAvailabilityBlocks(date),
-        fetchBookings(date)
+        fetchBookings(date),
+        fetchBlockedTimes(date)
       ]);
       setRequestState('SUCCESS');
     } catch (error) {
       console.error('Data loading error:', error);
       setRequestState('ERROR');
     }
-  }, [fetchAvailabilityBlocks, fetchBookings]);
+  }, [fetchAvailabilityBlocks, fetchBookings, fetchBlockedTimes]);
 
   useEffect(() => {
     if (!user || user.accountType !== 'PROVIDER') {
@@ -209,6 +229,28 @@ const ProviderAvailability = () => {
     setSelectedBlock(block);
     setModifyModalOpen(true);
   }, []);
+
+  const handleBlockOffClick = useCallback((block) => {
+    setBlockOffTargetBlock(block);
+    setBlockOffModalOpen(true);
+  }, []);
+
+  const handleBlockOffTime = useCallback(async (payload) => {
+    await axios.post('/api/provider/blocked-times', payload, { withCredentials: true });
+    await fetchBlockedTimes(selectedDate);
+    setBlockOffModalOpen(false);
+    setBlockOffTargetBlock(null);
+  }, [fetchBlockedTimes, selectedDate]);
+
+  const handleDeleteBlockedTime = useCallback(async (blockedTimeId) => {
+    try {
+      await axios.delete(`/api/provider/blocked-times/${blockedTimeId}`, { withCredentials: true });
+      await fetchBlockedTimes(selectedDate);
+    } catch (error) {
+      console.error('Error deleting blocked time:', error);
+      setError('Failed to remove blocked time');
+    }
+  }, [fetchBlockedTimes, selectedDate]);
 
   const handleModifyAvailability = useCallback(async (modifiedBlock) => {
     try {
@@ -524,7 +566,9 @@ const formatTime = useCallback((time) => {
                 date={selectedDate}
                 availabilityBlocks={availabilityBlocks}
                 bookings={bookings}
+                blockedTimes={blockedTimes}
                 onModify={handleModifyClick}
+                onDeleteBlockedTime={handleDeleteBlockedTime}
               />
             ) : (
               <AvailabilityList
@@ -662,9 +706,20 @@ const formatTime = useCallback((time) => {
           <ModifyAvailabilityModal
             block={selectedBlock}
             onModify={handleModifyAvailability}
+            onBlockOff={handleBlockOffClick}
             onClose={() => {
               setModifyModalOpen(false);
               setSelectedBlock(null);
+            }}
+          />
+        )}
+        {blockOffModalOpen && blockOffTargetBlock && (
+          <BlockOffTimeModal
+            block={blockOffTargetBlock}
+            onBlock={handleBlockOffTime}
+            onClose={() => {
+              setBlockOffModalOpen(false);
+              setBlockOffTargetBlock(null);
             }}
           />
         )}

@@ -348,7 +348,8 @@ async function getAvailableTimeSlots(
   extraDepartureBuffer = 0,
   providerId = null,
   addons = [],
-  homeBase = null // { lat, lng } — provider's home/anchor location
+  homeBase = null, // { lat, lng } — provider's home/anchor location
+  blockedTimes = [] // BlockedTime documents for this date
 ) {
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
 
@@ -393,6 +394,25 @@ async function getAvailableTimeSlots(
   );
   console.log(`[Slots] ${slotsAfterOccupied.length} slots after removing occupied`);
 
+  // Step 2.5: Remove slots that fall within blocked time ranges
+  const maxDuration = Array.isArray(appointmentDuration)
+    ? Math.max(...appointmentDuration)
+    : appointmentDuration;
+  const slotsAfterBlocked = blockedTimes.length > 0
+    ? slotsAfterOccupied.filter(slot => {
+        const slotStart = slot.getTime();
+        const slotEnd = slotStart + maxDuration * 60 * 1000;
+        return !blockedTimes.some(bt => {
+          const btStart = bt.start.getTime();
+          const btEnd = bt.end.getTime();
+          return slotStart < btEnd && slotEnd > btStart;
+        });
+      })
+    : slotsAfterOccupied;
+  if (blockedTimes.length > 0) {
+    console.log(`[Slots] ${slotsAfterBlocked.length} slots after removing blocked times`);
+  }
+
   // Step 3: Use availability's own anchor if it has one, otherwise use provided homeBase
   const effectiveHome = (adminAvailability.anchor?.lat)
     ? { lat: adminAvailability.anchor.lat, lng: adminAvailability.anchor.lng }
@@ -400,7 +420,7 @@ async function getAvailableTimeSlots(
 
   // Step 4: Validate by travel-time boundaries (efficient — few API calls)
   const validSlots = await validateSlotsByBoundary(
-    slotsAfterOccupied,
+    slotsAfterBlocked,
     bookings,
     clientLocation,
     appointmentDuration,

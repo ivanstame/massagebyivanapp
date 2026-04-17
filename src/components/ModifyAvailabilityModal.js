@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
 
-const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
+const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   const [startTime, setStartTime] = useState('09:00 AM');
   const [endTime, setEndTime] = useState('05:00 PM');
   const [error, setError] = useState(null);
@@ -136,12 +136,27 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
           </div>
 
 
+          {onBlockOff && (
+            <div className="pt-4 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onBlockOff(block);
+                }}
+                className="text-sm text-slate-500 hover:text-slate-700 underline"
+              >
+                Block off time within this window
+              </button>
+            </div>
+          )}
+
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg 
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg
                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
@@ -149,7 +164,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] 
+              className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]
                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                 flex items-center justify-center min-w-[120px]"
             >

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Availability = require('../models/Availability');
+const BlockedTime = require('../models/BlockedTime');
 const Booking = require('../models/Booking');
 const WeeklyTemplate = require('../models/WeeklyTemplate');
 const SavedLocation = require('../models/SavedLocation');
@@ -398,6 +399,14 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       }
     }
 
+    // Fetch blocked times for this date
+    const blockedTimes = templateProviderId
+      ? await BlockedTime.find({
+          provider: templateProviderId,
+          localDate: laDate.toFormat(TIME_FORMATS.ISO_DATE)
+        })
+      : [];
+
     // Generate slots from ALL availability blocks and merge
     let allSlots = [];
     for (const availability of availabilityBlocks) {
@@ -411,7 +420,8 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         0,    // extraDepartureBuffer
         providerId,
         [],   // addons
-        homeBase
+        homeBase,
+        blockedTimes
       );
       allSlots = allSlots.concat(slots);
     }

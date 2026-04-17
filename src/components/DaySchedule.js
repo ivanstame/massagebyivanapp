@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
 
-const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
+const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], onModify, onDeleteBlockedTime }) => {
   const navigate = useNavigate();
   const startHour = 7;
   const endHour = 23;
@@ -174,6 +174,48 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, onModify }) => {
                 );
               })
             }
+
+            {/* Blocked time overlays */}
+            {blockedTimes.map((bt, index) => {
+              const btStart = timeToPixels(bt.start);
+              const btEnd = timeToPixels(bt.end);
+              return (
+                <div
+                  key={`blocked-${index}`}
+                  className="absolute left-0 right-0 border border-slate-400
+                    rounded-lg z-[15] cursor-default group"
+                  style={{
+                    top: `${btStart}px`,
+                    height: `${Math.max(btEnd - btStart, 24)}px`,
+                    backgroundColor: 'rgba(148, 163, 184, 0.35)',
+                    backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(100,116,139,0.13) 4px, rgba(100,116,139,0.13) 8px)'
+                  }}
+                >
+                  <div className="p-1.5 flex items-start justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-slate-600">
+                        {`${formatTime(bt.start)} - ${formatTime(bt.end)}`}
+                      </span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-300 text-slate-700">
+                        Blocked
+                      </span>
+                    </div>
+                    {onDeleteBlockedTime && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteBlockedTime(bt._id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5
+                          rounded bg-slate-500 text-white hover:bg-slate-600 transition-opacity"
+                      >
+                        Unblock
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Bookings */}
             {bookings.map((booking, index) => {

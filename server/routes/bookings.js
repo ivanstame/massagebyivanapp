@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
+const BlockedTime = require('../models/BlockedTime');
 const User = require('../models/User');
 const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
@@ -100,6 +101,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
     }
 
+    // Fetch blocked times for this date
+    const blockedTimes = await BlockedTime.find({
+      provider: providerId,
+      localDate: localDateStr
+    });
+
     // Check slot availability across ALL blocks (same logic as GET /available/:date)
     const bufferMinutes = 15;
     let allSlots = [];
@@ -114,7 +121,8 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         0,     // extraDepartureBuffer
         providerId,
         [],    // addons
-        homeBase
+        homeBase,
+        blockedTimes
       );
       allSlots = allSlots.concat(slots);
     }
