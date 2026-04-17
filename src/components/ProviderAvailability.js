@@ -8,7 +8,7 @@ import AddAvailabilityModal from './AddAvailabilityModal';
 import ModifyAvailabilityModal from './ModifyAvailabilityModal';
 import BlockOffTimeModal from './BlockOffTimeModal';
 import AvailabilityList from './AvailabilityList';
-import { Clock, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
+import { Clock, Ban, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS } from '../utils/timeConstants';
 import PinDropMap from './PinDropMap';
@@ -472,14 +472,29 @@ const formatTime = useCallback((time) => {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Manage Availability</h1>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white
-              rounded-lg hover:bg-[#008a91] transition-colors"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Add Availability
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setBlockOffTargetBlock(null);
+                setBlockOffModalOpen(true);
+              }}
+              disabled={availabilityBlocks.length === 0}
+              className="inline-flex items-center px-4 py-2 bg-slate-600 text-white
+                rounded-lg hover:bg-slate-700 transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Ban className="w-5 h-5 mr-2" />
+              Block Off Time
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white
+                rounded-lg hover:bg-[#008a91] transition-colors"
+            >
+              <Clock className="w-5 h-5 mr-2" />
+              Add Availability
+            </button>
+          </div>
         </div>
 
         {/* Desktop View */}
@@ -660,7 +675,9 @@ const formatTime = useCallback((time) => {
                     date={selectedDate}
                     availabilityBlocks={availabilityBlocks}
                     bookings={bookings}
+                    blockedTimes={blockedTimes}
                     onModify={handleModifyClick}
+                    onDeleteBlockedTime={handleDeleteBlockedTime}
                   />
                 </div>
               ) : (
@@ -681,9 +698,22 @@ const formatTime = useCallback((time) => {
               )}
           </div>
           
-          {/* Floating Button for Add Availability */}
-          <div className="fixed bottom-4 right-4 z-50">
-            <button 
+          {/* Floating Buttons */}
+          <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3">
+            {availabilityBlocks.length > 0 && (
+              <button
+                onClick={() => {
+                  setBlockOffTargetBlock(null);
+                  setBlockOffModalOpen(true);
+                }}
+                className="bg-slate-600 text-white p-3 rounded-full shadow-lg flex items-center justify-center
+                  hover:bg-slate-700 transition-colors duration-200"
+                aria-label="Block Off Time"
+              >
+                <Ban className="w-6 h-6" />
+              </button>
+            )}
+            <button
               onClick={() => setIsModalOpen(true)}
               className="bg-[#009ea5] text-white p-3 rounded-full shadow-lg flex items-center justify-center
                 hover:bg-[#008a91] transition-colors duration-200"
@@ -713,9 +743,11 @@ const formatTime = useCallback((time) => {
             }}
           />
         )}
-        {blockOffModalOpen && blockOffTargetBlock && (
+        {blockOffModalOpen && (
           <BlockOffTimeModal
             block={blockOffTargetBlock}
+            availabilityBlocks={!blockOffTargetBlock ? availabilityBlocks : undefined}
+            date={selectedDate}
             onBlock={handleBlockOffTime}
             onClose={() => {
               setBlockOffModalOpen(false);
