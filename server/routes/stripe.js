@@ -4,7 +4,18 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? require('stripe')(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+// Guard: if Stripe is not configured, all routes return 503
+if (!stripe) {
+  router.all('*', (req, res) => {
+    res.status(503).json({ message: 'Stripe is not configured' });
+  });
+  module.exports = router;
+  return;
+}
 
 // Base URL for redirects
 const getBaseUrl = () => {
