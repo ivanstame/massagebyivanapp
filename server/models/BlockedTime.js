@@ -11,7 +11,16 @@ const BlockedTimeSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   localDate: { type: String, required: true },
   start: { type: Date, required: true },
-  end: { type: Date, required: true }
+  end: { type: Date, required: true },
+  source: {
+    type: String,
+    enum: ['manual', 'google_calendar'],
+    default: 'manual'
+  },
+  googleEventId: {
+    type: String,
+    default: null
+  }
 }, { timestamps: true });
 
 BlockedTimeSchema.pre('save', function(next) {
@@ -33,5 +42,6 @@ BlockedTimeSchema.pre('save', function(next) {
 });
 
 BlockedTimeSchema.index({ provider: 1, localDate: 1 });
+BlockedTimeSchema.index({ provider: 1, googleEventId: 1 }, { sparse: true });
 
 module.exports = mongoose.model('BlockedTime', BlockedTimeSchema);

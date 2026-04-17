@@ -90,6 +90,30 @@ const UserSchema = new mongoose.Schema({
       windowHours: { type: Number, default: 24 },  // hours before appointment
       lateCancelFee: { type: Number, default: 0 },  // fee in dollars (0 = no fee, just warning)
       enabled: { type: Boolean, default: false }
+    },
+    // Google Calendar integration
+    googleCalendar: {
+      accessToken: { type: String, default: null },
+      refreshToken: { type: String, default: null },
+      tokenExpiry: { type: Date, default: null },
+      connected: { type: Boolean, default: false },
+      connectedEmail: { type: String, default: null },
+      syncedCalendarIds: { type: [String], default: [] },
+      watchChannels: {
+        type: Map,
+        of: new mongoose.Schema({
+          channelId: String,
+          resourceId: String,
+          expiration: Date
+        }, { _id: false }),
+        default: new Map()
+      },
+      syncTokens: {
+        type: Map,
+        of: String,
+        default: new Map()
+      },
+      lastSyncedAt: { type: Date, default: null }
     }
   },
   // Add the new clientProfile field here

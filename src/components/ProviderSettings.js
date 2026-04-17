@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
+import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 
@@ -25,6 +25,14 @@ const ProviderSettings = () => {
   // Stripe Connect state
   const [stripeStatus, setStripeStatus] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(false);
+
+  // Google Calendar state
+  const [gcalStatus, setGcalStatus] = useState(null);
+  const [gcalCalendars, setGcalCalendars] = useState([]);
+  const [gcalSelected, setGcalSelected] = useState([]);
+  const [gcalLoading, setGcalLoading] = useState(false);
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   const [settings, setSettings] = useState({
     businessName: '',
@@ -96,6 +104,104 @@ const ProviderSettings = () => {
       window.open(res.data.url, '_blank');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to open Stripe dashboard');
+    }
+  };
+
+  // Google Calendar
+  const fetchGcalStatus = async () => {
+    try {
+      const res = await axios.get('/api/google-calendar/status', { withCredentials: true });
+      setGcalStatus(res.data);
+      if (res.data.connected) {
+        setGcalSelected(res.data.syncedCalendarIds || []);
+      }
+    } catch (err) {
+      console.error('Error fetching Google Calendar status:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.accountType === 'PROVIDER') {
+      fetchGcalStatus();
+    }
+    if (searchParams.get('gcal') === 'success') {
+      fetchGcalStatus();
+      // Fetch available calendars after successful connection
+      const fetchCals = async () => {
+        try {
+          const res = await axios.get('/api/google-calendar/calendars', { withCredentials: true });
+          setGcalCalendars(res.data);
+          setShowCalendarPicker(true);
+        } catch (err) {
+          console.error('Error fetching calendars:', err);
+        }
+      };
+      fetchCals();
+    }
+  }, [user, searchParams]);
+
+  const handleGcalConnect = async () => {
+    setGcalLoading(true);
+    try {
+      const res = await axios.get('/api/google-calendar/oauth/start', { withCredentials: true });
+      window.location.href = res.data.url;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start Google Calendar connection');
+      setGcalLoading(false);
+    }
+  };
+
+  const handleGcalFetchCalendars = async () => {
+    try {
+      const res = await axios.get('/api/google-calendar/calendars', { withCredentials: true });
+      setGcalCalendars(res.data);
+      setShowCalendarPicker(true);
+    } catch (err) {
+      setError('Failed to load calendars');
+    }
+  };
+
+  const handleGcalSaveSelection = async () => {
+    setGcalLoading(true);
+    try {
+      await axios.post('/api/google-calendar/calendars/select',
+        { calendarIds: gcalSelected },
+        { withCredentials: true }
+      );
+      setShowCalendarPicker(false);
+      await fetchGcalStatus();
+    } catch (err) {
+      setError('Failed to save calendar selection');
+    } finally {
+      setGcalLoading(false);
+    }
+  };
+
+  const handleGcalSync = async () => {
+    setGcalSyncing(true);
+    try {
+      await axios.post('/api/google-calendar/sync', {}, { withCredentials: true });
+      await fetchGcalStatus();
+    } catch (err) {
+      setError('Sync failed');
+    } finally {
+      setGcalSyncing(false);
+    }
+  };
+
+  const handleGcalDisconnect = async () => {
+    if (!window.confirm('Disconnect Google Calendar? This will remove all synced time blocks.')) return;
+    setGcalLoading(true);
+    try {
+      await axios.post('/api/google-calendar/disconnect', {}, { withCredentials: true });
+      setGcalStatus({ connected: false });
+      setGcalCalendars([]);
+      setGcalSelected([]);
+      setShowCalendarPicker(false);
+    } catch (err) {
+      setError('Failed to disconnect');
+    } finally {
+      setGcalLoading(false);
     }
   };
 
@@ -453,6 +559,106 @@ const ProviderSettings = () => {
               >
                 {stripeLoading ? 'Loading...' : 'Update Stripe Account'}
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Google Calendar */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-[#009ea5]" />
+            <h3 className="font-medium text-slate-900">Google Calendar Sync</h3>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Automatically block time when you have events on your Google Calendar.
+          </p>
+
+          {!gcalStatus || !gcalStatus.connected ? (
+            <button
+              onClick={handleGcalConnect}
+              disabled={gcalLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#4285f4] text-white rounded-lg hover:bg-[#3367d6] disabled:opacity-50 font-medium text-sm transition-colors"
+            >
+              {gcalLoading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</>
+              ) : (
+                <><Calendar className="w-4 h-4" /> Connect Google Calendar</>
+              )}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <p className="text-sm text-green-800">
+                  Connected as {gcalStatus.connectedEmail}
+                </p>
+              </div>
+
+              {gcalStatus.syncedCalendarIds?.length > 0 && (
+                <p className="text-xs text-slate-500">
+                  Syncing {gcalStatus.syncedCalendarIds.length} calendar{gcalStatus.syncedCalendarIds.length > 1 ? 's' : ''}
+                  {gcalStatus.lastSyncedAt && (
+                    <> &middot; Last synced {new Date(gcalStatus.lastSyncedAt).toLocaleString()}</>
+                  )}
+                </p>
+              )}
+
+              {showCalendarPicker && gcalCalendars.length > 0 && (
+                <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+                  <p className="text-sm font-medium text-slate-700">Select calendars to sync:</p>
+                  {gcalCalendars.map(cal => (
+                    <label key={cal.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={gcalSelected.includes(cal.id)}
+                        onChange={(e) => {
+                          setGcalSelected(prev =>
+                            e.target.checked
+                              ? [...prev, cal.id]
+                              : prev.filter(id => id !== cal.id)
+                          );
+                        }}
+                        className="rounded border-slate-300 text-[#009ea5] focus:ring-[#009ea5]"
+                      />
+                      {cal.summary} {cal.primary && <span className="text-xs text-slate-400">(primary)</span>}
+                    </label>
+                  ))}
+                  <button
+                    onClick={handleGcalSaveSelection}
+                    disabled={gcalLoading || gcalSelected.length === 0}
+                    className="w-full mt-2 px-3 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91] disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {gcalLoading ? 'Saving...' : 'Save Selection'}
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleGcalFetchCalendars}
+                  className="flex items-center gap-1.5 text-sm text-[#009ea5] hover:text-[#008a91] font-medium"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  {gcalStatus.syncedCalendarIds?.length > 0 ? 'Change Calendars' : 'Select Calendars'}
+                </button>
+                {gcalStatus.syncedCalendarIds?.length > 0 && (
+                  <button
+                    onClick={handleGcalSync}
+                    disabled={gcalSyncing}
+                    className="flex items-center gap-1.5 text-sm text-[#009ea5] hover:text-[#008a91] font-medium"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${gcalSyncing ? 'animate-spin' : ''}`} />
+                    {gcalSyncing ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                )}
+                <button
+                  onClick={handleGcalDisconnect}
+                  disabled={gcalLoading}
+                  className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 font-medium"
+                >
+                  Disconnect
+                </button>
+              </div>
             </div>
           )}
         </div>

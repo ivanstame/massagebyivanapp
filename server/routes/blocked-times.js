@@ -124,6 +124,12 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    if (blockedTime.source === 'google_calendar') {
+      return res.status(400).json({
+        message: 'Google Calendar synced blocks cannot be deleted manually. Update your Google Calendar or disconnect to remove them.'
+      });
+    }
+
     await blockedTime.deleteOne();
     res.json({ message: 'Blocked time removed' });
   } catch (error) {

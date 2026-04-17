@@ -47,6 +47,10 @@ mongoose.connect(process.env.MONGODB_URI, {
   // Start the reminder scheduler
   const { startReminderScheduler } = require('./services/reminderScheduler');
   startReminderScheduler();
+
+  // Start Google Calendar sync scheduler
+  const { startGoogleCalendarScheduler } = require('./services/googleCalendarSync');
+  startGoogleCalendarScheduler();
 }).catch(err => {
   console.error('MongoDB Atlas connection error:', err);
   process.exit(1); // Exit process on connection failure
@@ -69,6 +73,8 @@ app.use(dbConnectionChecker);
 
 // Stripe webhook needs raw body — must be registered BEFORE json parser
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+// Google Calendar webhook also needs to be before json parser
+app.use('/api/google-calendar/webhook', express.raw({ type: 'application/json' }));
 
 // Middleware setup - ORDER IS IMPORTANT
 app.use(express.json({ limit: '10mb' }));
@@ -173,6 +179,8 @@ app.use('/api/weekly-template', require('./routes/weekly-template'));
 app.use('/api/saved-locations', require('./routes/saved-locations'));
 app.use('/api/join-code', require('./routes/join-code'));
 app.use('/api/stripe', require('./routes/stripe'));
+app.use('/api/google-calendar', require('./routes/googleCalendar'));
+app.use('/api/google-calendar', require('./routes/googleCalendarWebhook'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({

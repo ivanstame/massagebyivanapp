@@ -197,10 +197,10 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                         {`${formatTime(bt.start)} - ${formatTime(bt.end)}`}
                       </span>
                       <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-300 text-slate-700">
-                        Blocked
+                        {bt.source === 'google_calendar' ? 'Google Cal' : 'Blocked'}
                       </span>
                     </div>
-                    {onDeleteBlockedTime && (
+                    {onDeleteBlockedTime && bt.source !== 'google_calendar' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
