@@ -20,6 +20,12 @@ const BlockedTimeSchema = new mongoose.Schema({
   googleEventId: {
     type: String,
     default: null
+  },
+  // Location for Google Calendar events that have one (affects travel time calc)
+  location: {
+    address: { type: String, default: null },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null }
   }
 }, { timestamps: true });
 

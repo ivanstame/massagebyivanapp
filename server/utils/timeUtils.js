@@ -418,10 +418,27 @@ async function getAvailableTimeSlots(
     ? { lat: adminAvailability.anchor.lat, lng: adminAvailability.anchor.lng }
     : homeBase;
 
+  // Convert blocked times WITH location into booking-shaped objects
+  // so they participate in travel time boundary calculations
+  const blockedTimesWithLocation = blockedTimes
+    .filter(bt => bt.location?.lat && bt.location?.lng)
+    .map(bt => {
+      const btStart = DateTime.fromJSDate(bt.start).setZone(DEFAULT_TZ);
+      const btEnd = DateTime.fromJSDate(bt.end).setZone(DEFAULT_TZ);
+      return {
+        startTime: btStart.toFormat('HH:mm'),
+        endTime: btEnd.toFormat('HH:mm'),
+        location: { lat: bt.location.lat, lng: bt.location.lng, address: bt.location.address },
+        _isBlockedTime: true
+      };
+    });
+
+  const bookingsAndBlockedWithLoc = [...bookings, ...blockedTimesWithLocation];
+
   // Step 4: Validate by travel-time boundaries (efficient — few API calls)
   const validSlots = await validateSlotsByBoundary(
     slotsAfterBlocked,
-    bookings,
+    bookingsAndBlockedWithLoc,
     clientLocation,
     appointmentDuration,
     effectiveBufferMinutes,

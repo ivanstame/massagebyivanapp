@@ -1,10 +1,36 @@
 const { DateTime } = require('luxon');
+const axios = require('axios');
 const BlockedTime = require('../models/BlockedTime');
 const User = require('../models/User');
 const gcalService = require('./googleCalendarService');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 
-const BUFFER_MINUTES = 15;
+const BUFFER_WITH_LOCATION = 15; // Travel time logic handles the rest
+const BUFFER_WITHOUT_LOCATION = 30; // Generous buffer since we don't know where provider is
+
+// Simple in-memory geocode cache to avoid redundant API calls during a sync run
+const geocodeCache = new Map();
+
+async function geocodeAddress(address) {
+  if (!address || !process.env.GOOGLE_MAPS_API_KEY) return null;
+  if (geocodeCache.has(address)) return geocodeCache.get(address);
+
+  try {
+    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      params: { address, key: process.env.GOOGLE_MAPS_API_KEY }
+    });
+    if (response.data.status === 'OK' && response.data.results.length > 0) {
+      const { lat, lng } = response.data.results[0].geometry.location;
+      const result = { lat, lng, address: response.data.results[0].formatted_address };
+      geocodeCache.set(address, result);
+      return result;
+    }
+  } catch (err) {
+    console.warn(`[GCal] Geocode failed for "${address}":`, err.message);
+  }
+  geocodeCache.set(address, null);
+  return null;
+}
 
 // Safeguards against runaway syncing
 const MIN_SYNC_INTERVAL_MS = 10 * 1000; // Minimum 10s between syncs for same provider/calendar
@@ -60,7 +86,7 @@ function markSyncEnd(providerId, calendarId, success) {
  * Returns array of { start, end, localDate, date, googleEventId } objects,
  * or 'DELETE' string for cancelled events.
  */
-function mapEventToBlockedTimes(event) {
+async function mapEventToBlockedTimes(event) {
   // Cancelled/deleted events → mark for deletion
   if (event.status === 'cancelled') {
     return 'DELETE';
@@ -70,6 +96,18 @@ function mapEventToBlockedTimes(event) {
   if (event.transparency === 'transparent') {
     return [];
   }
+
+  // Geocode event location if present
+  let location = null;
+  if (event.location) {
+    const geo = await geocodeAddress(event.location);
+    if (geo) {
+      location = { address: geo.address, lat: geo.lat, lng: geo.lng };
+    }
+  }
+
+  // Buffer depends on whether we have a location (travel time will handle extra for located events)
+  const bufferMinutes = location ? BUFFER_WITH_LOCATION : BUFFER_WITHOUT_LOCATION;
 
   const isAllDay = !!event.start.date;
   const slices = [];
@@ -90,7 +128,8 @@ function mapEventToBlockedTimes(event) {
         end: dayEnd.toUTC().toJSDate(),
         localDate: localDateStr,
         date: dayStart.toUTC().toJSDate(),
-        googleEventId: `${event.id}_${localDateStr}`
+        googleEventId: `${event.id}_${localDateStr}`,
+        location
       });
 
       current = current.plus({ days: 1 });
@@ -101,8 +140,8 @@ function mapEventToBlockedTimes(event) {
     const eventEnd = DateTime.fromISO(event.end.dateTime).setZone(DEFAULT_TZ);
 
     // Apply buffer
-    const bufferedStart = eventStart.minus({ minutes: BUFFER_MINUTES });
-    const bufferedEnd = eventEnd.plus({ minutes: BUFFER_MINUTES });
+    const bufferedStart = eventStart.minus({ minutes: bufferMinutes });
+    const bufferedEnd = eventEnd.plus({ minutes: bufferMinutes });
 
     // Determine all days this event spans
     const startDay = bufferedStart.startOf('day');
@@ -124,7 +163,8 @@ function mapEventToBlockedTimes(event) {
           end: sliceEnd.toUTC().toJSDate(),
           localDate: localDateStr,
           date: dayStart.toUTC().toJSDate(),
-          googleEventId: `${event.id}_${localDateStr}`
+          googleEventId: `${event.id}_${localDateStr}`,
+          location
         });
       }
 
@@ -144,7 +184,7 @@ async function applyEventChanges(providerId, events) {
   const upsertedIds = [];
 
   for (const event of events) {
-    const result = mapEventToBlockedTimes(event);
+    const result = await mapEventToBlockedTimes(event);
 
     if (result === 'DELETE') {
       // Delete all day-slices for this event
@@ -167,7 +207,8 @@ async function applyEventChanges(providerId, events) {
             localDate: slice.localDate,
             date: slice.date,
             source: 'google_calendar',
-            googleEventId: slice.googleEventId
+            googleEventId: slice.googleEventId,
+            location: slice.location || { address: null, lat: null, lng: null }
           }
         },
         { upsert: true, new: true }
