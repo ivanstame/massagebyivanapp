@@ -6,6 +6,54 @@ const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 
 const BUFFER_MINUTES = 15;
 
+// Safeguards against runaway syncing
+const MIN_SYNC_INTERVAL_MS = 10 * 1000; // Minimum 10s between syncs for same provider/calendar
+const activeSyncs = new Set(); // providerId:calendarId keys currently syncing
+const lastSyncAt = new Map(); // providerId:calendarId → timestamp
+const syncFailureCount = new Map(); // providerId:calendarId → consecutive failure count
+const MAX_CONSECUTIVE_FAILURES = 5;
+
+function syncKey(providerId, calendarId) {
+  return `${providerId}:${calendarId}`;
+}
+
+function canStartSync(providerId, calendarId) {
+  const key = syncKey(providerId, calendarId);
+  // Concurrency: skip if already syncing
+  if (activeSyncs.has(key)) {
+    console.log(`[GCal] Sync already in progress for ${key}, skipping`);
+    return false;
+  }
+  // Debounce: skip if synced recently
+  const last = lastSyncAt.get(key);
+  if (last && Date.now() - last < MIN_SYNC_INTERVAL_MS) {
+    console.log(`[GCal] Sync debounced for ${key} (last sync ${Date.now() - last}ms ago)`);
+    return false;
+  }
+  // Circuit breaker: skip if too many consecutive failures
+  const failures = syncFailureCount.get(key) || 0;
+  if (failures >= MAX_CONSECUTIVE_FAILURES) {
+    console.warn(`[GCal] Circuit breaker open for ${key} (${failures} failures), skipping`);
+    return false;
+  }
+  return true;
+}
+
+function markSyncStart(providerId, calendarId) {
+  activeSyncs.add(syncKey(providerId, calendarId));
+}
+
+function markSyncEnd(providerId, calendarId, success) {
+  const key = syncKey(providerId, calendarId);
+  activeSyncs.delete(key);
+  lastSyncAt.set(key, Date.now());
+  if (success) {
+    syncFailureCount.delete(key);
+  } else {
+    syncFailureCount.set(key, (syncFailureCount.get(key) || 0) + 1);
+  }
+}
+
 /**
  * Convert a single Google Calendar event into BlockedTime data objects.
  * Multi-day events are split into per-day slices.
@@ -142,11 +190,20 @@ async function runFullSync(provider, calendarIds) {
   let totalDeleted = 0;
 
   for (const calendarId of calendarIds) {
+    if (!canStartSync(provider._id.toString(), calendarId)) {
+      continue;
+    }
+    markSyncStart(provider._id.toString(), calendarId);
+    let syncSuccess = false;
+
     try {
       const { events, nextSyncToken, fullSyncRequired } =
         await gcalService.fetchEvents(provider, calendarId, null);
 
-      if (!events) continue;
+      if (!events) {
+        markSyncEnd(provider._id.toString(), calendarId, false);
+        continue;
+      }
 
       const { upserted, upsertedIds } = await applyEventChanges(provider._id, events);
       totalUpserted += upserted;
@@ -172,8 +229,11 @@ async function runFullSync(provider, calendarIds) {
       if (nextSyncToken) {
         gcal.syncTokens.set(calendarId, nextSyncToken);
       }
+      syncSuccess = true;
     } catch (err) {
       console.error(`[GCal] Full sync error for provider ${provider.email}, calendar ${calendarId}:`, err.message);
+    } finally {
+      markSyncEnd(provider._id.toString(), calendarId, syncSuccess);
     }
   }
 
@@ -187,7 +247,12 @@ async function runFullSync(provider, calendarIds) {
 /**
  * Run an incremental sync triggered by a webhook.
  */
-async function runIncrementalSync(provider, calendarId) {
+async function runIncrementalSync(provider, calendarId, retryCount = 0) {
+  if (retryCount > 1) {
+    console.error(`[GCal] Incremental sync recursion limit hit for ${provider.email}, calendar ${calendarId}`);
+    return { upserted: 0, deleted: 0 };
+  }
+
   const gcal = provider.providerProfile.googleCalendar;
   const syncToken = gcal.syncTokens.get(calendarId);
 
@@ -196,31 +261,47 @@ async function runIncrementalSync(provider, calendarId) {
     return runFullSync(provider, [calendarId]);
   }
 
-  const { events, nextSyncToken, fullSyncRequired } =
-    await gcalService.fetchEvents(provider, calendarId, syncToken);
-
-  if (fullSyncRequired) {
-    return runFullSync(provider, [calendarId]);
-  }
-
-  if (!events || events.length === 0) {
-    if (nextSyncToken) {
-      gcal.syncTokens.set(calendarId, nextSyncToken);
-      await provider.save();
-    }
+  if (!canStartSync(provider._id.toString(), calendarId)) {
     return { upserted: 0, deleted: 0 };
   }
+  markSyncStart(provider._id.toString(), calendarId);
+  let syncSuccess = false;
 
-  const result = await applyEventChanges(provider._id, events);
+  try {
+    const { events, nextSyncToken, fullSyncRequired } =
+      await gcalService.fetchEvents(provider, calendarId, syncToken);
 
-  if (nextSyncToken) {
-    gcal.syncTokens.set(calendarId, nextSyncToken);
+    if (fullSyncRequired) {
+      markSyncEnd(provider._id.toString(), calendarId, true);
+      return runFullSync(provider, [calendarId]);
+    }
+
+    if (!events || events.length === 0) {
+      if (nextSyncToken) {
+        gcal.syncTokens.set(calendarId, nextSyncToken);
+        await provider.save();
+      }
+      syncSuccess = true;
+      return { upserted: 0, deleted: 0 };
+    }
+
+    const result = await applyEventChanges(provider._id, events);
+
+    if (nextSyncToken) {
+      gcal.syncTokens.set(calendarId, nextSyncToken);
+    }
+    gcal.lastSyncedAt = new Date();
+    await provider.save();
+
+    syncSuccess = true;
+    console.log(`[GCal] Incremental sync for ${provider.email}: ${result.upserted} upserted, ${result.deleted} deleted`);
+    return result;
+  } catch (err) {
+    console.error(`[GCal] Incremental sync error for ${provider.email}, calendar ${calendarId}:`, err.message);
+    return { upserted: 0, deleted: 0 };
+  } finally {
+    markSyncEnd(provider._id.toString(), calendarId, syncSuccess);
   }
-  gcal.lastSyncedAt = new Date();
-  await provider.save();
-
-  console.log(`[GCal] Incremental sync for ${provider.email}: ${result.upserted} upserted, ${result.deleted} deleted`);
-  return result;
 }
 
 /**
@@ -246,6 +327,9 @@ async function runDailySync() {
 /**
  * Renew watch channels expiring within 48 hours.
  */
+const channelRenewalFailures = new Map(); // providerId:calendarId → consecutive failure count
+const MAX_RENEWAL_FAILURES = 3;
+
 async function renewExpiringChannels() {
   const cutoff = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
@@ -258,13 +342,21 @@ async function renewExpiringChannels() {
     if (!gcal.watchChannels) continue;
 
     for (const [calendarId, channel] of gcal.watchChannels) {
+      const renewalKey = `${provider._id}:${calendarId}`;
       if (channel.expiration && channel.expiration < cutoff) {
+        const failures = channelRenewalFailures.get(renewalKey) || 0;
+        if (failures >= MAX_RENEWAL_FAILURES) {
+          console.warn(`[GCal] Channel renewal circuit breaker open for ${renewalKey}, skipping`);
+          continue;
+        }
         try {
           console.log(`[GCal] Renewing expiring channel for ${provider.email}, calendar ${calendarId}`);
           await gcalService.stopWatchChannel(provider, calendarId);
           await gcalService.createWatchChannel(provider, calendarId);
+          channelRenewalFailures.delete(renewalKey);
         } catch (err) {
-          console.error(`[GCal] Channel renewal failed for ${provider.email}, calendar ${calendarId}:`, err.message);
+          channelRenewalFailures.set(renewalKey, failures + 1);
+          console.error(`[GCal] Channel renewal failed for ${provider.email}, calendar ${calendarId} (failure ${failures + 1}/${MAX_RENEWAL_FAILURES}):`, err.message);
         }
       }
     }

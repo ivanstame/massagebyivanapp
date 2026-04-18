@@ -146,8 +146,15 @@ async function fetchEvents(provider, calendarId, syncToken = null) {
   let allEvents = [];
   let nextPageToken = null;
   let nextSyncToken = null;
+  let pageCount = 0;
+  const MAX_PAGES = 20; // Safety cap: 20 pages × 2500 events = 50k events max
 
   do {
+    if (pageCount >= MAX_PAGES) {
+      console.warn(`[GCal] Hit max page limit (${MAX_PAGES}) fetching events for ${provider.email}, calendar ${calendarId}`);
+      break;
+    }
+    pageCount++;
     try {
       if (nextPageToken) params.pageToken = nextPageToken;
       const { data } = await calendar.events.list(params);
