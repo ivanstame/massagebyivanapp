@@ -50,10 +50,15 @@ router.get('/oauth/callback', async (req, res) => {
       return res.redirect('/provider/settings?gcal=error&reason=user_not_found');
     }
 
-    // Get connected email
-    const oauth2Client = gcalService.buildOAuth2Client();
-    oauth2Client.setCredentials(tokens);
-    const email = await gcalService.getUserEmail(oauth2Client);
+    // Get connected email (non-fatal if it fails)
+    let email = null;
+    try {
+      const oauth2Client = gcalService.buildOAuth2Client();
+      oauth2Client.setCredentials(tokens);
+      email = await gcalService.getUserEmail(oauth2Client);
+    } catch (emailErr) {
+      console.warn('[GCal] Could not fetch connected email:', emailErr.message);
+    }
 
     // Store tokens
     provider.providerProfile.googleCalendar = {

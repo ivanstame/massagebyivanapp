@@ -1,7 +1,10 @@
 const { google } = require('googleapis');
 const crypto = require('crypto');
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/userinfo.email'
+];
 
 function buildOAuth2Client() {
   return new google.auth.OAuth2(
