@@ -1,5 +1,5 @@
 const { google } = require('googleapis');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
 
@@ -71,7 +71,7 @@ async function createWatchChannel(provider, calendarId) {
   const auth = await getAuthenticatedClient(provider);
   const calendar = google.calendar({ version: 'v3', auth });
 
-  const channelId = uuidv4();
+  const channelId = crypto.randomUUID();
   const webhookUrl = `${process.env.REACT_APP_API_URL || process.env.GOOGLE_REDIRECT_URI.replace('/api/google-calendar/oauth/callback', '')}/api/google-calendar/webhook`;
 
   const { data } = await calendar.events.watch({
