@@ -68,24 +68,19 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       });
     }
 
-    // Check for overlapping manual blocked times (reject) or Google ones (warn)
-    const overlappingBlocks = await BlockedTime.find({
+    // Check for overlapping manual blocked times (reject)
+    const overlappingManual = await BlockedTime.findOne({
       provider: providerId,
       localDate: date,
+      source: 'manual',
       start: { $lt: endUTC },
       end: { $gt: startUTC }
     });
-
-    const overlappingManual = overlappingBlocks.find(b => b.source === 'manual');
     if (overlappingManual) {
       return res.status(400).json({
         message: 'This time range overlaps with an existing blocked time'
       });
     }
-
-    const gcalConflicts = overlappingBlocks.filter(
-      b => b.source === 'google_calendar' && b.overridden !== true
-    );
 
     const blockedTime = new BlockedTime({
       provider: providerId,
@@ -94,14 +89,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     });
 
     await blockedTime.save();
-    const result = blockedTime.toObject();
-    result.googleCalendarConflicts = gcalConflicts.map(b => ({
-      _id: b._id,
-      start: b.start,
-      end: b.end,
-      location: b.location
-    }));
-    res.status(201).json(result);
+    res.status(201).json(blockedTime);
   } catch (error) {
     console.error('Error creating blocked time:', error);
     res.status(500).json({ message: 'Failed to create blocked time' });

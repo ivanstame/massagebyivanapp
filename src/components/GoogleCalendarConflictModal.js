@@ -7,7 +7,7 @@ const formatTime = (date) => {
   return DateTime.fromISO(date).setZone(DEFAULT_TZ).toFormat('h:mm a');
 };
 
-const GoogleCalendarConflictModal = ({ conflicts, onOverride, onClose }) => {
+const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -20,14 +20,18 @@ const GoogleCalendarConflictModal = ({ conflicts, onOverride, onClose }) => {
   const selectAll = () => setSelectedIds(conflicts.map(c => c._id));
   const selectNone = () => setSelectedIds([]);
 
-  const handleSave = async () => {
+  const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
-      await onOverride(selectedIds);
+      await onConfirm(selectedIds);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const confirmLabel = selectedIds.length > 0
+    ? `Override ${selectedIds.length} & Continue`
+    : 'Continue Without Overriding';
 
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
@@ -38,7 +42,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onOverride, onClose }) => {
           <div>
             <h2 className="text-xl font-bold text-slate-900">Google Calendar Conflict</h2>
             <p className="text-sm text-slate-600 mt-1">
-              Your availability overlaps with {conflicts.length === 1 ? 'this event' : 'these events'} on your Google Calendar:
+              Your time range overlaps with {conflicts.length === 1 ? 'this event' : 'these events'} on your Google Calendar:
             </p>
           </div>
         </div>
@@ -79,34 +83,35 @@ const GoogleCalendarConflictModal = ({ conflicts, onOverride, onClose }) => {
           </div>
         )}
 
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-4">
+        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-4 space-y-1.5">
           <p className="text-xs text-slate-600">
-            <strong>Override</strong> means clients can still book during the selected event's time.
-            Use this when the calendar event is outdated or doesn't actually block your availability.
+            <strong>Cancel</strong> &mdash; Don't save. Go back without creating anything.
+          </p>
+          <p className="text-xs text-slate-600">
+            <strong>Override</strong> &mdash; Checked events are ignored; clients can still book through them.
+          </p>
+          <p className="text-xs text-slate-600">
+            <strong>Continue without overriding</strong> &mdash; Leave nothing checked. Your time range will still be saved but clients can't book during the calendar events.
           </p>
         </div>
 
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={onCancel}
             disabled={isSubmitting}
             className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
           >
-            Keep Blocked
+            Cancel
           </button>
           <button
             type="button"
-            onClick={handleSave}
-            disabled={isSubmitting || selectedIds.length === 0}
+            onClick={handleConfirm}
+            disabled={isSubmitting}
             className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]
               disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {isSubmitting
-              ? 'Applying...'
-              : selectedIds.length > 0
-                ? `Override ${selectedIds.length} Event${selectedIds.length > 1 ? 's' : ''}`
-                : 'Select at Least One'}
+            {isSubmitting ? 'Saving...' : confirmLabel}
           </button>
         </div>
       </div>
