@@ -148,19 +148,19 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
     transition-all duration-200 ease-in-out
     border
     ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-slate-100' : 
-      hasSlots ? 'hover:bg-[#f8f4ef] hover:border-[#009ea5] border-slate-200' :
+      hasSlots ? 'hover:bg-[#FBF7EF] hover:border-[#B07A4E] border-slate-200' :
       'text-slate-400 hover:bg-slate-50 border-slate-100'}
     ${isSelected ?
-      'bg-[#f8f4ef] border-[#009ea5] text-[#8b6b47] shadow-md ring-2 ring-[#009ea5] ring-opacity-50' : ''}
+      'bg-[#FBF7EF] border-[#B07A4E] text-[#8A5D36] shadow-md ring-2 ring-[#B07A4E] ring-opacity-50' : ''}
   `}
 >
   <span className={`text-xs font-medium mb-1 
-    ${isSelected ? 'text-[#8b6b47]' : 'text-slate-500'}`}>
+    ${isSelected ? 'text-[#8A5D36]' : 'text-slate-500'}`}>
     {dayNames[date.getDay()]}
   </span>
   <div className="relative flex flex-col items-center gap-1">
     <span className={`text-lg font-semibold
-      ${isToday ? 'text-[#8b6b47]' : ''}`}>
+      ${isToday ? 'text-[#8A5D36]' : ''}`}>
       {date.getDate()}
     </span>
     {!isPast && hasSlots && (

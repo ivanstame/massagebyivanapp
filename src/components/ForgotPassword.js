@@ -57,7 +57,7 @@ const ForgotPassword = () => {
                 <div className="mt-6 text-center">
                   <Link
                     to="/login"
-                    className="font-medium text-[#009ea5] hover:text-[#2c5f60] inline-flex items-center gap-1"
+                    className="font-medium text-[#B07A4E] hover:text-[#8A5D36] inline-flex items-center gap-1"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Back to sign in
@@ -79,7 +79,7 @@ const ForgotPassword = () => {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[#009ea5] focus:border-[#009ea5] sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-[#B07A4E] focus:border-[#B07A4E] sm:text-sm"
                       placeholder="your@email.com"
                     />
                   </div>
@@ -100,7 +100,7 @@ const ForgotPassword = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#009ea5] hover:bg-[#2c5f60] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#B07A4E] hover:bg-[#8A5D36] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {isLoading ? 'Sending...' : 'Send reset link'}
                   </button>
@@ -109,7 +109,7 @@ const ForgotPassword = () => {
                 <div className="text-center">
                   <Link
                     to="/login"
-                    className="font-medium text-sm text-[#009ea5] hover:text-[#2c5f60] inline-flex items-center gap-1"
+                    className="font-medium text-sm text-[#B07A4E] hover:text-[#8A5D36] inline-flex items-center gap-1"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Back to sign in

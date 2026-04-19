@@ -57,7 +57,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
                 type="checkbox"
                 checked={selectedIds.includes(conflict._id)}
                 onChange={() => toggle(conflict._id)}
-                className="mt-0.5 rounded border-slate-300 text-[#009ea5] focus:ring-[#009ea5]"
+                className="mt-0.5 rounded border-slate-300 text-[#B07A4E] focus:ring-[#B07A4E]"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
@@ -74,7 +74,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
 
         {conflicts.length > 1 && (
           <div className="flex gap-3 text-xs mb-3">
-            <button onClick={selectAll} className="text-[#009ea5] hover:text-[#008a91] font-medium">
+            <button onClick={selectAll} className="text-[#B07A4E] hover:text-[#8A5D36] font-medium">
               Select All
             </button>
             <button onClick={selectNone} className="text-slate-500 hover:text-slate-700 font-medium">
@@ -102,7 +102,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
             type="button"
             onClick={handleConfirm}
             disabled={isSubmitting}
-            className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]
+            className="px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]
               disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {isSubmitting ? 'Saving...' : confirmLabel}

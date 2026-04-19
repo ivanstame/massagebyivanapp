@@ -115,7 +115,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
               id="startTime"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
             >
               {generateTimeOptions()}
             </select>
@@ -129,7 +129,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
               id="endTime"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full border rounded-lg p-2 focus:ring-[#009ea5] focus:border-[#009ea5]"
+              className="w-full border rounded-lg p-2 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
             >
               {generateTimeOptions()}
             </select>
@@ -164,7 +164,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]
+              className="px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]
                 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                 flex items-center justify-center min-w-[120px]"
             >

@@ -58,7 +58,7 @@ const ProviderAssignmentRequests = () => {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#009ea5] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B07A4E] mx-auto mb-4"></div>
           <p className="text-slate-600">Loading assignment requests...</p>
         </div>
       </div>
@@ -95,7 +95,7 @@ const ProviderAssignmentRequests = () => {
               <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-[#009ea5] rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-[#B07A4E] rounded-full flex items-center justify-center">
                       <User className="h-6 w-6 text-white" />
                     </div>
                     <div>

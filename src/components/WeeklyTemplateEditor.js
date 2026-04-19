@@ -234,7 +234,7 @@ const WeeklyTemplateEditor = () => {
                 onClick={() => { setForecastWeeks(opt.value); setSaved(false); }}
                 className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
                   forecastWeeks === opt.value
-                    ? 'bg-[#009ea5] text-white'
+                    ? 'bg-[#B07A4E] text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -260,7 +260,7 @@ const WeeklyTemplateEditor = () => {
           <div className="mb-4 flex items-center gap-2 text-sm text-slate-600">
             <MapPin className="w-4 h-4" />
             <span>{savedLocations.length} saved location{savedLocations.length !== 1 ? 's' : ''}</span>
-            <Link to="/provider/locations" className="text-[#009ea5] hover:underline flex items-center gap-1">
+            <Link to="/provider/locations" className="text-[#B07A4E] hover:underline flex items-center gap-1">
               Manage <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
@@ -287,7 +287,7 @@ const WeeklyTemplateEditor = () => {
               key={day.dayOfWeek}
               className={`p-3 rounded-lg border transition-colors ${
                 day.isActive
-                  ? 'bg-white border-[#009ea5]/30 shadow-sm'
+                  ? 'bg-white border-[#B07A4E]/30 shadow-sm'
                   : 'bg-slate-50 border-slate-200'
               }`}
             >
@@ -296,7 +296,7 @@ const WeeklyTemplateEditor = () => {
                 <button
                   onClick={() => handleToggleDay(day.dayOfWeek)}
                   className={`w-10 h-6 rounded-full relative transition-colors flex-shrink-0 ${
-                    day.isActive ? 'bg-[#009ea5]' : 'bg-slate-300'
+                    day.isActive ? 'bg-[#B07A4E]' : 'bg-slate-300'
                   }`}
                 >
                   <span
@@ -320,7 +320,7 @@ const WeeklyTemplateEditor = () => {
                     <select
                       value={day.startTime}
                       onChange={(e) => handleTimeChange(day.dayOfWeek, 'startTime', e.target.value)}
-                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     >
                       {TIME_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -330,7 +330,7 @@ const WeeklyTemplateEditor = () => {
                     <select
                       value={day.endTime}
                       onChange={(e) => handleTimeChange(day.dayOfWeek, 'endTime', e.target.value)}
-                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="border border-slate-300 rounded px-2 py-1.5 text-sm flex-1 min-w-0 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     >
                       {TIME_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -346,13 +346,13 @@ const WeeklyTemplateEditor = () => {
               {day.isActive && (
                 <div className="mt-3 ml-[76px] p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-[#009ea5] flex-shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                     <span className="text-xs font-medium text-slate-600 flex-shrink-0">Starting from:</span>
                     {savedLocations.length > 0 ? (
                       <select
                         value={day.anchor.locationId || ''}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
-                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#009ea5] focus:border-[#009ea5] ${
+                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
                           !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-slate-200'
                         }`}
                       >
@@ -382,7 +382,7 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.startTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#009ea5]"
+                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#B07A4E]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -392,7 +392,7 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.endTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#009ea5]"
+                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#B07A4E]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -414,7 +414,7 @@ const WeeklyTemplateEditor = () => {
             className={`inline-flex items-center px-6 py-2.5 rounded-lg text-white font-medium transition-colors ${
               saving
                 ? 'bg-slate-400 cursor-not-allowed'
-                : 'bg-[#009ea5] hover:bg-[#008a91]'
+                : 'bg-[#B07A4E] hover:bg-[#8A5D36]'
             }`}
           >
             {saving ? (

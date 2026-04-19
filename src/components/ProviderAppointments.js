@@ -142,7 +142,7 @@ const ProviderAppointments = () => {
           <div className="flex-1">
             {/* Recipient name */}
             <div className="flex items-center gap-2 mb-1">
-              <UserIcon className="w-4 h-4 text-[#009ea5]" />
+              <UserIcon className="w-4 h-4 text-[#B07A4E]" />
               <span className="text-sm text-slate-500">Massage Recipient</span>
             </div>
             <div className="flex items-center gap-2 mb-1">
@@ -217,7 +217,7 @@ const ProviderAppointments = () => {
             {appointment.status === 'pending' && (
               <button
                 onClick={() => handleStatusUpdate(appointment._id, 'confirmed')}
-                className="inline-flex items-center px-3 py-2 bg-[#009ea5] text-white text-sm font-medium rounded-xl hover:bg-[#008a91] transition-all duration-200"
+                className="inline-flex items-center px-3 py-2 bg-[#B07A4E] text-white text-sm font-medium rounded-xl hover:bg-[#8A5D36] transition-all duration-200"
               >
                 <CheckCircle className="w-4 h-4 mr-1.5" />
                 Confirm
@@ -330,7 +330,7 @@ const ProviderAppointments = () => {
                 <div className="mt-8">
                   <button
                     onClick={() => setShowPastAppointments(!showPastAppointments)}
-                    className="text-[#009ea5] hover:text-[#2c5f60] font-medium"
+                    className="text-[#B07A4E] hover:text-[#8A5D36] font-medium"
                   >
                     {showPastAppointments ? 'Hide' : 'Show'} Past Appointments ({pastAppointments.length})
                   </button>

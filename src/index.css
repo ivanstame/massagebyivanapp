@@ -2,31 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  .content-wrapper {
-    padding-left: 50px; /* Adjust based on your menu button size */
-    transition: padding-left 0.3s ease-in-out;
-  }
-  
-  .mobile-menu.open + .content-wrapper {
-    padding-left: 250px; /* Should match your menu width */
-  }
+/* ──────────────────────────────────────────────────────────────
+   Avayble — Atelier design tokens
+   Cream paper, copper accent, serif-led luxury concierge palette.
+   Tokens are also exposed as CSS variables for hand-rolled styles.
+   ────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg:       #F6F1E8;
+  --bg-elev:  #FBF7EF;
+  --bg-deep:  #EDE5D5;
 
-  /* Hide scrollbar but keep functionality */
+  /* Ink */
+  --ink:      #2A2520;
+  --ink-2:    #5B534B;
+  --ink-3:    #8D857B;
+
+  /* Lines */
+  --line:     rgba(42,37,32,0.12);
+  --line-2:   rgba(42,37,32,0.06);
+
+  /* Accent (copper) */
+  --accent:       #B07A4E;
+  --accent-ink:   #8A5D36;
+  --accent-soft:  rgba(176,122,78,0.12);
+  --accent-glow:  rgba(176,122,78,0.22);
+
+  /* Supporting teal (quieter role than before) */
+  --teal:      #1B7F84;
+  --teal-soft: rgba(27,127,132,0.10);
+
+  /* Type stacks */
+  --font-display:  'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-serif:    'Fraunces', 'Source Serif Pro', Georgia, serif;
+  --font-sans:     'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /* Shadows, radii */
+  --shadow-sm: 0 1px 2px rgba(42,37,32,0.04), 0 1px 3px rgba(42,37,32,0.04);
+  --shadow-md: 0 4px 14px rgba(42,37,32,0.06), 0 1px 3px rgba(42,37,32,0.04);
+  --shadow-lg: 0 18px 48px rgba(42,37,32,0.10), 0 2px 6px rgba(42,37,32,0.05);
+  --radius-card: 14px;
+  --radius-btn:  10px;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Display typography — headings default to the serif */
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* Meta / eyebrow text (uppercase mono label) */
+.av-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.av-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Subtle paper texture — can be applied to hero areas */
+.av-paper {
+  background-image:
+    radial-gradient(rgba(42,37,32,0.025) 1px, transparent 1px),
+    radial-gradient(rgba(42,37,32,0.018) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 2px;
+}
+
+.content-wrapper {
+  padding-left: 50px;
+  transition: padding-left 0.3s ease-in-out;
+}
+
+.mobile-menu.open + .content-wrapper {
+  padding-left: 250px;
+}
+
+/* Hide scrollbar but keep functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
+  display: none;
 }

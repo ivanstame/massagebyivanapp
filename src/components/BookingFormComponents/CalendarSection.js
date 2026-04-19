@@ -23,7 +23,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availabl
           <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center">
             <div className="bg-white p-4 rounded-lg shadow-lg border border-sage-200">
               <div className="flex items-center space-x-2">
-                <Info className="w-5 h-5 text-[#009ea5]" />
+                <Info className="w-5 h-5 text-[#B07A4E]" />
                 <p className="text-base font-medium text-slate-700">
                   Please complete recipient and address sections first
                 </p>
@@ -40,8 +40,8 @@ const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availabl
 
       {/* Mobile-friendly date display */}
       {selectedDate && (
-        <div className="mt-4 p-3 bg-[#f8f4ef] rounded-lg border border-[#009ea5]">
-          <p className="text-sm font-medium text-[#8b6b47]">
+        <div className="mt-4 p-3 bg-[#FBF7EF] rounded-lg border border-[#B07A4E]">
+          <p className="text-sm font-medium text-[#8A5D36]">
             Selected: {selectedDate.toLocaleDateString('en-US', { 
               weekday: 'long', 
               year: 'numeric', 

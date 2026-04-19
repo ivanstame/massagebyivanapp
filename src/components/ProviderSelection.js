@@ -120,7 +120,7 @@ const ProviderSelection = () => {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#009ea5] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B07A4E] mx-auto mb-4"></div>
           <p className="text-slate-600">Loading available providers...</p>
         </div>
       </div>
@@ -138,7 +138,7 @@ const ProviderSelection = () => {
           <p className="text-slate-600 mb-6 text-center">{error}</p>
           <button
             onClick={fetchAvailableProviders}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
           >
             Try Again
           </button>
@@ -164,7 +164,7 @@ const ProviderSelection = () => {
           </p>
           <button
             onClick={handleContinueToDashboard}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
           >
             Continue to Dashboard
           </button>
@@ -189,7 +189,7 @@ const ProviderSelection = () => {
           </p>
           <button
             onClick={handleContinueToDashboard}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60]"
+            className="w-full py-2 px-4 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
           >
             Continue to Dashboard
           </button>
@@ -218,7 +218,7 @@ const ProviderSelection = () => {
               setRequestStatus(null);
               setSelectedProvider(null);
             }}
-            className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] mb-4"
+            className="w-full py-2 px-4 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] mb-4"
           >
             Choose Another Provider
           </button>
@@ -231,7 +231,7 @@ const ProviderSelection = () => {
     <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-4 bg-[#009ea5] rounded-full mb-4">
+          <div className="inline-flex items-center justify-center p-4 bg-[#B07A4E] rounded-full mb-4">
             <Users className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-3xl font-normal text-slate-800 mb-2">Choose Your Massage Provider</h1>
@@ -252,12 +252,12 @@ const ProviderSelection = () => {
               key={provider.id}
               className={`bg-white rounded-lg shadow-md p-6 border-2 transition-all ${
                 selectedProvider?.id === provider.id
-                  ? 'border-[#009ea5] bg-[#009ea5]/5'
-                  : 'border-transparent hover:border-[#009ea5] hover:bg-[#009ea5]/5'
+                  ? 'border-[#B07A4E] bg-[#B07A4E]/5'
+                  : 'border-transparent hover:border-[#B07A4E] hover:bg-[#B07A4E]/5'
               }`}
             >
               <div className="text-center">
-                <div className="w-16 h-16 bg-[#009ea5] rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-[#B07A4E] rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserCheck className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-lg font-medium text-slate-800 mb-2">
@@ -267,7 +267,7 @@ const ProviderSelection = () => {
                 <button
                   onClick={() => handleProviderSelect(provider)}
                   disabled={isLoading}
-                  className="w-full py-2 px-4 bg-[#009ea5] text-white rounded-lg hover:bg-[#2c5f60] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2 px-4 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading && selectedProvider?.id === provider.id ? (
                     <div className="flex items-center justify-center">

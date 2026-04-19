@@ -69,7 +69,7 @@ const Home = () => {
 
         {/* Next Appointment Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-          <div className="px-6 py-4 bg-gradient-to-r from-[#009ea5] to-[#007a80]">
+          <div className="px-6 py-4 bg-gradient-to-r from-[#B07A4E] to-[#007a80]">
             <h2 className="text-white font-semibold text-lg">Next Appointment</h2>
           </div>
           <div className="p-6">
@@ -85,11 +85,11 @@ const Home = () => {
                   return (
                     <>
                       <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-[#009ea5]" />
+                        <Calendar className="w-5 h-5 text-[#B07A4E]" />
                         <span className="text-slate-900 font-medium">{day}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Clock className="w-5 h-5 text-[#009ea5]" />
+                        <Clock className="w-5 h-5 text-[#B07A4E]" />
                         <span className="text-slate-700">{time} — {nextBooking.duration} minutes</span>
                       </div>
                     </>
@@ -97,13 +97,13 @@ const Home = () => {
                 })()}
                 {nextBooking.location?.address && (
                   <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-[#009ea5]" />
+                    <MapPin className="w-5 h-5 text-[#B07A4E]" />
                     <span className="text-slate-700">{nextBooking.location.address}</span>
                   </div>
                 )}
                 <Link
                   to={`/appointments/${nextBooking._id}`}
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#009ea5] hover:text-[#008a91] transition-colors"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36] transition-colors"
                 >
                   View details <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -113,7 +113,7 @@ const Home = () => {
                 <p className="text-slate-500">No upcoming appointments</p>
                 <Link
                   to="/book"
-                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#009ea5] hover:text-[#008a91] transition-colors"
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36] transition-colors"
                 >
                   Book your next session <ArrowRight className="w-4 h-4" />
                 </Link>
@@ -126,10 +126,10 @@ const Home = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             to="/book"
-            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 hover:-translate-y-0.5 transition-all duration-200"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#B07A4E]/30 hover:-translate-y-0.5 transition-all duration-200"
           >
-            <div className="bg-[#009ea5]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#009ea5]/20 transition-colors">
-              <Calendar className="w-6 h-6 text-[#009ea5]" />
+            <div className="bg-[#B07A4E]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#B07A4E]/20 transition-colors">
+              <Calendar className="w-6 h-6 text-[#B07A4E]" />
             </div>
             <h3 className="font-semibold text-slate-900 mb-1">Book Appointment</h3>
             <p className="text-sm text-slate-500">Schedule your next massage session</p>
@@ -137,10 +137,10 @@ const Home = () => {
 
           <Link
             to="/my-bookings"
-            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#009ea5]/30 hover:-translate-y-0.5 transition-all duration-200"
+            className="group bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#B07A4E]/30 hover:-translate-y-0.5 transition-all duration-200"
           >
-            <div className="bg-[#009ea5]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#009ea5]/20 transition-colors">
-              <Clock className="w-6 h-6 text-[#009ea5]" />
+            <div className="bg-[#B07A4E]/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#B07A4E]/20 transition-colors">
+              <Clock className="w-6 h-6 text-[#B07A4E]" />
             </div>
             <h3 className="font-semibold text-slate-900 mb-1">My Appointments</h3>
             <p className="text-sm text-slate-500">View and manage your bookings</p>

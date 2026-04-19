@@ -5,19 +5,19 @@ import { AuthContext } from '../AuthContext';
 const ProgressIndicator = ({ currentStep }) => (
   <div className="mb-8 w-full max-w-2xl">
     <div className="flex justify-between mb-2">
-      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
         Account
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
         Profile
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#009ea5]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
         Preferences
       </div>
     </div>
     <div className="h-1 bg-slate-100 rounded-full">
       <div 
-        className="h-full bg-[#009ea5] rounded-full transition-all duration-500"
+        className="h-full bg-[#B07A4E] rounded-full transition-all duration-500"
         style={{ width: `${(currentStep / 3) * 100}%` }}
       />
     </div>
@@ -135,7 +135,7 @@ const ClientPreferences = () => {
               <select
                 value={preferences.primaryArea}
                 onChange={(e) => handleChange('primaryArea', e.target.value)}
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009ea5]"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
               >
                 <option value="">Select an area</option>
                 <option value="neck_shoulders">Neck & Shoulders</option>
@@ -159,7 +159,7 @@ const ClientPreferences = () => {
                       value={level}
                       checked={preferences.pressureLevel === level}
                       onChange={(e) => handleChange('pressureLevel', e.target.value)}
-                      className="form-radio h-4 w-4 text-[#009ea5]"
+                      className="form-radio h-4 w-4 text-[#B07A4E]"
                     />
                     <span className="ml-2 text-slate-700 capitalize">{level}</span>
                   </label>
@@ -175,7 +175,7 @@ const ClientPreferences = () => {
                 value={preferences.notes}
                 onChange={(e) => handleChange('notes', e.target.value)}
                 placeholder="Any specific instructions or concerns for your therapist..."
-                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#009ea5] h-24"
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] h-24"
               />
             </div>
 
@@ -192,7 +192,7 @@ const ClientPreferences = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-6 py-3 rounded-lg bg-[#009ea5] hover:bg-[#2c5f60] text-white font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5] disabled:opacity-50"
+                className="px-6 py-3 rounded-lg bg-[#B07A4E] hover:bg-[#8A5D36] text-white font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E] disabled:opacity-50"
               >
                 {isLoading ? 'Saving...' : 'Save Preferences'}
               </button>

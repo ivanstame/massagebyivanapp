@@ -178,7 +178,7 @@ const ProviderClientDetails = () => {
           </button>
           <button
             onClick={handleUpdateNotes}
-            className="px-4 py-2 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]"
+            className="px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
           >
             Save Notes
           </button>
@@ -285,12 +285,12 @@ const ProviderClientDetails = () => {
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
           <h2 className="text-lg font-medium text-slate-900 mb-4">Client Statistics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[#009ea5]/10 p-4 rounded-lg">
+            <div className="bg-[#B07A4E]/10 p-4 rounded-lg">
               <div className="flex items-center mb-2">
-                <Calendar className="w-5 h-5 text-[#009ea5] mr-2" />
-                <h3 className="text-sm font-medium text-[#8b6b47]">Total Sessions</h3>
+                <Calendar className="w-5 h-5 text-[#B07A4E] mr-2" />
+                <h3 className="text-sm font-medium text-[#8A5D36]">Total Sessions</h3>
               </div>
-              <p className="text-2xl font-bold text-[#8b6b47]">{stats.totalAppointments}</p>
+              <p className="text-2xl font-bold text-[#8A5D36]">{stats.totalAppointments}</p>
             </div>
             
             <div className="bg-green-50 p-4 rounded-lg">
@@ -325,7 +325,7 @@ const ProviderClientDetails = () => {
             <h2 className="text-lg font-medium text-slate-900">Client Notes</h2>
             <button
               onClick={() => setShowEditNotes(true)}
-              className="text-[#009ea5] hover:text-[#2c5f60] flex items-center"
+              className="text-[#B07A4E] hover:text-[#8A5D36] flex items-center"
             >
               <Edit className="w-4 h-4 mr-1" />
               Edit Notes
@@ -366,7 +366,7 @@ const ProviderClientDetails = () => {
             <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
             <button
               onClick={() => navigate('/provider/calendar')}
-              className="text-[#009ea5] hover:text-[#2c5f60]"
+              className="text-[#B07A4E] hover:text-[#8A5D36]"
             >
               Schedule New
             </button>

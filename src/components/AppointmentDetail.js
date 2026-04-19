@@ -158,14 +158,14 @@ const AppointmentDetail = () => {
           {/* Date & Time */}
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-[#009ea5]" />
+              <Calendar className="w-5 h-5 text-[#B07A4E]" />
               <div>
                 <p className="text-sm text-slate-500">Date</p>
                 <p className="font-medium text-slate-900">{formatDate(booking.localDate)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-[#009ea5]" />
+              <Clock className="w-5 h-5 text-[#B07A4E]" />
               <div>
                 <p className="text-sm text-slate-500">Time</p>
                 <p className="font-medium text-slate-900">
@@ -182,7 +182,7 @@ const AppointmentDetail = () => {
             {isProvider && booking.recipientType === 'other' && booking.recipientInfo ? (
               <>
                 <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-[#009ea5]" />
+                  <User className="w-5 h-5 text-[#B07A4E]" />
                   <div>
                     <p className="text-sm text-slate-500">Massage Recipient</p>
                     <p className="font-medium text-slate-900">{booking.recipientInfo.name}</p>
@@ -190,10 +190,10 @@ const AppointmentDetail = () => {
                 </div>
                 {booking.recipientInfo.phone && (
                   <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-[#009ea5]" />
+                    <Phone className="w-5 h-5 text-[#B07A4E]" />
                     <div>
                       <p className="text-sm text-slate-500">Recipient Phone</p>
-                      <a href={`tel:${booking.recipientInfo.phone}`} className="font-medium text-[#009ea5] hover:underline">
+                      <a href={`tel:${booking.recipientInfo.phone}`} className="font-medium text-[#B07A4E] hover:underline">
                         {booking.recipientInfo.phone}
                       </a>
                     </div>
@@ -207,7 +207,7 @@ const AppointmentDetail = () => {
                   </p>
                   {otherParty?.profile?.phoneNumber && (
                     <p className="text-slate-500 mt-0.5">
-                      Account holder phone: <a href={`tel:${otherParty.profile.phoneNumber}`} className="text-[#009ea5] hover:underline">{otherParty.profile.phoneNumber}</a>
+                      Account holder phone: <a href={`tel:${otherParty.profile.phoneNumber}`} className="text-[#B07A4E] hover:underline">{otherParty.profile.phoneNumber}</a>
                     </p>
                   )}
                 </div>
@@ -215,7 +215,7 @@ const AppointmentDetail = () => {
             ) : (
               <>
                 <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-[#009ea5]" />
+                  <User className="w-5 h-5 text-[#B07A4E]" />
                   <div>
                     <p className="text-sm text-slate-500">{isProvider ? 'Massage Recipient' : otherPartyLabel}</p>
                     <p className="font-medium text-slate-900">
@@ -225,12 +225,12 @@ const AppointmentDetail = () => {
                 </div>
                 {otherParty?.profile?.phoneNumber && (
                   <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-[#009ea5]" />
+                    <Phone className="w-5 h-5 text-[#B07A4E]" />
                     <div>
                       <p className="text-sm text-slate-500">Phone</p>
                       <a
                         href={`tel:${otherParty.profile.phoneNumber}`}
-                        className="font-medium text-[#009ea5] hover:underline"
+                        className="font-medium text-[#B07A4E] hover:underline"
                       >
                         {otherParty.profile.phoneNumber}
                       </a>
@@ -254,7 +254,7 @@ const AppointmentDetail = () => {
           {/* Location */}
           <div className="p-4">
             <div className="flex items-center gap-3 mb-3">
-              <MapPin className="w-5 h-5 text-[#009ea5]" />
+              <MapPin className="w-5 h-5 text-[#B07A4E]" />
               <div>
                 <p className="text-sm text-slate-500">Location</p>
                 <p className="font-medium text-slate-900">{booking.location?.address || 'No address'}</p>
@@ -277,7 +277,7 @@ const AppointmentDetail = () => {
             <div className="p-4 space-y-3">
               {booking.massageType && (
                 <div className="flex items-center gap-3">
-                  <Tag className="w-5 h-5 text-[#009ea5]" />
+                  <Tag className="w-5 h-5 text-[#B07A4E]" />
                   <div>
                     <p className="text-sm text-slate-500">Massage Type</p>
                     <p className="font-medium text-slate-900">{booking.massageType.name}</p>
@@ -286,7 +286,7 @@ const AppointmentDetail = () => {
               )}
               {booking.addons && booking.addons.length > 0 && (
                 <div className="flex items-start gap-3">
-                  <Plus className="w-5 h-5 text-[#009ea5] mt-0.5" />
+                  <Plus className="w-5 h-5 text-[#B07A4E] mt-0.5" />
                   <div>
                     <p className="text-sm text-slate-500">Add-ons</p>
                     <div className="flex flex-wrap gap-1.5 mt-1">
@@ -306,7 +306,7 @@ const AppointmentDetail = () => {
           {booking.pricing && booking.pricing.totalPrice > 0 && (
             <div className="p-4">
               <div className="flex items-center gap-3">
-                <DollarSign className="w-5 h-5 text-[#009ea5]" />
+                <DollarSign className="w-5 h-5 text-[#B07A4E]" />
                 <div>
                   <p className="text-sm text-slate-500">Total Price</p>
                   <p className="font-medium text-slate-900 text-lg">${booking.pricing.totalPrice.toFixed(2)}</p>
@@ -323,7 +323,7 @@ const AppointmentDetail = () => {
           {/* Payment */}
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
-              <Banknote className="w-5 h-5 text-[#009ea5]" />
+              <Banknote className="w-5 h-5 text-[#B07A4E]" />
               <div>
                 <p className="text-sm text-slate-500">Payment Method</p>
                 <p className="font-medium text-slate-900">{paymentMethodLabel(booking.paymentMethod)}</p>
@@ -366,7 +366,7 @@ const AppointmentDetail = () => {
               <button
                 onClick={() => handleStatusUpdate('confirmed')}
                 disabled={updatingStatus}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-[#009ea5] text-white rounded-lg font-medium hover:bg-[#008a91] disabled:opacity-50 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-[#B07A4E] text-white rounded-lg font-medium hover:bg-[#8A5D36] disabled:opacity-50 transition-colors"
               >
                 {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 Confirm

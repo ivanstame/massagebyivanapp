@@ -77,7 +77,7 @@ const Header = () => {
               const isExternal = link.href.startsWith('/privacy-policy');
               const classes = `${
                 isActive(link.href)
-                  ? 'border-[#009ea5] text-[#009ea5]'
+                  ? 'border-[#B07A4E] text-[#B07A4E]'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors`;
 
@@ -98,7 +98,7 @@ const Header = () => {
                     to="/my-profile"
                     className={`${
                       isActive('/my-profile')
-                        ? 'border-[#009ea5] text-[#009ea5]'
+                        ? 'border-[#B07A4E] text-[#B07A4E]'
                         : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                     } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors`}
                   >
@@ -107,7 +107,7 @@ const Header = () => {
                 )}
                 <button
                   onClick={handleLogout}
-                  className="ml-2 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#009ea5] hover:bg-[#008a91] transition-colors shadow-sm"
+                  className="ml-2 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#B07A4E] hover:bg-[#8A5D36] transition-colors shadow-sm"
                 >
                   Logout
                 </button>
@@ -119,7 +119,7 @@ const Header = () => {
           <div className="sm:hidden flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:ring-offset-2"
+              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:ring-offset-2"
             >
               <span className="sr-only">Open main menu</span>
               {!mobileMenuOpen ? (
@@ -143,7 +143,7 @@ const Header = () => {
             const isExternal = link.href.startsWith('/privacy-policy');
             const classes = `${
               isActive(link.href)
-                ? 'bg-teal-50 border-[#009ea5] text-[#009ea5]'
+                ? 'bg-teal-50 border-[#B07A4E] text-[#B07A4E]'
                 : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-800'
             } block pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors`;
 
@@ -164,7 +164,7 @@ const Header = () => {
                   to="/my-profile"
                   className={`${
                     isActive('/my-profile')
-                      ? 'bg-teal-50 border-[#009ea5] text-[#009ea5]'
+                      ? 'bg-teal-50 border-[#B07A4E] text-[#B07A4E]'
                       : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   } block pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors`}
                   onClick={() => setMobileMenuOpen(false)}

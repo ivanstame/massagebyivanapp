@@ -196,7 +196,7 @@ const ProviderServices = () => {
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-[#009ea5]" />
+              <DollarSign className="w-5 h-5 text-[#B07A4E]" />
               <h3 className="font-medium text-slate-900">Session Pricing</h3>
             </div>
           </div>
@@ -213,7 +213,7 @@ const ProviderServices = () => {
                     <select
                       value={tier.duration}
                       onChange={(e) => handlePricingChange(index, 'duration', Number(e.target.value))}
-                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     >
                       {[30, 45, 60, 75, 90, 120, 150, 180].map(d => (
                         <option key={d} value={d}>{d} min</option>
@@ -227,7 +227,7 @@ const ProviderServices = () => {
                       min="0"
                       value={tier.price}
                       onChange={(e) => handlePricingChange(index, 'price', e.target.value)}
-                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
                   </div>
                   <div>
@@ -237,7 +237,7 @@ const ProviderServices = () => {
                       value={tier.label || ''}
                       onChange={(e) => handlePricingChange(index, 'label', e.target.value)}
                       placeholder={`${tier.duration} Minutes`}
-                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
                   </div>
                 </div>
@@ -253,7 +253,7 @@ const ProviderServices = () => {
 
           <button
             onClick={handleAddPricingTier}
-            className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#009ea5] hover:text-[#009ea5] transition-colors"
+            className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Duration
@@ -264,7 +264,7 @@ const ProviderServices = () => {
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#009ea5]" />
+              <Plus className="w-5 h-5 text-[#B07A4E]" />
               <h3 className="font-medium text-slate-900">Add-on Services</h3>
             </div>
           </div>
@@ -296,7 +296,7 @@ const ProviderServices = () => {
                       title={addon.isActive ? 'Disable add-on' : 'Enable add-on'}
                     >
                       {addon.isActive ? (
-                        <ToggleRight className="w-6 h-6 text-[#009ea5]" />
+                        <ToggleRight className="w-6 h-6 text-[#B07A4E]" />
                       ) : (
                         <ToggleLeft className="w-6 h-6 text-slate-400" />
                       )}
@@ -310,7 +310,7 @@ const ProviderServices = () => {
                           value={addon.name}
                           onChange={(e) => handleAddonFieldChange(index, 'name', e.target.value)}
                           placeholder="Service name"
-                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm font-medium focus:ring-[#009ea5] focus:border-[#009ea5]"
+                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -322,7 +322,7 @@ const ProviderServices = () => {
                               min="0"
                               value={addon.price}
                               onChange={(e) => handleAddonFieldChange(index, 'price', e.target.value)}
-                              className="w-full border border-slate-200 rounded pl-6 pr-2 py-1.5 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                              className="w-full border border-slate-200 rounded pl-6 pr-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                             />
                           </div>
                         </div>
@@ -333,7 +333,7 @@ const ProviderServices = () => {
                               min="0"
                               value={addon.extraTime}
                               onChange={(e) => handleAddonFieldChange(index, 'extraTime', e.target.value)}
-                              className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                              className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                               title="Extra minutes added"
                             />
                             <span className="absolute right-2 top-1.5 text-xs text-slate-400">min</span>
@@ -346,7 +346,7 @@ const ProviderServices = () => {
                           value={addon.description || ''}
                           onChange={(e) => handleAddonFieldChange(index, 'description', e.target.value)}
                           placeholder="Brief description (shown to clients)"
-                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 focus:ring-[#009ea5] focus:border-[#009ea5]"
+                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                         />
                       </div>
                     </div>
@@ -375,7 +375,7 @@ const ProviderServices = () => {
                     value={newAddon.name}
                     onChange={(e) => setNewAddon(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. TheraGun, Hot Stone"
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                   />
                 </div>
                 <div className="flex gap-3">
@@ -387,7 +387,7 @@ const ProviderServices = () => {
                       value={newAddon.price}
                       onChange={(e) => setNewAddon(prev => ({ ...prev, price: e.target.value }))}
                       placeholder="10"
-                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
                   </div>
                   <div className="w-24">
@@ -398,7 +398,7 @@ const ProviderServices = () => {
                       value={newAddon.extraTime}
                       onChange={(e) => setNewAddon(prev => ({ ...prev, extraTime: e.target.value }))}
                       placeholder="0"
-                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
                   </div>
                 </div>
@@ -410,7 +410,7 @@ const ProviderServices = () => {
                   value={newAddon.description}
                   onChange={(e) => setNewAddon(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Percussive therapy for deep muscle relief"
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                 />
               </div>
               <div className="flex gap-2 justify-end">
@@ -422,7 +422,7 @@ const ProviderServices = () => {
                 </button>
                 <button
                   onClick={handleAddAddon}
-                  className="px-4 py-1.5 text-sm bg-[#009ea5] text-white rounded hover:bg-[#008a91] font-medium"
+                  className="px-4 py-1.5 text-sm bg-[#B07A4E] text-white rounded hover:bg-[#8A5D36] font-medium"
                 >
                   Add Service
                 </button>
@@ -431,7 +431,7 @@ const ProviderServices = () => {
           ) : (
             <button
               onClick={() => setShowAddAddon(true)}
-              className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#009ea5] hover:text-[#009ea5] transition-colors"
+              className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
             >
               <Plus className="w-4 h-4" />
               Add Service
@@ -445,7 +445,7 @@ const ProviderServices = () => {
             onClick={handleSave}
             disabled={saving}
             className={`inline-flex items-center px-6 py-2.5 rounded-lg text-white font-medium transition-colors ${
-              saving ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#009ea5] hover:bg-[#008a91]'
+              saving ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#B07A4E] hover:bg-[#8A5D36]'
             }`}
           >
             {saving ? 'Saving...' : (

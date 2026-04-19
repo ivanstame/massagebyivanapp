@@ -143,7 +143,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 id="startTime"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#009ea5] focus:border-transparent"
+                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
               >
                 {generateTimeOptions()}
               </select>
@@ -156,7 +156,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 id="endTime"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#009ea5] focus:border-transparent"
+                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
               >
                 {generateTimeOptions()}
               </select>
@@ -171,7 +171,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-2">
-                <Navigation className="w-4 h-4 text-[#009ea5]" />
+                <Navigation className="w-4 h-4 text-[#B07A4E]" />
                 <div>
                   <p className="text-sm font-medium text-slate-700">Departure Location</p>
                   <p className="text-xs text-slate-500">
@@ -195,14 +195,14 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 {/* Home base option */}
                 {homeBase && (
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'homebase' ? 'border-[#009ea5] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                    departureMode === 'homebase' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
                   }`}>
                     <input
                       type="radio"
                       name="departure"
                       checked={departureMode === 'homebase'}
                       onChange={() => setDepartureMode('homebase')}
-                      className="mt-1 text-[#009ea5] focus:ring-[#009ea5]"
+                      className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
                     />
                     <div>
                       <p className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
@@ -225,14 +225,14 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 {/* Saved locations */}
                 {nonHomeSavedLocations.length > 0 && (
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'saved' ? 'border-[#009ea5] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                    departureMode === 'saved' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
                   }`}>
                     <input
                       type="radio"
                       name="departure"
                       checked={departureMode === 'saved'}
                       onChange={() => setDepartureMode('saved')}
-                      className="mt-1 text-[#009ea5] focus:ring-[#009ea5]"
+                      className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
                     />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-slate-900">Saved Location</p>
@@ -240,7 +240,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                         <select
                           value={selectedLocationId || ''}
                           onChange={(e) => setSelectedLocationId(e.target.value)}
-                          className="mt-2 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#009ea5] focus:border-transparent"
+                          className="mt-2 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
                         >
                           <option value="">Choose a location...</option>
                           {nonHomeSavedLocations.map(loc => (
@@ -254,14 +254,14 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
 
                 {/* Pin drop */}
                 <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  departureMode === 'pin' ? 'border-[#009ea5] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                  departureMode === 'pin' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
                 }`}>
                   <input
                     type="radio"
                     name="departure"
                     checked={departureMode === 'pin'}
                     onChange={() => setDepartureMode('pin')}
-                    className="mt-1 text-[#009ea5] focus:ring-[#009ea5]"
+                    className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-900">Drop a Pin</p>
@@ -297,7 +297,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2.5 bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91] transition-colors font-medium"
+              className="px-4 py-2.5 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] transition-colors font-medium"
             >
               Add Availability
             </button>

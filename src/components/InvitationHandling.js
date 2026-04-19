@@ -67,7 +67,7 @@ const InvitationHandling = () => {
       case 'loading':
         return (
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#009ea5] mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B07A4E] mx-auto"></div>
             <p className="mt-4 text-slate-600">Verifying invitation...</p>
           </div>
         );
@@ -107,7 +107,7 @@ const InvitationHandling = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#009ea5]"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
 
@@ -120,7 +120,7 @@ const InvitationHandling = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#009ea5]"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
 
@@ -135,8 +135,8 @@ const InvitationHandling = () => {
 
               <button
                 type="submit"
-                className="w-full py-2 bg-[#009ea5] text-white rounded-lg 
-                  hover:bg-[#2c5f60] transition-colors"
+                className="w-full py-2 bg-[#B07A4E] text-white rounded-lg 
+                  hover:bg-[#8A5D36] transition-colors"
               >
                 Create Account
               </button>
@@ -147,7 +147,7 @@ const InvitationHandling = () => {
                 Already have an account?{' '}
                 <button
                   onClick={() => navigate('/login')}
-                  className="text-[#009ea5] hover:underline"
+                  className="text-[#B07A4E] hover:underline"
                 >
                   Sign in
                 </button>
@@ -170,8 +170,8 @@ const InvitationHandling = () => {
             </p>
             <button
               onClick={() => navigate('/login')}
-              className="mt-6 inline-flex items-center px-4 py-2 bg-[#009ea5] 
-                text-white rounded-lg hover:bg-[#2c5f60]"
+              className="mt-6 inline-flex items-center px-4 py-2 bg-[#B07A4E] 
+                text-white rounded-lg hover:bg-[#8A5D36]"
             >
               <LogIn className="w-4 h-4 mr-2" />
               Return to Login

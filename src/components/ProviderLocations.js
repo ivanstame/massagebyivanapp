@@ -242,7 +242,7 @@ const ProviderLocations = () => {
                   onClick={() => setAddMode('pin')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-colors ${
                     addMode === 'pin'
-                      ? 'bg-[#009ea5] text-white'
+                      ? 'bg-[#B07A4E] text-white'
                       : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                   }`}
                 >
@@ -254,7 +254,7 @@ const ProviderLocations = () => {
                   onClick={() => setAddMode('address')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-colors ${
                     addMode === 'address'
-                      ? 'bg-[#009ea5] text-white'
+                      ? 'bg-[#B07A4E] text-white'
                       : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                   }`}
                 >
@@ -273,7 +273,7 @@ const ProviderLocations = () => {
                   value={newLocation.name}
                   onChange={(e) => setNewLocation(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g. Peters Chiropractic, Gold's Gym HB"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                 />
               </div>
 
@@ -303,7 +303,7 @@ const ProviderLocations = () => {
                       value={newLocation.street}
                       onChange={(e) => setNewLocation(prev => ({ ...prev, street: e.target.value }))}
                       placeholder="123 Main St"
-                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
                   </div>
                   <div className="grid grid-cols-6 gap-3">
@@ -314,7 +314,7 @@ const ProviderLocations = () => {
                         value={newLocation.city}
                         onChange={(e) => setNewLocation(prev => ({ ...prev, city: e.target.value }))}
                         placeholder="Huntington Beach"
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                       />
                     </div>
                     <div className="col-span-1">
@@ -322,7 +322,7 @@ const ProviderLocations = () => {
                       <select
                         value={newLocation.state}
                         onChange={(e) => setNewLocation(prev => ({ ...prev, state: e.target.value }))}
-                        className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                        className="w-full border border-slate-300 rounded-lg px-2 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                       >
                         <option value="">--</option>
                         {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -336,7 +336,7 @@ const ProviderLocations = () => {
                         onChange={(e) => setNewLocation(prev => ({ ...prev, zip: e.target.value }))}
                         placeholder="92648"
                         maxLength={5}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#009ea5] focus:border-[#009ea5]"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                       />
                     </div>
                   </div>
@@ -349,7 +349,7 @@ const ProviderLocations = () => {
                   type="checkbox"
                   checked={newLocation.isHomeBase}
                   onChange={(e) => setNewLocation(prev => ({ ...prev, isHomeBase: e.target.checked }))}
-                  className="rounded border-slate-300 text-[#009ea5] focus:ring-[#009ea5]"
+                  className="rounded border-slate-300 text-[#B07A4E] focus:ring-[#B07A4E]"
                 />
                 This is my home base
               </label>
@@ -370,7 +370,7 @@ const ProviderLocations = () => {
                 <button
                   type="submit"
                   disabled={geocoding}
-                  className="px-4 py-2 text-sm bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91] disabled:bg-slate-400 font-medium"
+                  className="px-4 py-2 text-sm bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] disabled:bg-slate-400 font-medium"
                 >
                   {geocoding ? 'Saving...' : 'Save Location'}
                 </button>
@@ -380,7 +380,7 @@ const ProviderLocations = () => {
         ) : (
           <button
             onClick={() => setShowAddForm(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#009ea5] hover:text-[#009ea5] transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Location

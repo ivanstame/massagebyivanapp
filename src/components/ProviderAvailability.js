@@ -41,10 +41,10 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
       {/* Home base */}
       {homeBase && (
         <label className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-          mode === 'homebase' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+          mode === 'homebase' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
         }`}>
           <input type="radio" name="dep" checked={mode === 'homebase'} onChange={() => setMode('homebase')}
-            className="text-[#009ea5] focus:ring-[#009ea5]" />
+            className="text-[#B07A4E] focus:ring-[#B07A4E]" />
           <MapPin className="w-3.5 h-3.5 text-slate-500" />
           <span className="truncate">Home Base — {homeBase.address}</span>
         </label>
@@ -53,15 +53,15 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
       {/* Saved locations */}
       {nonHome.length > 0 && (
         <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-          mode === 'saved' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+          mode === 'saved' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
         }`}>
           <input type="radio" name="dep" checked={mode === 'saved'} onChange={() => setMode('saved')}
-            className="mt-0.5 text-[#009ea5] focus:ring-[#009ea5]" />
+            className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]" />
           <div className="flex-1 min-w-0">
             <span>Saved Location</span>
             {mode === 'saved' && (
               <select value={selectedLocId} onChange={(e) => setSelectedLocId(e.target.value)}
-                className="mt-1 w-full border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-[#009ea5]">
+                className="mt-1 w-full border border-slate-300 rounded-lg p-1.5 text-sm focus:ring-2 focus:ring-[#B07A4E]">
                 <option value="">Choose...</option>
                 {nonHome.map(loc => (
                   <option key={loc._id} value={loc._id}>{loc.name}</option>
@@ -74,10 +74,10 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
 
       {/* Pin drop */}
       <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-        mode === 'pin' ? 'bg-teal-50 border border-[#009ea5]' : 'hover:bg-slate-50'
+        mode === 'pin' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
       }`}>
         <input type="radio" name="dep" checked={mode === 'pin'} onChange={() => { setMode('pin'); setShowMap(true); }}
-          className="mt-0.5 text-[#009ea5] focus:ring-[#009ea5]" />
+          className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]" />
         <div className="flex-1">
           <span>Drop a Pin</span>
           {mode === 'pin' && showMap && (
@@ -95,7 +95,7 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
         <button onClick={onCancel} className="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
           Cancel
         </button>
-        <button onClick={handleSave} className="px-3 py-1.5 text-sm bg-[#009ea5] text-white rounded-lg hover:bg-[#008a91]">
+        <button onClick={handleSave} className="px-3 py-1.5 text-sm bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]">
           Update
         </button>
       </div>
@@ -586,8 +586,8 @@ const formatTime = useCallback((time) => {
             </button>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 bg-[#009ea5] text-white
-                rounded-lg hover:bg-[#008a91] transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-[#B07A4E] text-white
+                rounded-lg hover:bg-[#8A5D36] transition-colors"
             >
               <Clock className="w-5 h-5 mr-2" />
               Add Availability
@@ -620,7 +620,7 @@ const formatTime = useCallback((time) => {
                   onClick={() => setActiveTab('timeline')}
                   className={`${
                     activeTab === 'timeline'
-                      ? 'border-[#009ea5] text-[#009ea5]'
+                      ? 'border-[#B07A4E] text-[#B07A4E]'
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
                 >
@@ -631,7 +631,7 @@ const formatTime = useCallback((time) => {
                   onClick={() => setActiveTab('list')}
                   className={`${
                     activeTab === 'list'
-                      ? 'border-[#009ea5] text-[#009ea5]'
+                      ? 'border-[#B07A4E] text-[#B07A4E]'
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
                 >
@@ -646,7 +646,7 @@ const formatTime = useCallback((time) => {
               <div className="mb-4">
                 <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Navigation className="w-4 h-4 text-[#009ea5] flex-shrink-0" />
+                    <Navigation className="w-4 h-4 text-[#B07A4E] flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">Departure location</p>
                       <p className="text-sm font-medium text-slate-900 truncate">
@@ -656,7 +656,7 @@ const formatTime = useCallback((time) => {
                   </div>
                   <button
                     onClick={() => setShowDepartureEditor(!showDepartureEditor)}
-                    className="text-xs font-medium text-[#009ea5] hover:text-[#008a91] whitespace-nowrap ml-2"
+                    className="text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] whitespace-nowrap ml-2"
                   >
                     Change
                   </button>
@@ -718,7 +718,7 @@ const formatTime = useCallback((time) => {
                 onClick={() => setActiveTab('timeline')}
                 className={`flex-1 py-2 text-sm font-medium text-center ${
                   activeTab === 'timeline'
-                    ? 'text-[#009ea5] border-b-2 border-[#009ea5]'
+                    ? 'text-[#B07A4E] border-b-2 border-[#B07A4E]'
                     : 'text-slate-500'
                 }`}
               >
@@ -728,7 +728,7 @@ const formatTime = useCallback((time) => {
                 onClick={() => setActiveTab('list')}
                 className={`flex-1 py-2 text-sm font-medium text-center ${
                   activeTab === 'list'
-                    ? 'text-[#009ea5] border-b-2 border-[#009ea5]'
+                    ? 'text-[#B07A4E] border-b-2 border-[#B07A4E]'
                     : 'text-slate-500'
                 }`}
               >
@@ -741,7 +741,7 @@ const formatTime = useCallback((time) => {
             <div className="flex-shrink-0 px-4 py-2 bg-white border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Navigation className="w-3.5 h-3.5 text-[#009ea5] flex-shrink-0" />
+                  <Navigation className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                   <p className="text-xs text-slate-600 truncate">
                     <span className="text-slate-400">From: </span>
                     {currentDeparture?.address || 'Not set'}
@@ -749,7 +749,7 @@ const formatTime = useCallback((time) => {
                 </div>
                 <button
                   onClick={() => setShowDepartureEditor(!showDepartureEditor)}
-                  className="text-xs font-medium text-[#009ea5] whitespace-nowrap ml-2"
+                  className="text-xs font-medium text-[#B07A4E] whitespace-nowrap ml-2"
                 >
                   Change
                 </button>
@@ -817,8 +817,8 @@ const formatTime = useCallback((time) => {
             )}
             <button
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#009ea5] text-white p-3 rounded-full shadow-lg flex items-center justify-center
-                hover:bg-[#008a91] transition-colors duration-200"
+              className="bg-[#B07A4E] text-white p-3 rounded-full shadow-lg flex items-center justify-center
+                hover:bg-[#8A5D36] transition-colors duration-200"
               aria-label="Add Availability"
             >
               <Clock className="w-6 h-6" />

@@ -266,7 +266,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 <div
                   key={`booking-${index}`}
                   onClick={() => handleAppointmentClick(booking._id)}
-                  className="absolute left-1 right-1 bg-[#f8f4ef] border border-[#009ea5]
+                  className="absolute left-1 right-1 bg-[#FBF7EF] border border-[#B07A4E]
                    rounded-lg shadow-sm cursor-pointer transition-all duration-200
                    hover:shadow-md hover:bg-[#f0e8e0] z-20"
                   style={{
@@ -280,7 +280,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                         <span className="text-sm font-medium text-slate-700">
                           {`${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`}
                         </span>
-                        <span className="text-xs px-2 py-1 bg-[#f8f4ef] text-[#8b6b47] rounded-full">
+                        <span className="text-xs px-2 py-1 bg-[#FBF7EF] text-[#8A5D36] rounded-full">
                           {`${booking.duration} min`}
                         </span>
                       </div>

@@ -117,8 +117,8 @@ const MileageReport = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 pt-20">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[#009ea5]/10 flex items-center justify-center">
-          <Car className="w-5 h-5 text-[#009ea5]" />
+        <div className="w-10 h-10 rounded-xl bg-[#B07A4E]/10 flex items-center justify-center">
+          <Car className="w-5 h-5 text-[#B07A4E]" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mileage Report</h1>
@@ -152,7 +152,7 @@ const MileageReport = () => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
             />
           </div>
           <div className="flex-1 w-full">
@@ -161,13 +161,13 @@ const MileageReport = () => {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#009ea5] focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
             />
           </div>
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="w-full sm:w-auto bg-[#009ea5] hover:bg-[#008a91] text-white font-semibold px-6 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50"
+            className="w-full sm:w-auto bg-[#B07A4E] hover:bg-[#8A5D36] text-white font-semibold px-6 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50"
           >
             {loading ? 'Loading...' : 'Generate'}
           </button>
@@ -219,10 +219,10 @@ const MileageReport = () => {
             ].map((card, i) => (
               <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <card.icon className={`w-4 h-4 ${card.highlight ? 'text-[#009ea5]' : 'text-slate-400'}`} />
+                  <card.icon className={`w-4 h-4 ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
                   <span className="text-xs font-medium text-slate-500">{card.label}</span>
                 </div>
-                <p className={`text-xl font-bold ${card.highlight ? 'text-[#009ea5]' : 'text-slate-900'}`}>
+                <p className={`text-xl font-bold ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-900'}`}>
                   {card.value}
                 </p>
               </div>
@@ -236,7 +236,7 @@ const MileageReport = () => {
             </p>
             <button
               onClick={exportCSV}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#009ea5] border border-[#009ea5]/20 rounded-xl hover:bg-[#009ea5]/5 transition-all duration-200"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#B07A4E] border border-[#B07A4E]/20 rounded-xl hover:bg-[#B07A4E]/5 transition-all duration-200"
             >
               <Download className="w-4 h-4" />
               Export CSV
@@ -268,7 +268,7 @@ const MileageReport = () => {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <span className="text-sm font-semibold text-[#009ea5]">
+                        <span className="text-sm font-semibold text-[#B07A4E]">
                           {day.deductibleMiles.toFixed(1)} mi
                         </span>
                         {day.totalMiles !== day.deductibleMiles && (
@@ -323,7 +323,7 @@ const MileageReport = () => {
                       ))}
                       <div className="flex justify-end pt-2 border-t border-slate-100">
                         <span className="text-sm text-slate-500">
-                          Day deduction: <span className="font-semibold text-[#009ea5]">${day.deduction.toFixed(2)}</span>
+                          Day deduction: <span className="font-semibold text-[#B07A4E]">${day.deduction.toFixed(2)}</span>
                         </span>
                       </div>
                     </div>

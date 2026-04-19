@@ -117,11 +117,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {/* Calendar Header - The command center of temporal navigation */}
-        <div className="bg-[#009ea5] text-white p-4">
+        <div className="bg-[#B07A4E] text-white p-4">
           <div className="flex items-center justify-between mb-4">
             <button 
               onClick={handlePrevMonth}
-              className="text-white hover:text-[#f8f4ef] transition-colors"
+              className="text-white hover:text-[#FBF7EF] transition-colors"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -132,7 +132,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
             </h2>
             <button 
               onClick={handleNextMonth}
-              className="text-white hover:text-[#f8f4ef] transition-colors"
+              className="text-white hover:text-[#FBF7EF] transition-colors"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -142,7 +142,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
 
           <div className="grid grid-cols-7 gap-1 mb-2">
             {dayNames.map(day => (
-              <div key={day} className="text-center text-sm font-medium text-[#f8f4ef]">
+              <div key={day} className="text-center text-sm font-medium text-[#FBF7EF]">
                 {day}
               </div>
             ))}
@@ -178,15 +178,15 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
                       relative h-12 flex items-center justify-center rounded-lg
                       transition-all duration-200 ease-in-out
                       ${isPast ? 'text-slate-300 line-through bg-slate-50' : 
-                        hasSlots ? 'text-slate-700 hover:bg-[#f8f4ef]' :
+                        hasSlots ? 'text-slate-700 hover:bg-[#FBF7EF]' :
                         'text-slate-400 hover:bg-slate-50'
                       }
-                      ${isSelected ? 'ring-2 ring-[#009ea5] ring-offset-2' : ''}
+                      ${isSelected ? 'ring-2 ring-[#B07A4E] ring-offset-2' : ''}
                       ${hasSlots ? 'border-green-200' : ''}
                     `}
                   >
                   <span className={`
-                    ${isToday ? 'font-semibold text-[#8b6b47]' : ''}
+                    ${isToday ? 'font-semibold text-[#8A5D36]' : ''}
                     ${hasSlots ? 'font-medium' : 'font-normal'}
                   `}>
                     {day}

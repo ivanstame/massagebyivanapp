@@ -16,7 +16,7 @@ const AvailabilityList = ({
   
   const renderLoadingState = () => (
     <div className="text-center py-8">
-      <div className="animate-spin inline-block w-8 h-8 border-4 border-[#009ea5] border-t-transparent rounded-full mb-4" />
+      <div className="animate-spin inline-block w-8 h-8 border-4 border-[#B07A4E] border-t-transparent rounded-full mb-4" />
       <p className="text-slate-600">Loading availability data...</p>
     </div>
   );
@@ -42,13 +42,13 @@ const AvailabilityList = ({
           No availability set for this date.
         </p>
         <p className="text-sm text-slate-400 mt-1">
-          Set up a <a href="/provider/schedule-template" className="text-[#009ea5] underline">weekly template</a> to auto-fill your calendar.
+          Set up a <a href="/provider/schedule-template" className="text-[#B07A4E] underline">weekly template</a> to auto-fill your calendar.
         </p>
         <button
           onClick={onAdd}
-          className="mt-4 inline-flex items-center px-4 py-2 bg-[#009ea5] hover:bg-[#008a91] text-white rounded-lg
+          className="mt-4 inline-flex items-center px-4 py-2 bg-[#B07A4E] hover:bg-[#8A5D36] text-white rounded-lg
             transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
-            focus:ring-[#009ea5] shadow-sm"
+            focus:ring-[#B07A4E] shadow-sm"
         >
           <Clock className="w-5 h-5 mr-2" />
           Add Availability Block
@@ -112,7 +112,7 @@ const AvailabilityList = ({
                   onClick={() => onModify(block)}
                   className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
                     text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E]
                     transition-colors duration-200 ease-in-out"
                 >
                   Edit
@@ -135,9 +135,9 @@ const AvailabilityList = ({
       
       <button 
         onClick={onAdd}
-        className="w-full flex items-center justify-center px-4 py-3 bg-[#009ea5] text-white
-          rounded-lg hover:bg-[#008a91] transition-colors duration-200 ease-in-out
-          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#009ea5]
+        className="w-full flex items-center justify-center px-4 py-3 bg-[#B07A4E] text-white
+          rounded-lg hover:bg-[#8A5D36] transition-colors duration-200 ease-in-out
+          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E]
           shadow-sm"
       >
         <Clock className="w-5 h-5 mr-2" />
