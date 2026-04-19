@@ -84,7 +84,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
 
     const gcalConflicts = overlappingBlocks.filter(
-      b => b.source === 'google_calendar' && !b.overridden
+      b => b.source === 'google_calendar' && b.overridden !== true
     );
 
     const blockedTime = new BlockedTime({

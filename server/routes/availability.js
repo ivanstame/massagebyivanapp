@@ -659,7 +659,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const gcalConflicts = await BlockedTime.find({
       provider: req.user._id,
       source: 'google_calendar',
-      overridden: false,
+      overridden: { $ne: true },
       start: { $lt: endLA.toJSDate() },
       end: { $gt: startLA.toJSDate() }
     }).select('_id start end location');
@@ -887,7 +887,7 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     const gcalConflicts = await BlockedTime.find({
       provider: req.user._id,
       source: 'google_calendar',
-      overridden: false,
+      overridden: { $ne: true },
       start: { $lt: endLA.toJSDate() },
       end: { $gt: startLA.toJSDate() }
     }).select('_id start end location');
