@@ -7,6 +7,7 @@ import DaySchedule from './DaySchedule';
 import AddAvailabilityModal from './AddAvailabilityModal';
 import ModifyAvailabilityModal from './ModifyAvailabilityModal';
 import BlockOffTimeModal from './BlockOffTimeModal';
+import GoogleCalendarConflictModal from './GoogleCalendarConflictModal';
 import AvailabilityList from './AvailabilityList';
 import { Clock, Ban, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
 import { DateTime } from 'luxon';
@@ -122,6 +123,7 @@ const ProviderAvailability = () => {
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [blockOffModalOpen, setBlockOffModalOpen] = useState(false);
   const [blockOffTargetBlock, setBlockOffTargetBlock] = useState(null);
+  const [gcalConflicts, setGcalConflicts] = useState([]);
 
   // Fetch saved locations for departure editor
   useEffect(() => {
@@ -215,10 +217,15 @@ const ProviderAvailability = () => {
       const response = await axios.post('/api/availability', availabilityData, {
         withCredentials: true
       });
-      
+
       await fetchAvailabilityBlocks(selectedDate);
       setIsModalOpen(false);
       setError(null);
+
+      // Show conflict modal if Google Calendar events overlap
+      if (response.data.googleCalendarConflicts?.length > 0) {
+        setGcalConflicts(response.data.googleCalendarConflicts);
+      }
     } catch (error) {
       console.error('Error adding availability:', error);
       setError('Failed to add availability block. Please try again.');
@@ -236,10 +243,14 @@ const ProviderAvailability = () => {
   }, []);
 
   const handleBlockOffTime = useCallback(async (payload) => {
-    await axios.post('/api/provider/blocked-times', payload, { withCredentials: true });
+    const response = await axios.post('/api/provider/blocked-times', payload, { withCredentials: true });
     await fetchBlockedTimes(selectedDate);
     setBlockOffModalOpen(false);
     setBlockOffTargetBlock(null);
+
+    if (response.data.googleCalendarConflicts?.length > 0) {
+      setGcalConflicts(response.data.googleCalendarConflicts);
+    }
   }, [fetchBlockedTimes, selectedDate]);
 
   const handleDeleteBlockedTime = useCallback(async (blockedTimeId) => {
@@ -249,6 +260,36 @@ const ProviderAvailability = () => {
     } catch (error) {
       console.error('Error deleting blocked time:', error);
       setError('Failed to remove blocked time');
+    }
+  }, [fetchBlockedTimes, selectedDate]);
+
+  const handleOverrideBlockedTimes = useCallback(async (idsToOverride) => {
+    try {
+      await Promise.all(idsToOverride.map(id =>
+        axios.put(`/api/provider/blocked-times/${id}/override`,
+          { overridden: true },
+          { withCredentials: true }
+        )
+      ));
+      await fetchBlockedTimes(selectedDate);
+      setGcalConflicts([]);
+    } catch (error) {
+      console.error('Error overriding blocked times:', error);
+      setError('Failed to apply overrides');
+    }
+  }, [fetchBlockedTimes, selectedDate]);
+
+  const handleRestoreBlockedTime = useCallback(async (blockedTimeId) => {
+    if (!window.confirm('Restore this block? Clients will no longer be able to book during this time.')) return;
+    try {
+      await axios.put(`/api/provider/blocked-times/${blockedTimeId}/override`,
+        { overridden: false },
+        { withCredentials: true }
+      );
+      await fetchBlockedTimes(selectedDate);
+    } catch (error) {
+      console.error('Error restoring blocked time:', error);
+      setError('Failed to restore block');
     }
   }, [fetchBlockedTimes, selectedDate]);
 
@@ -270,6 +311,10 @@ const ProviderAvailability = () => {
         setConflictInfo(null);
         setModifyModalOpen(false);
         setSelectedBlock(null);
+
+        if (response.data.googleCalendarConflicts?.length > 0) {
+          setGcalConflicts(response.data.googleCalendarConflicts);
+        }
       }
     } catch (error) {
       console.error('Error modifying availability:', error);
@@ -584,6 +629,7 @@ const formatTime = useCallback((time) => {
                 blockedTimes={blockedTimes}
                 onModify={handleModifyClick}
                 onDeleteBlockedTime={handleDeleteBlockedTime}
+                onRestoreBlockedTime={handleRestoreBlockedTime}
               />
             ) : (
               <AvailabilityList
@@ -753,6 +799,13 @@ const formatTime = useCallback((time) => {
               setBlockOffModalOpen(false);
               setBlockOffTargetBlock(null);
             }}
+          />
+        )}
+        {gcalConflicts.length > 0 && (
+          <GoogleCalendarConflictModal
+            conflicts={gcalConflicts}
+            onOverride={handleOverrideBlockedTimes}
+            onClose={() => setGcalConflicts([])}
           />
         )}
 

@@ -654,7 +654,19 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 
     await newAvailability.save();
     console.log('POST /api/availability - Availability saved successfully');
-    res.status(201).json(newAvailability);
+
+    // Check for Google Calendar conflicts (warning, not error)
+    const gcalConflicts = await BlockedTime.find({
+      provider: req.user._id,
+      source: 'google_calendar',
+      overridden: false,
+      start: { $lt: endLA.toJSDate() },
+      end: { $gt: startLA.toJSDate() }
+    }).select('_id start end location');
+
+    const result = newAvailability.toObject();
+    result.googleCalendarConflicts = gcalConflicts;
+    res.status(201).json(result);
   } catch (error) {
     console.error('Error creating availability:', error);
     console.error('Error stack:', error.stack);
@@ -867,11 +879,22 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     // Update the availability block
     availability.start = startLA.toUTC().toJSDate();
     availability.end = endLA.toUTC().toJSDate();
-    
+
     // Save the updated block (this will trigger the pre-save middleware)
     await availability.save();
-    
-    res.json(availability);
+
+    // Check for Google Calendar conflicts (warning, not error)
+    const gcalConflicts = await BlockedTime.find({
+      provider: req.user._id,
+      source: 'google_calendar',
+      overridden: false,
+      start: { $lt: endLA.toJSDate() },
+      end: { $gt: startLA.toJSDate() }
+    }).select('_id start end location');
+
+    const result = availability.toObject();
+    result.googleCalendarConflicts = gcalConflicts;
+    res.json(result);
   } catch (error) {
     console.error('Error updating availability:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

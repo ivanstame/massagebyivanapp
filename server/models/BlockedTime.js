@@ -26,7 +26,9 @@ const BlockedTimeSchema = new mongoose.Schema({
     address: { type: String, default: null },
     lat: { type: Number, default: null },
     lng: { type: Number, default: null }
-  }
+  },
+  // Provider has chosen to ignore this blocked time (for Google Calendar events)
+  overridden: { type: Boolean, default: false }
 }, { timestamps: true });
 
 BlockedTimeSchema.pre('save', function(next) {

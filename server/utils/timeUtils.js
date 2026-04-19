@@ -398,18 +398,19 @@ async function getAvailableTimeSlots(
   const maxDuration = Array.isArray(appointmentDuration)
     ? Math.max(...appointmentDuration)
     : appointmentDuration;
-  const slotsAfterBlocked = blockedTimes.length > 0
+  const effectiveBlockedTimes = blockedTimes.filter(bt => !bt.overridden);
+  const slotsAfterBlocked = effectiveBlockedTimes.length > 0
     ? slotsAfterOccupied.filter(slot => {
         const slotStart = slot.getTime();
         const slotEnd = slotStart + maxDuration * 60 * 1000;
-        return !blockedTimes.some(bt => {
+        return !effectiveBlockedTimes.some(bt => {
           const btStart = bt.start.getTime();
           const btEnd = bt.end.getTime();
           return slotStart < btEnd && slotEnd > btStart;
         });
       })
     : slotsAfterOccupied;
-  if (blockedTimes.length > 0) {
+  if (effectiveBlockedTimes.length > 0) {
     console.log(`[Slots] ${slotsAfterBlocked.length} slots after removing blocked times`);
   }
 
@@ -420,8 +421,9 @@ async function getAvailableTimeSlots(
 
   // Convert blocked times WITH location into booking-shaped objects
   // so they participate in travel time boundary calculations
+  // Skip overridden blocks (provider has said to ignore them)
   const blockedTimesWithLocation = blockedTimes
-    .filter(bt => bt.location?.lat && bt.location?.lng)
+    .filter(bt => !bt.overridden && bt.location?.lat && bt.location?.lng)
     .map(bt => {
       const btStart = DateTime.fromJSDate(bt.start).setZone(DEFAULT_TZ);
       const btEnd = DateTime.fromJSDate(bt.end).setZone(DEFAULT_TZ);

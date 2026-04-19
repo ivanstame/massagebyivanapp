@@ -68,19 +68,24 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       });
     }
 
-    // Check for overlapping blocked times
-    const overlappingBlock = await BlockedTime.findOne({
+    // Check for overlapping manual blocked times (reject) or Google ones (warn)
+    const overlappingBlocks = await BlockedTime.find({
       provider: providerId,
       localDate: date,
       start: { $lt: endUTC },
       end: { $gt: startUTC }
     });
 
-    if (overlappingBlock) {
+    const overlappingManual = overlappingBlocks.find(b => b.source === 'manual');
+    if (overlappingManual) {
       return res.status(400).json({
         message: 'This time range overlaps with an existing blocked time'
       });
     }
+
+    const gcalConflicts = overlappingBlocks.filter(
+      b => b.source === 'google_calendar' && !b.overridden
+    );
 
     const blockedTime = new BlockedTime({
       provider: providerId,
@@ -89,7 +94,14 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     });
 
     await blockedTime.save();
-    res.status(201).json(blockedTime);
+    const result = blockedTime.toObject();
+    result.googleCalendarConflicts = gcalConflicts.map(b => ({
+      _id: b._id,
+      start: b.start,
+      end: b.end,
+      location: b.location
+    }));
+    res.status(201).json(result);
   } catch (error) {
     console.error('Error creating blocked time:', error);
     res.status(500).json({ message: 'Failed to create blocked time' });
@@ -135,6 +147,34 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error deleting blocked time:', error);
     res.status(500).json({ message: 'Failed to delete blocked time' });
+  }
+});
+
+// PUT /:id/override — Toggle override on a Google Calendar blocked time
+router.put('/:id/override', ensureAuthenticated, async (req, res) => {
+  try {
+    const { overridden } = req.body;
+    if (typeof overridden !== 'boolean') {
+      return res.status(400).json({ message: 'overridden must be a boolean' });
+    }
+
+    const blockedTime = await BlockedTime.findById(req.params.id);
+    if (!blockedTime) {
+      return res.status(404).json({ message: 'Blocked time not found' });
+    }
+    if (!blockedTime.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (blockedTime.source !== 'google_calendar') {
+      return res.status(400).json({ message: 'Override only applies to Google Calendar blocks' });
+    }
+
+    blockedTime.overridden = overridden;
+    await blockedTime.save();
+    res.json(blockedTime);
+  } catch (error) {
+    console.error('Error updating override:', error);
+    res.status(500).json({ message: 'Failed to update override' });
   }
 });
 
