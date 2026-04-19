@@ -121,7 +121,7 @@ function App() {
   }
 
   return (
-    <div className="App min-h-screen bg-gray-50">
+    <div className="App min-h-screen" style={{ background: 'var(--bg)' }}>
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

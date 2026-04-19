@@ -2,7 +2,8 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { BrushStroke, AvMonogram } from './brush/BrushMotifs';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -53,100 +54,102 @@ const Login = () => {
   };
 
   return (
-    <div className="pt-16">
-      <div className="flex flex-col justify-center pt-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <img
-            src="/imgs/logo.png"
-            alt="Massage by Ivan"
-            className="mx-auto h-28 w-auto"
-          />
-          <h2 className="mt-6 text-center text-2xl font-bold text-slate-900">
-            Welcome back
-          </h2>
-          <p className="mt-2 text-center text-sm text-slate-500">
-            Sign in to manage your appointments
-          </p>
+    <div className="av-paper">
+      <div className="max-w-md mx-auto w-full px-7 pt-16 pb-8">
+        {/* Monogram */}
+        <div className="flex justify-center mb-3">
+          <AvMonogram size={64} ringColor="#1B7F84" inkColor="#2A2520" accent="#B07A4E" />
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-6 shadow-sm border border-slate-200 rounded-xl sm:px-10 overflow-hidden relative">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#B07A4E] to-[#8A5D36]" />
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full px-4 py-3 border border-slate-200 rounded-xl text-base placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
-                  placeholder="your@email.com"
-                />
-              </div>
+        {/* Eyebrow + headline */}
+        <div className="text-center mb-10">
+          <div className="av-meta mb-1.5">Avayble · est. 2026</div>
+          <h1 className="font-display text-[40px] leading-[1.05] tracking-tight m-0 mb-2 text-ink">
+            A quiet hour,<br />
+            <em className="not-italic" style={{ color: '#B07A4E', fontStyle: 'italic' }}>on your schedule.</em>
+          </h1>
+          <p className="text-sm text-ink-2 m-0">Sign in to tend to your appointments.</p>
+        </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl text-base placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
-                    placeholder="Enter your password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-all duration-200"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+          <div>
+            <label htmlFor="email" className="av-meta block mb-1.5">Email</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="block w-full px-3.5 py-3.5 bg-paper-elev border border-line rounded-btn
+                text-[15px] text-ink placeholder-ink-3
+                focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent
+                transition-all"
+            />
+          </div>
 
-              {error && (
-                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              )}
-
+          <div>
+            <label htmlFor="password" className="av-meta block mb-1.5">Password</label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="block w-full px-3.5 py-3.5 pr-12 bg-paper-elev border border-line rounded-btn
+                  text-[15px] text-ink placeholder-ink-3
+                  focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent
+                  transition-all"
+              />
               <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-base font-semibold text-white bg-[#B07A4E] hover:bg-[#8A5D36] active:bg-[#007a80] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-ink-3 hover:text-ink-2 transition"
               >
-                {isLoading ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Signing in...</>
-                ) : (
-                  'Sign in'
-                )}
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
-            </form>
-
-            <div className="mt-6 text-center space-y-3">
-              <Link to="/forgot-password" className="text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36] transition-colors">
-                Forgot your password?
-              </Link>
-              <p className="text-sm text-slate-500">
-                Don't have an account?{' '}
-                <Link to="/signup" className="font-medium text-[#B07A4E] hover:text-[#8A5D36] transition-colors">
-                  Sign up
-                </Link>
-              </p>
             </div>
           </div>
-        </div>
+
+          {error && (
+            <div className="flex items-start gap-2 p-3 border border-red-200 bg-red-50 rounded-btn">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-2 w-full inline-flex items-center justify-center gap-2 py-3.5 px-5
+              rounded-btn text-[15px] font-medium text-white bg-accent
+              hover:bg-accent-ink transition
+              disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.08), 0 0 0 0 rgba(176,122,78,0.22)' }}
+          >
+            {isLoading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Entering...</>
+            ) : (
+              <>Enter <ArrowRight className="w-4 h-4" /></>
+            )}
+          </button>
+
+          <div className="text-center text-[13px] text-ink-3 mt-2">
+            <Link to="/forgot-password" className="hover:text-ink-2 transition">Forgot password?</Link>
+            <span className="mx-2">·</span>
+            <Link to="/signup" className="text-accent hover:text-accent-ink transition">Create account</Link>
+          </div>
+        </form>
+      </div>
+
+      {/* Brush accent at bottom */}
+      <div className="flex justify-center pb-8">
+        <BrushStroke width={120} height={12} color="#B07A4E" opacity={0.5} />
       </div>
     </div>
   );
