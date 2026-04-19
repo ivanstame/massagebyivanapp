@@ -733,8 +733,40 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     }
 
     // Safe to delete - no bookings affected
+    const deletedStart = availability.start;
+    const deletedEnd = availability.end;
+    const deletedLocalDate = availability.localDate;
     await availability.remove();
     console.log(`Availability block ${req.params.id} deleted successfully`);
+
+    // Un-override Google Calendar blocks that are no longer covered by any remaining availability
+    const overriddenBlocks = await BlockedTime.find({
+      provider: req.user._id,
+      localDate: deletedLocalDate,
+      source: 'google_calendar',
+      overridden: true,
+      start: { $lt: deletedEnd },
+      end: { $gt: deletedStart }
+    });
+
+    if (overriddenBlocks.length > 0) {
+      const remainingAvailability = await Availability.find({
+        provider: req.user._id,
+        localDate: deletedLocalDate
+      });
+
+      for (const bt of overriddenBlocks) {
+        const stillCovered = remainingAvailability.some(
+          a => a.start < bt.end && a.end > bt.start
+        );
+        if (!stillCovered) {
+          bt.overridden = false;
+          await bt.save();
+          console.log(`Un-overrode BlockedTime ${bt._id} (no remaining availability covers it)`);
+        }
+      }
+    }
+
     res.json({ message: 'Availability removed successfully' });
   } catch (error) {
     console.error('Error deleting availability:', error);
