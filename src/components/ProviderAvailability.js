@@ -390,7 +390,10 @@ const ProviderAvailability = () => {
       });
 
       if (response.status === 200) {
-        await fetchAvailabilityBlocks(selectedDate);
+        await Promise.all([
+          fetchAvailabilityBlocks(selectedDate),
+          fetchBlockedTimes(selectedDate)
+        ]);
         // Show success feedback
         setError(null);
         setConflictInfo(null);
@@ -418,7 +421,7 @@ const ProviderAvailability = () => {
         setError(error.response?.data?.message || 'Failed to delete availability block. Please try again.');
       }
     }
-  }, [fetchAvailabilityBlocks, selectedDate]);
+  }, [fetchAvailabilityBlocks, fetchBlockedTimes, selectedDate]);
 
   const handleUpdateDeparture = useCallback(async (anchorData) => {
     // Update anchor on all availability blocks for the selected date
