@@ -289,6 +289,46 @@ const ProviderAvailability = () => {
     }
   }, [fetchBlockedTimes, selectedDate]);
 
+  const doModifyAvailability = useCallback(async (modifiedBlock) => {
+    try {
+      const response = await axios.put(
+        `/api/availability/${modifiedBlock._id}`,
+        { ...modifiedBlock },
+        { withCredentials: true }
+      );
+      if (response.status === 200) {
+        await fetchAvailabilityBlocks(selectedDate);
+        setError(null);
+        setConflictInfo(null);
+        setModifyModalOpen(false);
+        setSelectedBlock(null);
+      }
+    } catch (error) {
+      console.error('Error modifying availability:', error);
+      if (error.response?.data?.conflicts) {
+        setConflictInfo({
+          type: 'modify',
+          message: error.response.data.message,
+          conflicts: error.response.data.conflicts
+        });
+      } else {
+        setError('Failed to modify availability block');
+      }
+    }
+  }, [fetchAvailabilityBlocks, selectedDate]);
+
+  const handleModifyAvailability = useCallback(async (modifiedBlock) => {
+    const dateStr = modifiedBlock.localDate ||
+      DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+    const conflicts = findGcalConflicts(dateStr, modifiedBlock.start, modifiedBlock.end);
+    if (conflicts.length > 0) {
+      setPendingAction({ type: 'modify', data: modifiedBlock });
+      setGcalConflicts(conflicts);
+      return;
+    }
+    await doModifyAvailability(modifiedBlock);
+  }, [findGcalConflicts, doModifyAvailability, selectedDate]);
+
   const handleGcalModalConfirm = useCallback(async (idsToOverride) => {
     try {
       // Apply overrides first (if any)
@@ -339,46 +379,6 @@ const ProviderAvailability = () => {
       setError('Failed to restore block');
     }
   }, [fetchBlockedTimes, selectedDate]);
-
-  const doModifyAvailability = useCallback(async (modifiedBlock) => {
-    try {
-      const response = await axios.put(
-        `/api/availability/${modifiedBlock._id}`,
-        { ...modifiedBlock },
-        { withCredentials: true }
-      );
-      if (response.status === 200) {
-        await fetchAvailabilityBlocks(selectedDate);
-        setError(null);
-        setConflictInfo(null);
-        setModifyModalOpen(false);
-        setSelectedBlock(null);
-      }
-    } catch (error) {
-      console.error('Error modifying availability:', error);
-      if (error.response?.data?.conflicts) {
-        setConflictInfo({
-          type: 'modify',
-          message: error.response.data.message,
-          conflicts: error.response.data.conflicts
-        });
-      } else {
-        setError('Failed to modify availability block');
-      }
-    }
-  }, [fetchAvailabilityBlocks, selectedDate]);
-
-  const handleModifyAvailability = useCallback(async (modifiedBlock) => {
-    const dateStr = modifiedBlock.localDate ||
-      DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
-    const conflicts = findGcalConflicts(dateStr, modifiedBlock.start, modifiedBlock.end);
-    if (conflicts.length > 0) {
-      setPendingAction({ type: 'modify', data: modifiedBlock });
-      setGcalConflicts(conflicts);
-      return;
-    }
-    await doModifyAvailability(modifiedBlock);
-  }, [findGcalConflicts, doModifyAvailability, selectedDate]);
 
   const handleDeleteAvailability = useCallback(async (blockId) => {
     try {
