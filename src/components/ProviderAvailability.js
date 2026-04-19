@@ -678,6 +678,7 @@ const formatTime = useCallback((time) => {
                 bookings={bookings}
                 blockedTimes={blockedTimes}
                 onModify={handleModifyClick}
+                onDelete={(block) => setDeleteConfirmBlock(block)}
                 onDeleteBlockedTime={handleDeleteBlockedTime}
                 onRestoreBlockedTime={handleRestoreBlockedTime}
               />
@@ -773,7 +774,9 @@ const formatTime = useCallback((time) => {
                     bookings={bookings}
                     blockedTimes={blockedTimes}
                     onModify={handleModifyClick}
+                    onDelete={(block) => setDeleteConfirmBlock(block)}
                     onDeleteBlockedTime={handleDeleteBlockedTime}
+                    onRestoreBlockedTime={handleRestoreBlockedTime}
                   />
                 </div>
               ) : (

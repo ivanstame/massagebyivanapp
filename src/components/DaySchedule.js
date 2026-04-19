@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
 
-const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], onModify, onDeleteBlockedTime, onRestoreBlockedTime }) => {
+const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], onModify, onDelete, onDeleteBlockedTime, onRestoreBlockedTime }) => {
   const navigate = useNavigate();
   const startHour = 7;
   const endHour = 23;
@@ -119,7 +119,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 <div
                   key={`availability-${index}`}
                   onClick={() => onModify && onModify(block)}
-                  className="absolute left-0 right-0 bg-green-50 border-green-200
+                  className="group absolute left-0 right-0 bg-green-50 border-green-200
                     border rounded-lg transition-all duration-200 hover:shadow-md cursor-pointer hover:bg-green-100"
                   style={{
                     top: `${blockStart}px`,
@@ -131,9 +131,24 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                       <span className="text-sm font-medium text-slate-700">
                         {`${formatTime(block.start)} - ${formatTime(block.end)}`}
                       </span>
-                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
-                        Available
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                          Available
+                        </span>
+                        {onDelete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(block);
+                            }}
+                            aria-label="Delete availability"
+                            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-xs px-2 py-0.5
+                              rounded bg-red-500 text-white hover:bg-red-600 transition-opacity font-medium"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -226,15 +241,15 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                           e.stopPropagation();
                           onDeleteBlockedTime(bt._id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5
+                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-xs px-1.5 py-0.5
                           rounded bg-slate-500 text-white hover:bg-slate-600 transition-opacity"
                       >
                         Unblock
                       </button>
                     )}
                     {isOverridden && (
-                      <span className="opacity-0 group-hover:opacity-100 text-xs text-slate-500 transition-opacity">
-                        Click to restore
+                      <span className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-xs text-slate-500 transition-opacity">
+                        Tap to restore
                       </span>
                     )}
                   </div>
