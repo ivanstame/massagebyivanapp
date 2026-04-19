@@ -134,27 +134,44 @@ const AppointmentDetail = () => {
   const otherPartyLabel = isProvider ? 'Client' : 'Therapist';
 
   return (
-    <div className="pt-16">
-      <div className="max-w-lg mx-auto p-4">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-lg mx-auto px-5 py-8">
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
+          className="flex items-center gap-1 text-sm text-ink-2 hover:text-ink transition mb-5"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-bold text-slate-900">Appointment Details</h1>
-          <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusColor(booking.status)}`}>
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-          </span>
+        {/* Header — date eyebrow + serif time headline */}
+        <div className="mb-6">
+          <div className="av-eyebrow mb-2">
+            {booking.localDate
+              ? DateTime.fromISO(booking.localDate).toFormat('cccc, LLLL d').toLowerCase()
+              : 'Appointment'}
+          </div>
+          <div className="flex justify-between items-start">
+            <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.05, fontWeight: 500, letterSpacing: '-0.01em' }}>
+              {booking.startTime ? (() => {
+                const t = formatTime(booking.startTime);
+                const parts = t.split(' ');
+                return <>{parts[0]} <em style={{ color: '#B07A4E' }}>{(parts[1] || '').toLowerCase()}</em></>;
+              })() : 'Appointment'}
+            </h1>
+            <span className={`av-meta px-2.5 py-1 rounded-full border border-line text-ink-2 ${statusColor(booking.status)}`}
+              style={{ fontSize: 10 }}>
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            </span>
+          </div>
+          <div className="text-sm text-ink-2 mt-1">
+            {booking.duration} minutes{booking.massageType?.name ? ` · ${booking.massageType.name.toLowerCase()}` : ''}
+          </div>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+        <div className="bg-paper-elev rounded-xl border border-line shadow-sm divide-y divide-line-soft">
           {/* Date & Time */}
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
@@ -199,7 +216,7 @@ const AppointmentDetail = () => {
                     </div>
                   </div>
                 )}
-                <div className="ml-8 p-2 bg-slate-50 rounded-lg text-sm">
+                <div className="ml-8 p-2 bg-paper-deep rounded-lg text-sm">
                   <p className="text-slate-500">
                     Booked by: <span className="text-slate-700 font-medium">
                       {booking.bookedBy?.name || otherParty?.profile?.fullName || otherParty?.email}
@@ -347,7 +364,7 @@ const AppointmentDetail = () => {
                     onClick={handleTogglePayment}
                     className={`ml-2 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${
                       booking.paymentStatus === 'paid'
-                        ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        ? 'border-line text-slate-600 hover:bg-paper-deep'
                         : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
                     }`}
                   >
@@ -423,7 +440,7 @@ const AppointmentDetail = () => {
                   </button>
                   <button
                     onClick={() => setShowCancelConfirm(false)}
-                    className="flex-1 py-2 px-4 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50"
+                    className="flex-1 py-2 px-4 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-paper-deep"
                   >
                     Keep It
                   </button>

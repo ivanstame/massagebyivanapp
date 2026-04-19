@@ -278,8 +278,14 @@ const [provider, setProvider] = useState(null);
   
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">My Profile</h1>
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-3xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Your details</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Profile
+          </h1>
+        </div>
       
       {/* Basic Information Section */}
       <ProfileSection
@@ -293,15 +299,15 @@ const [provider, setProvider] = useState(null);
           isEditing={editingSections.basic}
           viewComponent={
             <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <div className="flex justify-between items-center py-2 border-b border-line-soft">
                 <span className="text-slate-500">Full Name</span>
                 <span className="text-slate-900 font-medium">{formData.fullName}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <div className="flex justify-between items-center py-2 border-b border-line-soft">
                 <span className="text-slate-500">Email</span>
                 <span className="text-slate-900">{formData.email}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <div className="flex justify-between items-center py-2 border-b border-line-soft">
                 <span className="text-slate-500">Phone Number</span>
                 <span className="text-slate-900">{formData.phoneNumber}</span>
               </div>
@@ -321,7 +327,7 @@ const [provider, setProvider] = useState(null);
                   name="fullName"
                   value={formData.fullName}
                   onChange={(e) => handleInputChange(e, 'basic')}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
               <div>
@@ -333,7 +339,7 @@ const [provider, setProvider] = useState(null);
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={(e) => handleInputChange(e, 'basic')}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
               <div className="flex justify-end space-x-4 pt-4">
@@ -368,7 +374,7 @@ const [provider, setProvider] = useState(null);
           isEditing={editingSections.contact}
           viewComponent={
             <div className="space-y-4">
-              <div className="py-2 border-b border-slate-100">
+              <div className="py-2 border-b border-line-soft">
                 <div className="text-slate-500 mb-1">Address</div>
                 <div className="text-slate-900">
                   {formData.address.street ? (
@@ -403,7 +409,7 @@ const [provider, setProvider] = useState(null);
                     value={formData.address.street}
                     onChange={(e) => handleInputChange(e, 'contact')}
                     placeholder="Street Address"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                    className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                   />
                   <input
                     type="text"
@@ -411,7 +417,7 @@ const [provider, setProvider] = useState(null);
                     value={formData.address.unit}
                     onChange={(e) => handleInputChange(e, 'contact')}
                     placeholder="Apt, Suite, Unit (optional)"
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                    className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                   />
                   <div className="grid grid-cols-3 gap-4">
                     <input
@@ -420,13 +426,13 @@ const [provider, setProvider] = useState(null);
                       value={formData.address.city}
                       onChange={(e) => handleInputChange(e, 'contact')}
                       placeholder="City"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                      className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                     />
                     <select
                       name="address.state"
                       value={formData.address.state}
                       onChange={(e) => handleInputChange(e, 'contact')}
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                      className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                     >
                       <option value="">State</option>
                       {STATES.map(([code, name]) => (
@@ -441,7 +447,7 @@ const [provider, setProvider] = useState(null);
                       placeholder="ZIP"
                       maxLength="5"
                       pattern="[0-9]{5}"
-                      className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                      className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                     />
                   </div>
                 </div>
@@ -475,14 +481,14 @@ const [provider, setProvider] = useState(null);
       >
         <div className="space-y-4">
           {user?.providerId ? (
-            <div className="bg-white rounded-lg p-4 border border-slate-200">
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <div className="bg-paper-elev rounded-lg p-4 border border-line">
+              <div className="flex justify-between items-center py-2 border-b border-line-soft">
                 <span className="text-slate-500">Business Name</span>
                 <span className="text-slate-900 font-medium">
                   {provider?.error ? 'Error loading data' : (provider?.providerProfile?.businessName || 'Loading...')}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <div className="flex justify-between items-center py-2 border-b border-line-soft">
                 <span className="text-slate-500">Contact Email</span>
                 <span className="text-slate-900">
                   {provider?.error ? 'Error loading data' : (provider?.email || 'Loading...')}
@@ -536,11 +542,11 @@ const [provider, setProvider] = useState(null);
           isEditing={editingSections.medical}
           viewComponent={
             <div className="space-y-4">
-              <div className="py-2 border-b border-slate-100">
+              <div className="py-2 border-b border-line-soft">
                 <div className="text-slate-500 mb-1">Allergies</div>
                 <div className="text-slate-900">{formData.allergies || 'None reported'}</div>
               </div>
-              <div className="py-2 border-b border-slate-100">
+              <div className="py-2 border-b border-line-soft">
                 <div className="text-slate-500 mb-1">Medical Conditions</div>
                 <div className="text-slate-900">{formData.medicalConditions || 'None reported'}</div>
               </div>
@@ -561,7 +567,7 @@ const [provider, setProvider] = useState(null);
                   value={formData.allergies}
                   onChange={(e) => handleInputChange(e, 'medical')}
                   placeholder="List any allergies"
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
               <div>
@@ -574,7 +580,7 @@ const [provider, setProvider] = useState(null);
                   onChange={(e) => handleInputChange(e, 'medical')}
                   placeholder="List any medical conditions or concerns"
                   rows={4}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
+                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
                 />
               </div>
               <div className="flex justify-end space-x-4 pt-4">
@@ -629,7 +635,7 @@ const [provider, setProvider] = useState(null);
       </div>
 
       {/* Account Management Section */}
-      <div className="mt-8 border-t border-slate-200 pt-8">
+      <div className="mt-8 border-t border-line pt-8">
         <h2 className="text-xl font-bold text-slate-900 mb-4">Account Management</h2>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
           <h3 className="text-lg font-medium text-red-800 mb-2">Danger Zone</h3>
@@ -663,6 +669,7 @@ const [provider, setProvider] = useState(null);
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };
