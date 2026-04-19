@@ -15,7 +15,7 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
@@ -43,7 +43,7 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
                 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
                 ${isSelected
                   ? 'border-teal-600 bg-teal-50'
-                  : 'border-slate-200 bg-white hover:border-teal-300'
+                  : 'border-line bg-paper-elev hover:border-teal-300'
                 }
               `}
             >
@@ -54,7 +54,7 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
                     w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
                     ${isSelected
                       ? 'border-teal-600 bg-teal-600'
-                      : 'border-slate-300 bg-white'
+                      : 'border-slate-300 bg-paper-elev'
                     }
                   `}>
                     {isSelected && <Check className="w-4 h-4 text-white" />}

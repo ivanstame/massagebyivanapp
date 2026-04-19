@@ -10,7 +10,7 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
@@ -39,7 +39,7 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
                 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
                 ${isSelected
                   ? 'border-teal-600 bg-teal-50 shadow-md'
-                  : 'border-slate-200 bg-white hover:border-teal-300'
+                  : 'border-line bg-paper-elev hover:border-teal-300'
                 }
               `}
             >

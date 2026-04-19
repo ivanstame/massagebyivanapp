@@ -9,7 +9,7 @@ const RecipientSection = ({
   isComplete
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
@@ -33,7 +33,7 @@ const RecipientSection = ({
             hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
             ${recipientType === 'self'
               ? 'border-teal-600 bg-teal-50'
-              : 'border-slate-200 bg-white hover:border-teal-300'
+              : 'border-line bg-paper-elev hover:border-teal-300'
             }
           `}
         >
@@ -68,7 +68,7 @@ const RecipientSection = ({
             hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
             ${recipientType === 'other'
               ? 'border-teal-600 bg-teal-50'
-              : 'border-slate-200 bg-white hover:border-teal-300'
+              : 'border-line bg-paper-elev hover:border-teal-300'
             }
           `}
         >
@@ -113,7 +113,7 @@ const RecipientSection = ({
                 placeholder="Enter recipient's full name"
                 value={recipientInfo.name}
                 onChange={(e) => setRecipientInfo({...recipientInfo, name: e.target.value})}
-                className="w-full px-4 py-3 text-base border border-slate-200 rounded-lg 
+                className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-teal-500 focus:border-transparent
                           placeholder:text-slate-400"
               />
@@ -130,7 +130,7 @@ const RecipientSection = ({
                 placeholder="(555) 555-5555"
                 value={recipientInfo.phone}
                 onChange={(e) => setRecipientInfo({...recipientInfo, phone: e.target.value})}
-                className="w-full px-4 py-3 text-base border border-slate-200 rounded-lg 
+                className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-sage-500 focus:border-transparent
                           placeholder:text-slate-400"
               />
@@ -147,7 +147,7 @@ const RecipientSection = ({
                 placeholder="email@example.com"
                 value={recipientInfo.email}
                 onChange={(e) => setRecipientInfo({...recipientInfo, email: e.target.value})}
-                className="w-full px-4 py-3 text-base border border-slate-200 rounded-lg 
+                className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-sage-500 focus:border-transparent
                           placeholder:text-slate-400"
               />

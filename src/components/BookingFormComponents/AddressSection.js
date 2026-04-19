@@ -91,7 +91,7 @@ const AddressSection = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
@@ -117,7 +117,7 @@ const AddressSection = ({
               hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
               ${locationType === 'saved'
                 ? 'border-teal-600 bg-teal-50'
-                : 'border-slate-200 bg-white hover:border-teal-300'
+                : 'border-line bg-paper-elev hover:border-teal-300'
               }
             `}
           >
@@ -154,7 +154,7 @@ const AddressSection = ({
             hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
             ${locationType === 'other'
               ? 'border-teal-600 bg-teal-50'
-              : 'border-slate-200 bg-white hover:border-teal-300'
+              : 'border-line bg-paper-elev hover:border-teal-300'
             }
           `}
         >
@@ -184,7 +184,7 @@ const AddressSection = ({
 
       {/* Other Address Form */}
       {locationType === 'other' && (
-        <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="mt-6 p-4 bg-paper-deep rounded-lg border border-line">
           <h4 className="font-medium text-slate-900 mb-4">Enter Address</h4>
           <div className="space-y-3">
             <div>

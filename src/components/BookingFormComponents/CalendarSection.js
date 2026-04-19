@@ -4,7 +4,7 @@ import ResponsiveCalendar from '../ResponsiveCalendar';
 
 const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availableSlots = [], isDisabled, isComplete }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Calendar wrapper with improved styling */}
       <div className={`
         relative rounded-lg overflow-hidden
@@ -20,8 +20,8 @@ const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availabl
         />
         
         {isDisabled && (
-          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center">
-            <div className="bg-white p-4 rounded-lg shadow-lg border border-sage-200">
+          <div className="absolute inset-0 bg-paper-elev/70 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-paper-elev p-4 rounded-lg shadow-lg border border-sage-200">
               <div className="flex items-center space-x-2">
                 <Info className="w-5 h-5 text-[#B07A4E]" />
                 <p className="text-base font-medium text-slate-700">

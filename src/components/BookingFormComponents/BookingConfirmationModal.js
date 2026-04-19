@@ -159,7 +159,7 @@ const BookingConfirmationModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+      <div className="bg-paper-elev rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
             <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,7 +185,7 @@ const BookingConfirmationModal = ({
             </button>
             <button
               onClick={onBookAnother}
-              className="w-full border border-slate-200 text-slate-600 py-2 px-4 rounded-lg hover:bg-slate-50 transition-colors"
+              className="w-full border border-line text-slate-600 py-2 px-4 rounded-lg hover:bg-paper-deep transition-colors"
             >
               Book Another Session
             </button>

@@ -332,14 +332,22 @@ const BookingForm = ({ googleMapsLoaded }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 mt-20">
-        <div className="text-center mb-6 pt-16">
-          <h1 className="text-2xl font-bold text-slate-900">
-            {provider?.providerProfile?.businessName
-              ? `You are booking with ${provider.providerProfile.businessName}`
-              : 'Book Your Massage'}
+    <div className="av-paper pt-16">
+      <div className="max-w-3xl mx-auto px-5 py-10 space-y-6">
+        <div className="text-center mb-8 relative">
+          <div className="av-meta mb-2">The booking</div>
+          <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Choose a{' '}
+            <em style={{ color: '#B07A4E' }}>
+              {DateTime.now().setZone(DEFAULT_TZ).hour < 12 ? 'morning' : 'afternoon'}
+            </em>
+            {' '}or evening.
           </h1>
+          {provider?.providerProfile?.businessName && (
+            <p className="mt-2 text-sm text-ink-2">
+              With {provider.providerProfile.businessName}
+            </p>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -424,38 +432,41 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
           {/* Error display */}
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-              <p className="text-red-700">{error}</p>
+            <div className="p-4 border border-red-200 rounded-card flex items-start gap-2"
+              style={{ background: 'rgba(165,70,65,0.08)' }}>
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6">
+          <div className="flex flex-col sm:flex-row gap-3 pt-6">
             <button
               onClick={() => navigate('/')}
-              className="flex-1 sm:flex-initial px-6 py-3 border-2 border-teal-600 text-teal-700 rounded-lg font-medium
-                         hover:bg-teal-50 transition-colors flex items-center justify-center space-x-2"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2
+                px-5 py-3 rounded-btn border border-line bg-transparent text-ink
+                hover:bg-paper-deep transition text-[14px] font-medium"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
               <span>Go Back</span>
             </button>
 
             <button
               onClick={handleSubmit}
               disabled={!isBookingComplete() || loading}
-              className={`flex-1 px-6 py-3 rounded-lg text-lg font-medium shadow-sm transition-all
-                         flex items-center justify-center space-x-2
+              className={`flex-1 inline-flex items-center justify-center gap-2
+                px-6 py-3.5 rounded-btn text-[15px] font-medium transition
                 ${isBookingComplete()
-                  ? 'bg-teal-600 text-white hover:bg-cyan-900'
-                  : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                  ? 'bg-accent text-white hover:bg-accent-ink'
+                  : 'bg-paper-deep text-ink-3 cursor-not-allowed'
                 }`}
+              style={isBookingComplete() ? { boxShadow: '0 1px 2px rgba(0,0,0,0.08)' } : {}}
             >
               {loading ? (
                 <span>Processing...</span>
               ) : (
                 <>
-                  <span>Book Appointment</span>
-                  <ArrowRight className="w-5 h-5" />
+                  <span>Confirm booking</span>
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>

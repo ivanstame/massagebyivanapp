@@ -105,7 +105,7 @@ const AvailableTimeSlots = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header with completion indicator */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
@@ -146,7 +146,7 @@ const AvailableTimeSlots = ({
                     space-x-2 py-3 px-4 rounded-lg
                     transition-all duration-200 font-medium text-base
                     ${isActive 
-                      ? 'bg-white text-teal-700 shadow-sm' 
+                      ? 'bg-paper-elev text-teal-700 shadow-sm' 
                       : slotCount === 0
                         ? 'text-slate-400 cursor-not-allowed'
                         : 'text-slate-600 hover:text-teal-600'
@@ -186,7 +186,7 @@ const AvailableTimeSlots = ({
                     hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
                     ${selectedTime?.iso === slot.iso
                       ? 'border-teal-600 bg-teal-50 shadow-md'
-                      : 'border-slate-200 bg-white hover:border-teal-300'
+                      : 'border-line bg-paper-elev hover:border-teal-300'
                     }
                   `}
                 >

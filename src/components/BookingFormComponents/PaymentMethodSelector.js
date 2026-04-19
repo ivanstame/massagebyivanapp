@@ -21,7 +21,7 @@ const PaymentMethodSelector = ({
   if (methods.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-900">Payment Method</h3>
         {isComplete && (
@@ -39,7 +39,7 @@ const PaymentMethodSelector = ({
             className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left
               ${selectedMethod === id
                 ? 'border-teal-500 bg-teal-50 ring-1 ring-teal-200'
-                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                : 'border-line hover:border-slate-300 hover:bg-paper-deep'
               }`}
           >
             <Icon className={`w-5 h-5 flex-shrink-0 ${

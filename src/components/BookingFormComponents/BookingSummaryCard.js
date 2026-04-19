@@ -47,7 +47,7 @@ const BookingSummaryCard = ({
   const hasSelections = selectedDate || selectedTime || fullAddress || selectedDuration;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
           <div className="bg-teal-100 p-3 rounded-lg">
