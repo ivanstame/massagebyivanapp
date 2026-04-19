@@ -54,8 +54,8 @@ const Login = () => {
   };
 
   return (
-    <div className="av-paper">
-      <div className="max-w-md mx-auto w-full px-7 pt-16 pb-8">
+    <div className="av-paper pt-16">
+      <div className="max-w-md mx-auto w-full px-7 pt-10 pb-8">
         {/* Monogram */}
         <div className="flex justify-center mb-3">
           <AvMonogram size={64} ringColor="#1B7F84" inkColor="#2A2520" accent="#B07A4E" />
