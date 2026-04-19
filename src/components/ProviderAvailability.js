@@ -37,11 +37,11 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
   const nonHome = savedLocations.filter(l => !l.isHomeBase);
 
   return (
-    <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg space-y-2">
+    <div className="mt-2 p-3 bg-paper-elev border border-line rounded-lg space-y-2">
       {/* Home base */}
       {homeBase && (
         <label className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-          mode === 'homebase' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
+          mode === 'homebase' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-paper-deep'
         }`}>
           <input type="radio" name="dep" checked={mode === 'homebase'} onChange={() => setMode('homebase')}
             className="text-[#B07A4E] focus:ring-[#B07A4E]" />
@@ -53,7 +53,7 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
       {/* Saved locations */}
       {nonHome.length > 0 && (
         <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-          mode === 'saved' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
+          mode === 'saved' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-paper-deep'
         }`}>
           <input type="radio" name="dep" checked={mode === 'saved'} onChange={() => setMode('saved')}
             className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]" />
@@ -74,17 +74,17 @@ const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCa
 
       {/* Pin drop */}
       <label className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer text-sm ${
-        mode === 'pin' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-slate-50'
+        mode === 'pin' ? 'bg-teal-50 border border-[#B07A4E]' : 'hover:bg-paper-deep'
       }`}>
         <input type="radio" name="dep" checked={mode === 'pin'} onChange={() => { setMode('pin'); setShowMap(true); }}
           className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]" />
         <div className="flex-1">
           <span>Drop a Pin</span>
           {mode === 'pin' && showMap && (
-            <div className="mt-2 rounded-lg overflow-hidden border border-slate-200">
+            <div className="mt-2 rounded-lg overflow-hidden border border-line">
               <PinDropMap onLocationConfirmed={(loc) => setPinLocation(loc)} initialLocation={pinLocation} />
               {pinLocation && (
-                <div className="p-2 bg-slate-50 text-xs text-slate-600">{pinLocation.address}</div>
+                <div className="p-2 bg-paper-deep text-xs text-slate-600">{pinLocation.address}</div>
               )}
             </div>
           )}
@@ -500,7 +500,7 @@ const formatTime = useCallback((time) => {
               <p className="font-medium mb-2">{conflictInfo.message}</p>
               
               {conflictInfo.conflicts && conflictInfo.conflicts.length > 0 && (
-                <div className="mt-3 bg-white rounded-lg p-3 border border-amber-200">
+                <div className="mt-3 bg-paper-elev rounded-lg p-3 border border-amber-200">
                   <p className="font-medium text-amber-900 mb-2">
                     Affected Appointments ({conflictInfo.conflicts.length}):
                   </p>
@@ -550,7 +550,7 @@ const formatTime = useCallback((time) => {
             <div className="mt-4 flex justify-end">
               <button 
                 onClick={() => setConflictInfo(null)}
-                className="px-4 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg 
+                className="px-4 py-2 bg-paper-elev text-amber-700 border border-amber-300 rounded-lg 
                   hover:bg-amber-50 transition-colors duration-200 text-sm font-medium
                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
               >
@@ -568,7 +568,10 @@ const formatTime = useCallback((time) => {
       <div className="max-w-7xl mx-auto p-0 lg:p-4">
         <div className="hidden lg:flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Manage Availability</h1>
+            <div className="av-eyebrow mb-1">Your schedule</div>
+            <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+              Manage <em style={{ color: '#B07A4E' }}>availability</em>
+            </h1>
           </div>
           <div className="flex gap-3">
             <button
@@ -614,7 +617,7 @@ const formatTime = useCallback((time) => {
           </div>
           <div className="lg:w-2/3">
             {/* Tabs */}
-            <div className="mb-4 border-b border-slate-200">
+            <div className="mb-4 border-b border-line">
               <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                 <button
                   onClick={() => setActiveTab('timeline')}
@@ -644,7 +647,7 @@ const formatTime = useCallback((time) => {
             {/* Departure Location */}
             {availabilityBlocks.length > 0 && (
               <div className="mb-4">
-                <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-paper-deep border border-line rounded-lg">
                   <div className="flex items-center gap-2 min-w-0">
                     <Navigation className="w-4 h-4 text-[#B07A4E] flex-shrink-0" />
                     <div className="min-w-0">
@@ -704,7 +707,7 @@ const formatTime = useCallback((time) => {
 
         {/* Mobile View */}
         <div className="lg:hidden relative h-[calc(100dvh-4rem)] flex flex-col">
-          <div className="flex-shrink-0 bg-white pb-2 shadow-sm">
+          <div className="flex-shrink-0 bg-paper-elev pb-2 shadow-sm">
             <ResponsiveCalendar
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
@@ -713,7 +716,7 @@ const formatTime = useCallback((time) => {
           </div>
           
           {/* Mobile Tabs */}
-          <div className="flex-shrink-0 flex border-b border-slate-200 bg-white">
+          <div className="flex-shrink-0 flex border-b border-line bg-paper-elev">
              <button
                 onClick={() => setActiveTab('timeline')}
                 className={`flex-1 py-2 text-sm font-medium text-center ${
@@ -738,7 +741,7 @@ const formatTime = useCallback((time) => {
 
           {/* Mobile Departure Location */}
           {availabilityBlocks.length > 0 && (
-            <div className="flex-shrink-0 px-4 py-2 bg-white border-b border-slate-200">
+            <div className="flex-shrink-0 px-4 py-2 bg-paper-elev border-b border-line">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
                   <Navigation className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
@@ -868,7 +871,7 @@ const formatTime = useCallback((time) => {
         {/* Delete Confirmation Modal */}
         {deleteConfirmBlock && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="bg-paper-elev rounded-lg shadow-xl p-6 w-full max-w-md">
               <div className="mb-4">
                 <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 text-center">
