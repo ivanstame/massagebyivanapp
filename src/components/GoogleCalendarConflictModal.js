@@ -36,7 +36,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
       flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg mx-4">
+      <div className="bg-paper-elev p-6 rounded-lg shadow-xl w-full max-w-lg mx-4">
         <div className="flex items-start gap-3 mb-4">
           <AlertCircle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
@@ -51,7 +51,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
           {conflicts.map(conflict => (
             <label
               key={conflict._id}
-              className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50"
+              className="flex items-start gap-3 p-3 border border-line rounded-lg cursor-pointer hover:bg-paper-deep"
             >
               <input
                 type="checkbox"
@@ -83,7 +83,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
           </div>
         )}
 
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-4">
+        <div className="p-3 bg-paper-deep rounded-lg border border-line mb-4">
           <p className="text-xs text-slate-600">
             Check any event you want to override &mdash; clients will be able to book during its time. Leave unchecked events as blocking. Save proceeds either way.
           </p>

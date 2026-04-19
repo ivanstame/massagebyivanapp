@@ -112,7 +112,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
           onClick={() => setInputMode('map')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
             inputMode === 'map'
-              ? 'bg-white text-teal-700 shadow-sm'
+              ? 'bg-paper-elev text-teal-700 shadow-sm'
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -124,7 +124,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
           onClick={() => setInputMode('search')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
             inputMode === 'search'
-              ? 'bg-white text-teal-700 shadow-sm'
+              ? 'bg-paper-elev text-teal-700 shadow-sm'
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -156,7 +156,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                   setSelectedPlace(null);
                 }}
                 placeholder="123 Main St, Huntington Beach, CA"
-                className="w-full pl-10 pr-10 py-3 text-base border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full pl-10 pr-10 py-3 text-base border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 autoFocus
               />
               {searchValue && (
@@ -205,7 +205,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="px-4 py-3 text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                    className="px-4 py-3 text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-paper-deep transition-colors"
                   >
                     Cancel
                   </button>

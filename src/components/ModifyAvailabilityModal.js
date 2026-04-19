@@ -94,7 +94,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full 
       flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-paper-elev p-6 rounded-lg shadow-xl w-full max-w-md">
         <div className="flex justify-between items-start mb-4">
           <h2 className="text-xl font-bold text-slate-900">Modify Availability</h2>
         </div>
@@ -137,7 +137,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
 
 
           {onBlockOff && (
-            <div className="pt-4 border-t border-slate-200">
+            <div className="pt-4 border-t border-line">
               <button
                 type="button"
                 onClick={() => {

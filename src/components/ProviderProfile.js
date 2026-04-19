@@ -47,7 +47,7 @@ const ProviderProfile = () => {
   };
 
   const ServiceCard = ({ service }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 hover:shadow-md transition-shadow">
       <h3 className="text-lg font-medium text-slate-900">{service.name}</h3>
       <p className="mt-2 text-slate-600">{service.description}</p>
       <div className="mt-4 flex items-center justify-between">
@@ -132,7 +132,7 @@ const ProviderProfile = () => {
     <div className="pt-16">
       <div className="max-w-7xl mx-auto p-4">
         {/* Profile Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">
@@ -144,7 +144,7 @@ const ProviderProfile = () => {
                 <button
                   onClick={() => window.location.href = `tel:${provider.profile.phoneNumber}`}
                   className="inline-flex items-center px-3 py-1.5 border border-slate-300
-                    rounded-lg text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                    rounded-lg text-slate-700 hover:bg-paper-deep text-sm font-medium"
                 >
                   <Phone className="w-4 h-4 mr-1.5" />
                   Call
@@ -153,7 +153,7 @@ const ProviderProfile = () => {
               <button
                 onClick={() => window.location.href = `mailto:${provider.email}`}
                 className="inline-flex items-center px-3 py-1.5 border border-slate-300
-                  rounded-lg text-slate-700 hover:bg-slate-50 text-sm font-medium"
+                  rounded-lg text-slate-700 hover:bg-paper-deep text-sm font-medium"
               >
                 <Mail className="w-4 h-4 mr-1.5" />
                 Email
@@ -171,7 +171,7 @@ const ProviderProfile = () => {
         </div>
 
         {/* Stats Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <Stats />
         </div>
 
@@ -187,14 +187,14 @@ const ProviderProfile = () => {
 
         {/* Business Hours and Location */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+          <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-4">
               Business Hours
             </h2>
             <BusinessHours />
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+          <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-4">
               Service Areas
             </h2>

@@ -99,9 +99,9 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
   
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-1 border border-slate-200">
-      <div className="bg-white rounded-lg overflow-hidden">
-        <div className="p-2 border-b border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-1 border border-line">
+      <div className="bg-paper-elev rounded-lg overflow-hidden">
+        <div className="p-2 border-b border-line">
           <div className="flex items-center justify-between">
             <button
               onClick={handlePrevMonth}
@@ -147,9 +147,9 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
     min-w-[4rem] py-2 px-3 rounded-lg
     transition-all duration-200 ease-in-out
     border
-    ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-slate-100' : 
-      hasSlots ? 'hover:bg-[#FBF7EF] hover:border-[#B07A4E] border-slate-200' :
-      'text-slate-400 hover:bg-slate-50 border-slate-100'}
+    ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-line-soft' : 
+      hasSlots ? 'hover:bg-[#FBF7EF] hover:border-[#B07A4E] border-line' :
+      'text-slate-400 hover:bg-paper-deep border-line-soft'}
     ${isSelected ?
       'bg-[#FBF7EF] border-[#B07A4E] text-[#8A5D36] shadow-md ring-2 ring-[#B07A4E] ring-opacity-50' : ''}
   `}

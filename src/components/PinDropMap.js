@@ -167,7 +167,7 @@ const PinDropMap = ({ onLocationConfirmed, initialLocation }) => {
 
         {!markerPosition && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md text-sm text-slate-600 flex items-center gap-2">
+            <div className="bg-paper-elev/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md text-sm text-slate-600 flex items-center gap-2">
               <MapPin className="w-4 h-4 text-teal-600" />
               Tap the map to drop a pin
             </div>

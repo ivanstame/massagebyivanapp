@@ -37,7 +37,7 @@ const AvailabilityList = ({
 
   if (availabilityBlocks.length === 0) {
     return (
-      <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+      <div className="text-center py-8 bg-paper-deep rounded-lg border-2 border-dashed border-line">
         <p className="text-slate-600">
           No availability set for this date.
         </p>
@@ -77,7 +77,7 @@ const AvailabilityList = ({
       {availabilityBlocks.map((block, index) => (
         <div 
           key={block._id || index} 
-          className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden
+          className="bg-paper-elev rounded-lg shadow-sm border border-line overflow-hidden
             transition duration-200 ease-in-out hover:shadow-md"
         >
           <div className="p-4">
@@ -110,8 +110,8 @@ const AvailabilityList = ({
               <div className="flex items-center space-x-2">
                 <button 
                   onClick={() => onModify(block)}
-                  className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                    text-sm font-medium rounded-lg text-slate-700 hover:bg-slate-50
+                  className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-slate-300
+                    text-sm font-medium rounded-lg text-slate-700 hover:bg-paper-deep
                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#B07A4E]
                     transition-colors duration-200 ease-in-out"
                 >
@@ -120,7 +120,7 @@ const AvailabilityList = ({
                 
                 <button 
                   onClick={() => onDelete(block)}
-                  className="inline-flex items-center px-3 py-1.5 bg-white border border-red-300
+                  className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-red-300
                     text-sm font-medium rounded-lg text-red-700 hover:bg-red-50
                     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
                     transition-colors duration-200 ease-in-out"

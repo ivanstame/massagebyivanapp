@@ -222,7 +222,7 @@ const WeeklyTemplateEditor = () => {
         )}
 
         {/* Forecast duration */}
-        <div className="mb-4 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="mb-4 p-4 bg-paper-elev rounded-lg border border-line shadow-sm">
           <label className="block text-sm font-medium text-slate-700 mb-2">
             How far ahead should this schedule be generated?
           </label>
@@ -287,8 +287,8 @@ const WeeklyTemplateEditor = () => {
               key={day.dayOfWeek}
               className={`p-3 rounded-lg border transition-colors ${
                 day.isActive
-                  ? 'bg-white border-[#B07A4E]/30 shadow-sm'
-                  : 'bg-slate-50 border-slate-200'
+                  ? 'bg-paper-elev border-[#B07A4E]/30 shadow-sm'
+                  : 'bg-paper-deep border-line'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -300,7 +300,7 @@ const WeeklyTemplateEditor = () => {
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    className={`absolute top-0.5 w-5 h-5 bg-paper-elev rounded-full shadow transition-transform ${
                       day.isActive ? 'left-[18px]' : 'left-0.5'
                     }`}
                   />
@@ -344,7 +344,7 @@ const WeeklyTemplateEditor = () => {
 
               {/* Anchor location assignment */}
               {day.isActive && (
-                <div className="mt-3 ml-[76px] p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="mt-3 ml-[76px] p-2.5 bg-paper-deep rounded-lg border border-line-soft">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                     <span className="text-xs font-medium text-slate-600 flex-shrink-0">Starting from:</span>
@@ -352,8 +352,8 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.locationId || ''}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
-                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-white focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
-                          !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-paper-elev focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
+                          !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-line'
                         }`}
                       >
                         <option value="">— Select a location —</option>
@@ -382,7 +382,7 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.startTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#B07A4E]"
+                        className="border border-line rounded px-1.5 py-0.5 text-xs bg-paper-elev flex-1 min-w-0 focus:ring-[#B07A4E]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -392,7 +392,7 @@ const WeeklyTemplateEditor = () => {
                       <select
                         value={day.anchor.endTime}
                         onChange={(e) => handleAnchorChange(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white flex-1 min-w-0 focus:ring-[#B07A4E]"
+                        className="border border-line rounded px-1.5 py-0.5 text-xs bg-paper-elev flex-1 min-w-0 focus:ring-[#B07A4E]"
                       >
                         {TIME_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>

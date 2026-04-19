@@ -118,7 +118,7 @@ const ProviderSelection = () => {
 
   if (isLoading && !currentRequest) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-paper-deep">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B07A4E] mx-auto mb-4"></div>
           <p className="text-slate-600">Loading available providers...</p>
@@ -129,8 +129,8 @@ const ProviderSelection = () => {
 
   if (error && !currentRequest) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-paper-deep">
+        <div className="bg-paper-elev p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-red-600 mb-4">
             <AlertCircle className="h-12 w-12 mx-auto" />
           </div>
@@ -149,8 +149,8 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'PENDING') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-paper-deep">
+        <div className="bg-paper-elev p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-blue-600 mb-4">
             <Clock className="h-12 w-12 mx-auto" />
           </div>
@@ -175,8 +175,8 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'ACCEPTED') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-paper-deep">
+        <div className="bg-paper-elev p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-green-600 mb-4">
             <CheckCircle className="h-12 w-12 mx-auto" />
           </div>
@@ -200,8 +200,8 @@ const ProviderSelection = () => {
 
   if (requestStatus === 'DENIED') {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-paper-deep">
+        <div className="bg-paper-elev p-8 rounded-lg shadow-md max-w-md w-full">
           <div className="text-center text-red-600 mb-4">
             <XCircle className="h-12 w-12 mx-auto" />
           </div>
@@ -228,7 +228,7 @@ const ProviderSelection = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] bg-paper-deep py-12">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-4 bg-[#B07A4E] rounded-full mb-4">
@@ -250,7 +250,7 @@ const ProviderSelection = () => {
           {providers.map((provider) => (
             <div
               key={provider.id}
-              className={`bg-white rounded-lg shadow-md p-6 border-2 transition-all ${
+              className={`bg-paper-elev rounded-lg shadow-md p-6 border-2 transition-all ${
                 selectedProvider?.id === provider.id
                   ? 'border-[#B07A4E] bg-[#B07A4E]/5'
                   : 'border-transparent hover:border-[#B07A4E] hover:bg-[#B07A4E]/5'
@@ -298,7 +298,7 @@ const ProviderSelection = () => {
         <div className="mt-8 text-center">
           <button
             onClick={handleContinueToDashboard}
-            className="inline-flex items-center px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition"
+            className="inline-flex items-center px-6 py-3 border border-slate-300 rounded-lg text-slate-700 hover:bg-paper-deep transition"
           >
             Skip for now and continue to dashboard
           </button>

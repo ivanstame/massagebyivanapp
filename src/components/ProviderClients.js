@@ -220,7 +220,7 @@ const ProviderClients = () => {
 
   const InviteModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <div className="bg-paper-elev rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 className="text-lg font-medium text-slate-900 mb-4">Invite New Client</h3>
         
         <form onSubmit={handleInviteClient}>
@@ -268,7 +268,7 @@ const ProviderClients = () => {
                   type="text"
                   value={invitationCode}
                   readOnly
-                  className="flex-1 px-3 py-2 border rounded-lg bg-slate-50 mr-2"
+                  className="flex-1 px-3 py-2 border rounded-lg bg-paper-deep mr-2"
                 />
                 <button
                   type="button"
@@ -340,13 +340,16 @@ const ProviderClients = () => {
   const filteredInvitations = getFilteredInvitations();
 
   return (
-    <div className="pt-16">
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-4 sm:space-y-0">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-7xl mx-auto px-5 py-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Client Management</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {activeTab === 'clients' ? `${clients.length} registered clients` : `${invitations.length} pending invitations`}
+            <div className="av-eyebrow mb-2">Your people</div>
+            <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+              Clients
+            </h1>
+            <p className="text-sm text-ink-2 mt-1.5">
+              {activeTab === 'clients' ? `${clients.length} registered` : `${invitations.length} pending invitations`}
             </p>
           </div>
           
@@ -372,7 +375,7 @@ const ProviderClients = () => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-lg font-bold tracking-wider text-[#B07A4E] bg-white px-4 py-1.5 rounded-lg border border-[#B07A4E]/20">
+                <span className="text-lg font-bold tracking-wider text-[#B07A4E] bg-paper-elev px-4 py-1.5 rounded-lg border border-[#B07A4E]/20">
                   {joinCode.toUpperCase()}
                 </span>
                 <button
@@ -441,7 +444,7 @@ const ProviderClients = () => {
                   {joinCode && (
                     <button
                       onClick={() => { setIsEditingJoinCode(false); setJoinCodeInput(''); setJoinCodeError(''); }}
-                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+                      className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-paper-deep"
                     >
                       Cancel
                     </button>
@@ -456,7 +459,7 @@ const ProviderClients = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-6 border-b border-slate-200">
+        <div className="mb-6 border-b border-line">
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab('clients')}
@@ -533,7 +536,7 @@ const ProviderClients = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line">
           {activeTab === 'clients' ? (
             <>
               {isLoading ? (
@@ -590,7 +593,7 @@ const ProviderClients = () => {
                     return (
                       <div
                         key={client._id}
-                        className="p-4 sm:p-6 hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="p-4 sm:p-6 hover:bg-paper-deep cursor-pointer transition-colors"
                         onClick={() => navigate(`/provider/clients/${client._id}`)}
                       >
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
@@ -665,7 +668,7 @@ const ProviderClients = () => {
                               <button
                                 onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
                                 className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                  hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
+                                  hover:bg-slate-100 rounded-lg border border-line flex-1 sm:flex-initial"
                               >
                                 <Phone className="w-4 h-4 mr-1" />
                                 Call
@@ -675,7 +678,7 @@ const ProviderClients = () => {
                               <button
                                 onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
                                 className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                                  hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
+                                  hover:bg-slate-100 rounded-lg border border-line flex-1 sm:flex-initial"
                               >
                                 <MessageSquare className="w-4 h-4 mr-1" />
                                 Text
@@ -741,7 +744,7 @@ const ProviderClients = () => {
               ) : (
                 <div className="divide-y divide-slate-200">
                   {filteredInvitations.map(invitation => (
-                    <div key={invitation._id} className="p-4 sm:p-6 hover:bg-slate-50">
+                    <div key={invitation._id} className="p-4 sm:p-6 hover:bg-paper-deep">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-4 sm:space-y-0">
                         <div className="flex-1">
                           <h3 className="text-base sm:text-lg font-medium text-slate-900">
@@ -774,7 +777,7 @@ const ProviderClients = () => {
                               // Optional: show a quick copied message
                             }}
                             className="inline-flex items-center justify-center px-3 py-1.5 text-sm text-slate-700
-                              hover:bg-slate-100 rounded-lg border border-slate-200 flex-1 sm:flex-initial"
+                              hover:bg-slate-100 rounded-lg border border-line flex-1 sm:flex-initial"
                           >
                             Copy Invite Code
                           </button>

@@ -172,7 +172,7 @@ const SignUp = () => {
   };
 
   const renderJoinCodeStep = () => (
-    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+    <div className="bg-paper-elev p-8 rounded-xl shadow-sm border border-line">
       <div className="text-center mb-6">
         <h3 className="text-xl font-medium text-slate-900">Enter Your Provider's Code</h3>
         <p className="mt-2 text-slate-500">Your massage provider should have given you a short join code</p>
@@ -198,7 +198,7 @@ const SignUp = () => {
               const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '');
               setFormData(prev => ({ ...prev, joinCode: val }));
             }}
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-center text-lg tracking-wider
+            className="w-full px-4 py-3 border border-line rounded-xl text-center text-lg tracking-wider
               focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
             placeholder="e.g. ivan"
             maxLength={20}
@@ -218,8 +218,8 @@ const SignUp = () => {
               setFormData(prev => ({ ...prev, joinCode: '', accountType: '' }));
               setError('');
             }}
-            className="flex-1 py-3 px-4 border border-slate-200 rounded-xl text-slate-700 font-medium
-              hover:bg-slate-50 transition-all duration-200"
+            className="flex-1 py-3 px-4 border border-line rounded-xl text-slate-700 font-medium
+              hover:bg-paper-deep transition-all duration-200"
           >
             Back
           </button>
@@ -246,7 +246,7 @@ const SignUp = () => {
       <div className="grid grid-cols-1 gap-4">
         <button
           onClick={() => setStep(2)} // Go to provider password gate
-          className="p-6 border-2 border-slate-200 rounded-xl hover:border-[#B07A4E]
+          className="p-6 border-2 border-line rounded-xl hover:border-[#B07A4E]
             hover:bg-[#B07A4E]/5 transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
         >
@@ -261,7 +261,7 @@ const SignUp = () => {
             setFormData(prev => ({ ...prev, accountType: 'CLIENT' }));
             setStep(2.5); // Go to join code entry
           }}
-          className="p-6 border-2 border-slate-200 rounded-xl hover:border-[#B07A4E]
+          className="p-6 border-2 border-line rounded-xl hover:border-[#B07A4E]
             hover:bg-[#B07A4E]/5 transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
         >
@@ -275,7 +275,7 @@ const SignUp = () => {
   );
 
   const renderProviderPasswordGate = () => (
-    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+    <div className="bg-paper-elev p-8 rounded-xl shadow-sm border border-line">
       <div className="text-center mb-6">
         <h3 className="text-xl font-medium text-slate-900">Provider Access Required</h3>
         <p className="mt-2 text-slate-500">Enter the provider access password to continue</p>
@@ -298,7 +298,7 @@ const SignUp = () => {
             type="password"
             value={providerAccessPassword}
             onChange={(e) => setProviderAccessPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl
+            className="w-full px-4 py-3 border border-line rounded-xl
               focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
             placeholder="Enter provider access password"
             onKeyPress={(e) => {
@@ -319,8 +319,8 @@ const SignUp = () => {
               setProviderAccessPassword('');
               setError('');
             }}
-            className="flex-1 py-3 px-4 border border-slate-200 rounded-xl text-slate-700 font-medium
-              hover:bg-slate-50 transition-all duration-200"
+            className="flex-1 py-3 px-4 border border-line rounded-xl text-slate-700 font-medium
+              hover:bg-paper-deep transition-all duration-200"
           >
             Back
           </button>
@@ -350,7 +350,7 @@ const SignUp = () => {
           required
           value={formData.email}
           onChange={handleChange}
-          className="w-full px-4 py-3 border border-slate-200 rounded-xl
+          className="w-full px-4 py-3 border border-line rounded-xl
             focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
           placeholder="Enter your email"
         />
@@ -368,7 +368,7 @@ const SignUp = () => {
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl
+            className="w-full px-4 py-3 pr-12 border border-line rounded-xl
               focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
             placeholder="Create a password (min 6 characters)"
           />
@@ -399,7 +399,7 @@ const SignUp = () => {
             required
             value={formData.confirmPassword}
             onChange={handleChange}
-            className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl
+            className="w-full px-4 py-3 pr-12 border border-line rounded-xl
               focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all duration-200"
             placeholder="Re-enter your password"
           />
@@ -458,7 +458,7 @@ const SignUp = () => {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-paper-deep">
       <div className="mb-8">
         <img 
           src="/imgs/logo.png"
@@ -469,7 +469,7 @@ const SignUp = () => {
 
       <div className="w-full max-w-md">
         {step === 1 && (
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+          <div className="bg-paper-elev p-8 rounded-xl shadow-sm border border-line">
             {renderTypeSelection()}
           </div>
         )}
@@ -482,7 +482,7 @@ const SignUp = () => {
           <>
             <ProgressIndicator currentStep={1} accountType={formData.accountType} />
             
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-paper-elev p-8 rounded-xl shadow-sm border border-line">
               <h2 className="text-2xl font-medium text-center text-slate-900 mb-2">
                 {formData.accountType === 'PROVIDER' ? 'Create Provider Account' : 'Create Client Account'}
               </h2>

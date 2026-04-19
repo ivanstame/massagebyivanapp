@@ -136,7 +136,7 @@ const ProviderClientDetails = () => {
 
   const DeleteConfirmationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-paper-elev rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-medium text-slate-900 mb-4">Remove Client</h3>
         <p className="text-slate-500 mb-4">
           Are you sure you want to remove this client? This action cannot be undone.
@@ -161,7 +161,7 @@ const ProviderClientDetails = () => {
   
   const EditNotesModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-paper-elev rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-medium text-slate-900 mb-4">Edit Client Notes</h3>
         <textarea
           value={clientNotes}
@@ -216,7 +216,7 @@ const ProviderClientDetails = () => {
     <div className="pt-16">
       <div className="max-w-7xl mx-auto p-4">
         {/* Client Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex justify-between items-start">
             <div className="flex items-start space-x-4">
               <div className="bg-slate-100 p-3 rounded-full">
@@ -282,7 +282,7 @@ const ProviderClientDetails = () => {
         </div>
 
         {/* Client Stats Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <h2 className="text-lg font-medium text-slate-900 mb-4">Client Statistics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-[#B07A4E]/10 p-4 rounded-lg">
@@ -320,7 +320,7 @@ const ProviderClientDetails = () => {
         </div>
 
         {/* Client Notes Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-slate-900">Client Notes</h2>
             <button
@@ -331,7 +331,7 @@ const ProviderClientDetails = () => {
               Edit Notes
             </button>
           </div>
-          <div className="bg-slate-50 p-4 rounded-lg">
+          <div className="bg-paper-deep p-4 rounded-lg">
             <div className="flex items-start">
               <StickyNote className="w-5 h-5 text-slate-400 mr-2 mt-1" />
               <p className="text-slate-700 whitespace-pre-wrap">
@@ -342,7 +342,7 @@ const ProviderClientDetails = () => {
         </div>
 
         {/* Medical Info Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <h2 className="text-lg font-medium text-slate-900 mb-4">Medical Information</h2>
           <div className="space-y-4">
             <div>
@@ -361,7 +361,7 @@ const ProviderClientDetails = () => {
         </div>
 
         {/* Appointments Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
             <button
@@ -379,7 +379,7 @@ const ProviderClientDetails = () => {
               {appointments.map(appointment => (
                 <div
                   key={appointment._id}
-                  className="p-4 hover:bg-slate-50 rounded-lg border border-slate-100"
+                  className="p-4 hover:bg-paper-deep rounded-lg border border-line-soft"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-start space-x-3">

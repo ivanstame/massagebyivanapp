@@ -25,7 +25,7 @@ const PublicProviderProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-paper-deep">
         <div className="animate-pulse space-y-4 w-full max-w-md px-6">
           <div className="h-8 bg-slate-200 rounded-lg w-3/4 mx-auto" />
           <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto" />
@@ -38,7 +38,7 @@ const PublicProviderProfile = () => {
 
   if (error || !profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 text-center px-4">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-paper-deep text-center px-4">
         <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
           <Sparkles className="w-8 h-8 text-slate-300" />
         </div>
@@ -70,12 +70,12 @@ const PublicProviderProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-paper-deep">
       {/* Hero */}
       <div className="bg-gradient-to-br from-[#B07A4E] to-[#007a80] text-white pt-16 pb-20 px-4 text-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/20" />
-          <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-white/10" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-paper-elev/20" />
+          <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-paper-elev/10" />
         </div>
         <div className="relative">
           <h1 className="text-3xl sm:text-4xl font-bold mb-2">
@@ -92,8 +92,8 @@ const PublicProviderProfile = () => {
 
         {/* Services & Pricing */}
         {profile.basePricing?.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden">
+            <div className="px-5 py-4 border-b border-line-soft flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[#B07A4E]" />
               <h2 className="text-lg font-semibold text-slate-800">Services & Pricing</h2>
             </div>
@@ -115,8 +115,8 @@ const PublicProviderProfile = () => {
 
         {/* Add-ons */}
         {profile.addons?.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden">
+            <div className="px-5 py-4 border-b border-line-soft flex items-center gap-2">
               <Plus className="w-5 h-5 text-[#B07A4E]" />
               <h2 className="text-lg font-semibold text-slate-800">Add-ons</h2>
             </div>
@@ -141,8 +141,8 @@ const PublicProviderProfile = () => {
 
         {/* Payment Methods */}
         {profile.acceptedPaymentMethods?.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden">
+            <div className="px-5 py-4 border-b border-line-soft flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-[#B07A4E]" />
               <h2 className="text-lg font-semibold text-slate-800">Payment</h2>
             </div>
@@ -150,7 +150,7 @@ const PublicProviderProfile = () => {
               {profile.acceptedPaymentMethods.map((method) => (
                 <span
                   key={method}
-                  className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 rounded-full px-4 py-2 text-sm font-medium border border-slate-100"
+                  className="inline-flex items-center gap-1.5 bg-paper-deep text-slate-700 rounded-full px-4 py-2 text-sm font-medium border border-line-soft"
                 >
                   <span>{paymentIcons[method]}</span>
                   {paymentLabels[method] || method}

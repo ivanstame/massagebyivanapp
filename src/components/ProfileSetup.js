@@ -223,11 +223,11 @@ const ProfileSetup = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-paper-deep py-12">
       <div className="w-full max-w-2xl">
         <ProgressIndicator currentStep={2} accountType={user?.accountType} />
         
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-paper-elev rounded-lg shadow-md p-8">
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-normal text-slate-700">Profile Information</h2>
             <p className="mt-2 text-slate-500">
@@ -266,7 +266,7 @@ const ProfileSetup = () => {
                       value={formData.fullName}
                       onChange={handleChange}
                       required
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
+                      className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="John Doe"
                     />
                     <User className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
@@ -289,7 +289,7 @@ const ProfileSetup = () => {
                         }))
                       )}
                       required
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
+                      className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="(555) 123-4567"
                     />
                     <Phone className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
@@ -316,7 +316,7 @@ const ProfileSetup = () => {
                       value={formData.businessName}
                       onChange={handleChange}
                       required
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
+                      className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="Healing Hands Massage Therapy"
                     />
                     <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
@@ -341,7 +341,7 @@ const ProfileSetup = () => {
                       className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition ${
                         joinCodeStatus === 'available' ? 'border-green-400 focus:ring-green-400' :
                         joinCodeStatus === 'taken' || joinCodeStatus === 'invalid' ? 'border-red-400 focus:ring-red-400' :
-                        'border-slate-200 focus:ring-[#B07A4E]'
+                        'border-line focus:ring-[#B07A4E]'
                       }`}
                       placeholder="e.g. ivan"
                     />
@@ -405,7 +405,7 @@ const ProfileSetup = () => {
                       name="allergies"
                       value={formData.allergies}
                       onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
+                      className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="e.g., Latex, essential oils, nuts"
                     />
                     <AlertTriangle className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
@@ -423,7 +423,7 @@ const ProfileSetup = () => {
                     name="medicalConditions"
                     value={formData.medicalConditions}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition h-24 resize-none"
+                    className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition h-24 resize-none"
                     placeholder="List any medical conditions or concerns that may affect your treatment (e.g., pregnancy, injuries, chronic conditions)"
                   />
                   <p className="mt-1 text-xs text-slate-500">

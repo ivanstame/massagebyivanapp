@@ -54,7 +54,7 @@ const ResetPassword = () => {
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <div className="bg-paper-elev py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {success ? (
               <div>
                 <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">

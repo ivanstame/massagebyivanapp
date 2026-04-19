@@ -272,11 +272,14 @@ const ProviderSettings = () => {
   };
 
   return (
-    <div className="pt-16">
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-          <p className="text-sm text-slate-500 mt-1">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-2xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Tune the studio</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Settings
+          </h1>
+          <p className="text-sm text-ink-2 mt-1.5">
             Manage your business preferences
           </p>
         </div>
@@ -296,7 +299,7 @@ const ProviderSettings = () => {
         )}
 
         {/* Business Information */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Settings className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Business Information</h3>
@@ -339,7 +342,7 @@ const ProviderSettings = () => {
         </div>
 
         {/* Home Address */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-1">
             <Home className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Home Address</h3>
@@ -407,7 +410,7 @@ const ProviderSettings = () => {
         </div>
 
         {/* Tax & Mileage */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Home className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Tax & Mileage</h3>
@@ -426,18 +429,18 @@ const ProviderSettings = () => {
                 onChange={(e) => setSettings({ ...settings, homeOffice: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper-elev after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>
             </label>
           </div>
         </div>
 
         {/* Cancellation Policy */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Cancellation Policy</h3>
           </div>
-          <div className="flex items-center justify-between py-3 border-b border-slate-100">
+          <div className="flex items-center justify-between py-3 border-b border-line-soft">
             <div>
               <p className="text-slate-800 font-medium">Enable Policy</p>
               <p className="text-xs text-slate-500 mt-0.5">Warn or charge clients for late cancellations</p>
@@ -452,7 +455,7 @@ const ProviderSettings = () => {
                 })}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper-elev after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>
             </label>
           </div>
           {settings.cancellationPolicy?.enabled && (
@@ -468,7 +471,7 @@ const ProviderSettings = () => {
                     ...settings,
                     cancellationPolicy: { ...settings.cancellationPolicy, windowHours: parseInt(e.target.value) || 24 }
                   })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
                 />
                 <p className="text-xs text-slate-400 mt-1">Clients cancelling within this window get warned</p>
               </div>
@@ -483,7 +486,7 @@ const ProviderSettings = () => {
                     ...settings,
                     cancellationPolicy: { ...settings.cancellationPolicy, lateCancelFee: parseInt(e.target.value) || 0 }
                   })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
                 />
                 <p className="text-xs text-slate-400 mt-1">$0 = warning only, no fee</p>
               </div>
@@ -492,7 +495,7 @@ const ProviderSettings = () => {
         </div>
 
         {/* Stripe Connect */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Card Payments (Stripe)</h3>
@@ -564,7 +567,7 @@ const ProviderSettings = () => {
         </div>
 
         {/* Google Calendar */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Google Calendar Sync</h3>
@@ -604,7 +607,7 @@ const ProviderSettings = () => {
               )}
 
               {showCalendarPicker && gcalCalendars.length > 0 && (
-                <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+                <div className="border border-line rounded-lg p-3 space-y-2">
                   <p className="text-sm font-medium text-slate-700">Select calendars to sync:</p>
                   {gcalCalendars.map(cal => (
                     <label key={cal.id} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
@@ -664,7 +667,7 @@ const ProviderSettings = () => {
         </div>
 
         {/* Scheduling */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Scheduling</h3>
@@ -730,7 +733,7 @@ const ProviderSettings = () => {
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-paper-elev rounded-lg p-6 max-w-md w-full">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">
                 Delete Account
               </h3>
@@ -746,7 +749,7 @@ const ProviderSettings = () => {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { setShowDeleteConfirm(false); setDeleteError(null); }}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-paper-deep"
                   disabled={deleteLoading}
                 >
                   Cancel

@@ -166,11 +166,14 @@ const ProviderServices = () => {
   }
 
   return (
-    <div className="pt-16">
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Services & Pricing</h1>
-          <p className="text-sm text-slate-500 mt-1">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-2xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Your offerings</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Services &amp; <em style={{ color: '#B07A4E' }}>pricing</em>
+          </h1>
+          <p className="text-sm text-ink-2 mt-1.5">
             Set your session pricing and add-on services. Clients see these when booking.
           </p>
         </div>
@@ -193,7 +196,7 @@ const ProviderServices = () => {
         )}
 
         {/* Base Session Pricing */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[#B07A4E]" />
@@ -206,7 +209,7 @@ const ProviderServices = () => {
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+              <div key={index} className="flex items-center gap-3 p-3 bg-paper-deep rounded-lg border border-line-soft">
                 <div className="flex-1 grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Duration (min)</label>
@@ -261,7 +264,7 @@ const ProviderServices = () => {
         </div>
 
         {/* Add-on Services */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-[#B07A4E]" />
@@ -273,7 +276,7 @@ const ProviderServices = () => {
           </p>
 
           {addons.length === 0 && !showAddAddon ? (
-            <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+            <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">No add-on services yet</p>
               <p className="text-slate-400 text-xs mt-1">Add services like TheraGun, Hot Stone, etc.</p>
             </div>
@@ -284,8 +287,8 @@ const ProviderServices = () => {
                   key={index}
                   className={`p-3 rounded-lg border transition-colors ${
                     addon.isActive
-                      ? 'bg-white border-slate-200 shadow-sm'
-                      : 'bg-slate-50 border-slate-100 opacity-60'
+                      ? 'bg-paper-elev border-line shadow-sm'
+                      : 'bg-paper-deep border-line-soft opacity-60'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -310,7 +313,7 @@ const ProviderServices = () => {
                           value={addon.name}
                           onChange={(e) => handleAddonFieldChange(index, 'name', e.target.value)}
                           placeholder="Service name"
-                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                          className="w-full border border-line rounded px-2 py-1.5 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -322,7 +325,7 @@ const ProviderServices = () => {
                               min="0"
                               value={addon.price}
                               onChange={(e) => handleAddonFieldChange(index, 'price', e.target.value)}
-                              className="w-full border border-slate-200 rounded pl-6 pr-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                              className="w-full border border-line rounded pl-6 pr-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                             />
                           </div>
                         </div>
@@ -333,7 +336,7 @@ const ProviderServices = () => {
                               min="0"
                               value={addon.extraTime}
                               onChange={(e) => handleAddonFieldChange(index, 'extraTime', e.target.value)}
-                              className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                              className="w-full border border-line rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                               title="Extra minutes added"
                             />
                             <span className="absolute right-2 top-1.5 text-xs text-slate-400">min</span>
@@ -346,7 +349,7 @@ const ProviderServices = () => {
                           value={addon.description || ''}
                           onChange={(e) => handleAddonFieldChange(index, 'description', e.target.value)}
                           placeholder="Brief description (shown to clients)"
-                          className="w-full border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                          className="w-full border border-line rounded px-2 py-1.5 text-xs text-slate-600 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                         />
                       </div>
                     </div>
@@ -366,7 +369,7 @@ const ProviderServices = () => {
 
           {/* Add new addon form */}
           {showAddAddon ? (
-            <div className="mt-3 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <div className="mt-3 p-4 bg-paper-deep rounded-lg border border-line space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Service Name</label>

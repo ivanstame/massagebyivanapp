@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { AvMonogram, BrushStroke } from './brush/BrushMotifs';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -26,24 +27,23 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="pt-16">
-      <div className="flex flex-col justify-center pt-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <img
-            src="/imgs/logo.png"
-            alt="Massage by Ivan"
-            className="mx-auto h-32 w-auto"
-          />
-          <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
-            Reset your password
-          </h2>
-          <p className="mt-2 text-center text-sm text-slate-600">
-            Enter your email and we'll send you a link to reset your password.
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-md mx-auto w-full px-7 pt-10 pb-8">
+        <div className="flex justify-center mb-3">
+          <AvMonogram size={56} ringColor="#1B7F84" inkColor="#2A2520" accent="#B07A4E" />
+        </div>
+        <div className="text-center mb-8">
+          <div className="av-meta mb-1.5">A moment of forgetfulness</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Reset your <em style={{ color: '#B07A4E' }}>password.</em>
+          </h1>
+          <p className="mt-2 text-sm text-ink-2">
+            Enter your email and we'll send you a link.
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <div className="bg-paper-elev py-8 px-4 shadow sm:rounded-lg sm:px-10">
             {success ? (
               <div>
                 <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
@@ -119,6 +119,9 @@ const ForgotPassword = () => {
             )}
           </div>
         </div>
+      </div>
+      <div className="flex justify-center pb-8">
+        <BrushStroke width={120} height={12} color="#B07A4E" opacity={0.5} />
       </div>
     </div>
   );

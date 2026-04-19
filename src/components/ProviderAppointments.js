@@ -134,7 +134,7 @@ const ProviderAppointments = () => {
   const renderAppointment = (appointment) => (
     <div
       key={appointment._id}
-      className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden
+      className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden
         transition-shadow duration-200 ease-in-out hover:shadow-md mb-4"
     >
       <div className="p-4 sm:p-5">
@@ -262,10 +262,10 @@ const ProviderAppointments = () => {
         </div>
 
         {appointment.client?.profile?.phoneNumber && (
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200">
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-line">
             <button
-              className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                text-sm font-medium rounded-xl text-slate-700 hover:bg-slate-50 transition-all duration-200"
+              className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-slate-300
+                text-sm font-medium rounded-xl text-slate-700 hover:bg-paper-deep transition-all duration-200"
               onClick={() => window.location.href = `tel:${appointment.client.profile.phoneNumber}`}
             >
               <Phone className="w-4 h-4 mr-1.5" />
@@ -273,8 +273,8 @@ const ProviderAppointments = () => {
             </button>
 
             <button
-              className="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300
-                text-sm font-medium rounded-xl text-slate-700 hover:bg-slate-50 transition-all duration-200"
+              className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-slate-300
+                text-sm font-medium rounded-xl text-slate-700 hover:bg-paper-deep transition-all duration-200"
               onClick={() => window.location.href = `sms:${appointment.client.profile.phoneNumber}`}
             >
               <MessageSquare className="w-4 h-4 mr-1.5" />
@@ -287,11 +287,16 @@ const ProviderAppointments = () => {
   );
 
   return (
-    <div className="pt-16">
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="bg-white shadow-sm rounded-xl overflow-hidden">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-5xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Your hours</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Appointments
+          </h1>
+        </div>
+        <div className="bg-paper-elev shadow-atelier-sm border border-line rounded-card overflow-hidden">
           <div className="p-6">
-            <h1 className="text-2xl font-bold text-slate-900 mb-6">Appointments</h1>
 
             {error && (
               <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-400">

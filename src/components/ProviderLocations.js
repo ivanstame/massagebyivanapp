@@ -161,11 +161,14 @@ const ProviderLocations = () => {
   }
 
   return (
-    <div className="pt-16">
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">My Locations</h1>
-          <p className="text-sm text-slate-500 mt-1">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-2xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Where you work</div>
+          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Locations
+          </h1>
+          <p className="text-sm text-ink-2 mt-1.5">
             Save locations you work from regularly. Assign them to days in your Weekly Template.
           </p>
         </div>
@@ -181,14 +184,14 @@ const ProviderLocations = () => {
         {/* Existing locations */}
         <div className="space-y-3 mb-6">
           {locations.length === 0 ? (
-            <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+            <div className="text-center py-8 bg-paper-deep rounded-lg border border-dashed border-slate-300">
               <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-slate-500 text-sm">No saved locations yet</p>
               <p className="text-slate-400 text-xs mt-1">Add your first location below</p>
             </div>
           ) : (
             locations.map(loc => (
-              <div key={loc._id} className="flex items-center gap-3 p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
+              <div key={loc._id} className="flex items-center gap-3 p-4 bg-paper-elev border border-line rounded-lg shadow-sm">
                 <div className="flex-shrink-0">
                   {loc.isHomeBase ? (
                     <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
@@ -231,8 +234,8 @@ const ProviderLocations = () => {
 
         {/* Add location */}
         {showAddForm ? (
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
+          <div className="bg-paper-elev rounded-lg border border-line shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-line bg-paper-deep">
               <h3 className="font-medium text-slate-900">Add New Location</h3>
 
               {/* Mode toggle */}

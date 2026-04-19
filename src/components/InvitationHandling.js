@@ -94,7 +94,7 @@ const InvitationHandling = () => {
                   type="email"
                   value={email}
                   disabled
-                  className="w-full px-3 py-2 border rounded-lg bg-slate-50"
+                  className="w-full px-3 py-2 border rounded-lg bg-paper-deep"
                 />
               </div>
 
@@ -185,9 +185,9 @@ const InvitationHandling = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-paper-deep flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-paper-elev py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {renderContent()}
         </div>
       </div>

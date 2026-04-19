@@ -115,19 +115,25 @@ const MileageReport = () => {
   const fmtDate = (d) => DateTime.fromFormat(d, 'yyyy-MM-dd').toFormat('EEE, MMM d');
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 pt-20">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[#B07A4E]/10 flex items-center justify-center">
-          <Car className="w-5 h-5 text-[#B07A4E]" />
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-4xl mx-auto px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">For the taxman</div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-card flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <Car className="w-5 h-5 text-accent" />
+            </div>
+            <div>
+              <h1 className="font-display" style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+                Mileage report
+              </h1>
+              <p className="text-sm text-ink-2 mt-0.5">Track driving miles for tax deductions</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mileage Report</h1>
-          <p className="text-sm text-slate-500">Track driving miles for tax deductions</p>
-        </div>
-      </div>
 
       {/* Date Range & Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+      <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-5 mb-6">
         <div className="flex flex-wrap gap-2 mb-4">
           {[
             ['thisMonth', 'This Month'],
@@ -138,7 +144,7 @@ const MileageReport = () => {
             <button
               key={key}
               onClick={() => setRange(key)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all duration-200"
+              className="px-3 py-1.5 text-sm rounded-lg border border-line text-slate-600 hover:bg-paper-deep transition-all duration-200"
             >
               {label}
             </button>
@@ -152,7 +158,7 @@ const MileageReport = () => {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
             />
           </div>
           <div className="flex-1 w-full">
@@ -161,7 +167,7 @@ const MileageReport = () => {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
             />
           </div>
           <button
@@ -217,7 +223,7 @@ const MileageReport = () => {
               { label: 'Days', value: report.summary.totalDays, icon: Calendar },
               { label: 'Est. Deduction', value: `$${report.summary.estimatedDeduction.toFixed(0)}`, icon: TrendingUp, highlight: true },
             ].map((card, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+              <div key={i} className="bg-paper-elev rounded-xl shadow-sm border border-line p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <card.icon className={`w-4 h-4 ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
                   <span className="text-xs font-medium text-slate-500">{card.label}</span>
@@ -245,7 +251,7 @@ const MileageReport = () => {
 
           {/* Daily Breakdown */}
           {report.days.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+            <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-8 text-center">
               <Car className="w-10 h-10 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500">No appointments found in this date range.</p>
             </div>
@@ -254,12 +260,12 @@ const MileageReport = () => {
               {report.days.map((day) => (
                 <div
                   key={day.date}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+                  className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden"
                 >
                   {/* Day Header */}
                   <button
                     onClick={() => toggleDay(day.date)}
-                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-paper-deep transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <Calendar className="w-4 h-4 text-slate-400" />
@@ -287,12 +293,12 @@ const MileageReport = () => {
 
                   {/* Expanded Legs */}
                   {expandedDays[day.date] && (
-                    <div className="border-t border-slate-100 px-5 py-3 space-y-2">
+                    <div className="border-t border-line-soft px-5 py-3 space-y-2">
                       {day.legs.map((leg, i) => (
                         <div
                           key={i}
                           className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            leg.isDeductible ? 'bg-green-50/50' : 'bg-slate-50'
+                            leg.isDeductible ? 'bg-green-50/50' : 'bg-paper-deep'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -321,7 +327,7 @@ const MileageReport = () => {
                           </div>
                         </div>
                       ))}
-                      <div className="flex justify-end pt-2 border-t border-slate-100">
+                      <div className="flex justify-end pt-2 border-t border-line-soft">
                         <span className="text-sm text-slate-500">
                           Day deduction: <span className="font-semibold text-[#B07A4E]">${day.deduction.toFixed(2)}</span>
                         </span>
@@ -334,6 +340,7 @@ const MileageReport = () => {
           )}
         </>
       )}
+      </div>
     </div>
   );
 };

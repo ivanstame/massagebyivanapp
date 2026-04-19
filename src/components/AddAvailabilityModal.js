@@ -115,7 +115,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
       flex items-center justify-center z-50 modal-overlay"
     >
-      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto modal-content">
+      <div className="bg-paper-elev p-6 rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto modal-content">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Add Availability</h2>
@@ -164,7 +164,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
           </div>
 
           {/* Departure Location */}
-          <div className="border-t border-slate-200 pt-4">
+          <div className="border-t border-line pt-4">
             <button
               type="button"
               onClick={() => setShowLocationPicker(!showLocationPicker)}
@@ -195,7 +195,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 {/* Home base option */}
                 {homeBase && (
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'homebase' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                    departureMode === 'homebase' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
                   }`}>
                     <input
                       type="radio"
@@ -225,7 +225,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 {/* Saved locations */}
                 {nonHomeSavedLocations.length > 0 && (
                   <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'saved' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                    departureMode === 'saved' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
                   }`}>
                     <input
                       type="radio"
@@ -254,7 +254,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
 
                 {/* Pin drop */}
                 <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  departureMode === 'pin' ? 'border-[#B07A4E] bg-teal-50' : 'border-slate-200 hover:bg-slate-50'
+                  departureMode === 'pin' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
                 }`}>
                   <input
                     type="radio"
@@ -270,13 +270,13 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 </label>
 
                 {departureMode === 'pin' && (
-                  <div className="rounded-lg overflow-hidden border border-slate-200">
+                  <div className="rounded-lg overflow-hidden border border-line">
                     <PinDropMap
                       onLocationConfirmed={(loc) => setPinLocation(loc)}
                       initialLocation={pinLocation}
                     />
                     {pinLocation && (
-                      <div className="p-2 bg-slate-50 text-xs text-slate-600">
+                      <div className="p-2 bg-paper-deep text-xs text-slate-600">
                         {pinLocation.address || `${pinLocation.lat.toFixed(4)}, ${pinLocation.lng.toFixed(4)}`}
                       </div>
                     )}
@@ -287,7 +287,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-line">
             <button
               type="button"
               onClick={onClose}

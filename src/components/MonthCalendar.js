@@ -115,7 +115,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
         </h2>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-paper-elev rounded-lg shadow-md overflow-hidden">
         {/* Calendar Header - The command center of temporal navigation */}
         <div className="bg-[#B07A4E] text-white p-4">
           <div className="flex items-center justify-between mb-4">
@@ -150,7 +150,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
         </div>
 
         {/* The main event - where time meets possibility */}
-        <div className="bg-white p-4">
+        <div className="bg-paper-elev p-4">
           <div className="grid grid-cols-7 gap-1">
             {/* The void before time begins */}
             {Array.from({ length: firstDayOfMonth }).map((_, index) => (
@@ -177,9 +177,9 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
                     className={`
                       relative h-12 flex items-center justify-center rounded-lg
                       transition-all duration-200 ease-in-out
-                      ${isPast ? 'text-slate-300 line-through bg-slate-50' : 
+                      ${isPast ? 'text-slate-300 line-through bg-paper-deep' : 
                         hasSlots ? 'text-slate-700 hover:bg-[#FBF7EF]' :
-                        'text-slate-400 hover:bg-slate-50'
+                        'text-slate-400 hover:bg-paper-deep'
                       }
                       ${isSelected ? 'ring-2 ring-[#B07A4E] ring-offset-2' : ''}
                       ${hasSlots ? 'border-green-200' : ''}

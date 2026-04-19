@@ -3,7 +3,7 @@ import { MapPin, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
 
 const ProviderConfirmationModal = ({ provider, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+    <div className="bg-paper-elev rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
       {/* Success Icon */}
       <div className="text-center mb-6">
         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -36,7 +36,7 @@ const ProviderConfirmationModal = ({ provider, onConfirm, onCancel }) => (
         <button
           onClick={onCancel}
           className="flex-1 py-2 px-4 border border-slate-300 text-slate-700 
-            rounded-lg hover:bg-slate-50 transition-colors"
+            rounded-lg hover:bg-paper-deep transition-colors"
         >
           Cancel
         </button>

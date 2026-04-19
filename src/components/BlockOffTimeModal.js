@@ -126,7 +126,7 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
       flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="bg-paper-elev p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="mb-4">
           <h2 className="text-xl font-bold text-slate-900">Block Off Time</h2>
           {rangeLabel && (

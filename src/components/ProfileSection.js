@@ -13,9 +13,9 @@ const ProfileSection = ({
   onToggle
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden mb-4">
+    <div className="bg-paper-elev rounded-lg shadow-sm border border-line overflow-hidden mb-4">
       {/* Section Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-100">
+      <div className="flex items-center justify-between p-4 border-b border-line-soft">
         <h2 className="text-lg font-medium text-slate-900">{title}</h2>
         <div className="flex items-center space-x-2">
           {canEdit && !isEditing && (

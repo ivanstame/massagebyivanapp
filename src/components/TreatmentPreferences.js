@@ -196,7 +196,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
     <h3 className="text-xl font-semibold text-slate-900">Business Settings</h3>
 
     {/* Scheduling Preferences */}
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       <div className="flex items-center gap-2 mb-4">
         <Clock className="w-5 h-5 text-[#B07A4E]" />
         <h4 className="font-medium text-slate-900">Scheduling Settings</h4>
@@ -252,7 +252,7 @@ const ProviderPreferences = ({ formData, onChange }) => (
     </div>
 
     {/* Service Settings */}
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       <div className="flex items-center gap-2 mb-4">
         <Settings className="w-5 h-5 text-[#B07A4E]" />
         <h4 className="font-medium text-slate-900">Service Settings</h4>
@@ -359,8 +359,8 @@ const AnatomicalTerms = ({ terms, area }) => {
 
 const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle, onUpdate }) => (
   <div 
-    className={`bg-white rounded-lg border transition-all duration-300 ${
-      isExpanded ? 'border-[#B07A4E] bg-[#B07A4E]/5' : 'border-slate-200'
+    className={`bg-paper-elev rounded-lg border transition-all duration-300 ${
+      isExpanded ? 'border-[#B07A4E] bg-[#B07A4E]/5' : 'border-line'
     }`}
   >
     <div className="p-4">
@@ -478,7 +478,7 @@ const TreatmentCard = ({ area, data, isExpanded, isEditing, isLoading, onToggle,
                 onChange={(e) => onUpdate(area.id, { note: e.target.value })}
                 disabled={!isEditing || isLoading}
                 placeholder="Any specific notes about this area..."
-                className={`w-full h-20 px-3 py-2 text-sm border border-slate-200 rounded-lg 
+                className={`w-full h-20 px-3 py-2 text-sm border border-line rounded-lg 
                   placeholder:text-slate-400 focus:border-[#B07A4E] focus:ring-1 focus:ring-[#B07A4E] 
                   outline-none ${(!isEditing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
@@ -638,11 +638,11 @@ const handleAreaSelect = useCallback((areaId, updates) => {
   const isRegistrationComplete = currentStep >= 3;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-slate-50 py-12">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-paper-deep py-12">
       <div className="w-full max-w-4xl">
         {!isRegistrationComplete && <ProgressIndicator currentStep={3} />}
         
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-paper-elev rounded-lg shadow-md p-8">
           <div className="flex justify-between items-center mb-8">
             <div className="text-center">
               <h2 className="text-2xl font-normal text-slate-700">
@@ -718,7 +718,7 @@ const handleAreaSelect = useCallback((areaId, updates) => {
                 type="button"
                 onClick={() => isRegistrationComplete ? navigate(-1) : navigate('/profile-setup')}
                 disabled={isLoading}
-                className={`px-6 py-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 
+                className={`px-6 py-3 rounded-lg border border-slate-300 text-slate-600 hover:bg-paper-deep 
                   transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 
                   focus:ring-slate-500 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
