@@ -30,8 +30,8 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
   };
 
   const confirmLabel = selectedIds.length > 0
-    ? `Override ${selectedIds.length} & Continue`
-    : 'Continue Without Overriding';
+    ? `Save & Override ${selectedIds.length}`
+    : 'Save';
 
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
@@ -83,15 +83,9 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
           </div>
         )}
 
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-4 space-y-1.5">
+        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-4">
           <p className="text-xs text-slate-600">
-            <strong>Cancel</strong> &mdash; Don't save. Go back without creating anything.
-          </p>
-          <p className="text-xs text-slate-600">
-            <strong>Override</strong> &mdash; Checked events are ignored; clients can still book through them.
-          </p>
-          <p className="text-xs text-slate-600">
-            <strong>Continue without overriding</strong> &mdash; Leave nothing checked. Your time range will still be saved but clients can't book during the calendar events.
+            Check any event you want to override &mdash; clients will be able to book during its time. Leave unchecked events as blocking. Save proceeds either way.
           </p>
         </div>
 
