@@ -4,7 +4,19 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('⚠️  STRIPE_SECRET_KEY is not set — Stripe routes will return 503');
+}
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? require('stripe')(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+const requireStripe = (req, res, next) => {
+  if (!stripe) {
+    return res.status(503).json({ message: 'Stripe is not configured. Set STRIPE_SECRET_KEY in your environment.' });
+  }
+  next();
+};
 
 // Base URL for redirects
 const getBaseUrl = () => {
@@ -14,7 +26,7 @@ const getBaseUrl = () => {
 };
 
 // ─── Connect: Create account + onboarding link ──────────────────────────
-router.post('/connect', ensureAuthenticated, async (req, res) => {
+router.post('/connect', ensureAuthenticated, requireStripe, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Provider access required' });
@@ -56,7 +68,7 @@ router.post('/connect', ensureAuthenticated, async (req, res) => {
 });
 
 // ─── Connect: Check account status ──────────────────────────────────────
-router.get('/connect/status', ensureAuthenticated, async (req, res) => {
+router.get('/connect/status', ensureAuthenticated, requireStripe, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Provider access required' });
@@ -103,7 +115,7 @@ router.get('/connect/status', ensureAuthenticated, async (req, res) => {
 });
 
 // ─── Connect: Dashboard login link (for providers to see their Stripe dashboard) ─
-router.get('/connect/dashboard', ensureAuthenticated, async (req, res) => {
+router.get('/connect/dashboard', ensureAuthenticated, requireStripe, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Provider access required' });
@@ -125,7 +137,7 @@ router.get('/connect/dashboard', ensureAuthenticated, async (req, res) => {
 });
 
 // ─── Payments: Create payment intent for a booking ──────────────────────
-router.post('/create-payment-intent', ensureAuthenticated, async (req, res) => {
+router.post('/create-payment-intent', ensureAuthenticated, requireStripe, async (req, res) => {
   try {
     const { bookingId } = req.body;
 
@@ -181,7 +193,7 @@ router.post('/create-payment-intent', ensureAuthenticated, async (req, res) => {
 
 // ─── Webhook: Handle Stripe events ──────────────────────────────────────
 // NOTE: This route uses express.raw() body parser — registered separately in server.js
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', requireStripe, async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
