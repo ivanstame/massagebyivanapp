@@ -4,6 +4,7 @@ import { AuthContext } from '../AuthContext';
 import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
+import { TRADES, TRADE_KEYS } from '../shared/trades';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -36,6 +37,7 @@ const ProviderSettings = () => {
 
   const [settings, setSettings] = useState({
     businessName: '',
+    trade: 'other',
     phoneNumber: '',
     address: { street: '', unit: '', city: '', state: '', zip: '' },
     scheduling: {
@@ -52,6 +54,7 @@ const ProviderSettings = () => {
       setSettings(prev => ({
         ...prev,
         businessName: user.providerProfile?.businessName || '',
+        trade: user.providerProfile?.trade || 'other',
         phoneNumber: user.profile?.phoneNumber || '',
         address: {
           street: user.profile?.address?.street || '',
@@ -318,6 +321,24 @@ const ProviderSettings = () => {
               />
               <p className="mt-1 text-xs text-slate-500">
                 This name will be displayed to your clients
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                What do you offer?
+              </label>
+              <select
+                value={settings.trade}
+                onChange={(e) => setSettings(prev => ({ ...prev, trade: e.target.value }))}
+                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+              >
+                {TRADE_KEYS.map(key => (
+                  <option key={key} value={key}>{TRADES[key].displayName}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Changes the starter suggestions on your Services page.
               </p>
             </div>
 

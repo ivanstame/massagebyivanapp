@@ -2,12 +2,11 @@ import React from 'react';
 import { Clock, Check } from 'lucide-react';
 
 const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete, durationOptions = [] }) => {
-  // Fallback defaults if provider hasn't configured pricing
-  const options = durationOptions.length > 0 ? durationOptions : [
-    { duration: 60, price: 125, label: '60 Minutes' },
-    { duration: 90, price: 180, label: '90 Minutes' },
-    { duration: 120, price: 250, label: '120 Minutes' },
-  ];
+  if (durationOptions.length === 0) {
+    return null;
+  }
+
+  const gridCols = durationOptions.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
 
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
@@ -18,21 +17,24 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
             <Clock className="w-6 h-6 text-teal-700" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Select Massage Duration</h3>
-            <p className="text-sm text-slate-600 mt-1">Choose your preferred session length</p>
+            <h3 className="text-xl font-semibold text-slate-900">Select a service</h3>
+            <p className="text-sm text-slate-600 mt-1">Choose the package that fits you</p>
           </div>
         </div>
       </div>
 
-      {/* Duration Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {options.map((option) => {
+      {/* Package Options */}
+      <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
+        {durationOptions.map((option) => {
           const isSelected = selectedDuration === option.duration;
-          const isRecommended = option.duration === 90;
+          const primary = option.label && option.label.trim()
+            ? option.label
+            : `${option.duration} min`;
+          const showDurationSub = !!(option.label && option.label.trim());
 
           return (
             <button
-              key={option.duration}
+              key={`${option.duration}-${option.label || ''}`}
               onClick={() => onDurationChange(option.duration)}
               className={`
                 relative min-h-touch p-4 rounded-lg border-2 transition-all duration-200
@@ -43,19 +45,14 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
                 }
               `}
             >
-              {isRecommended && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-copper-500 text-white text-xs font-medium px-3 py-1 rounded-full">
-                    Most Popular
-                  </span>
+              <div className="text-center">
+                <div className={`text-lg font-semibold leading-tight ${isSelected ? 'text-teal-700' : 'text-slate-900'}`}>
+                  {primary}
                 </div>
-              )}
-
-              <div className="text-center mt-2">
-                <div className={`text-2xl font-bold ${isSelected ? 'text-teal-700' : 'text-slate-900'}`}>
-                  {option.label || `${option.duration} Minutes`}
-                </div>
-                <div className={`text-lg mt-2 ${isSelected ? 'text-teal-600' : 'text-slate-600'}`}>
+                {showDurationSub && (
+                  <div className="text-xs text-slate-500 mt-1">{option.duration} min</div>
+                )}
+                <div className={`text-2xl font-bold mt-2 ${isSelected ? 'text-teal-600' : 'text-slate-700'}`}>
                   ${option.price}
                 </div>
               </div>
@@ -71,10 +68,6 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
           );
         })}
       </div>
-
-      <p className="text-sm text-slate-500 mt-4 text-center">
-        All sessions include setup time and consultation
-      </p>
     </div>
   );
 };

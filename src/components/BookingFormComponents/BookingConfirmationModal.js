@@ -18,12 +18,13 @@ const BookingConfirmationModal = ({
     sessionDurations,
     sessionNames,
     bookingId,
-    // New fields for massage session configuration
+    // Service package details
     selectedDuration,
     selectedAddons = [],
-    selectedMassageType,
-    massageTypes = [],
+    selectedServiceType,
+    serviceTypes = [],
     addons = [],
+    pricing = {},
     // Recipient information
     recipientType,
     recipientInfo
@@ -34,35 +35,15 @@ const BookingConfirmationModal = ({
       .toFormat('cccc, LLLL d, yyyy');
   };
 
-  // Helper function to get massage type name
-  const getMassageTypeName = () => {
-    if (!selectedMassageType || !massageTypes.length) return 'Standard';
-    const massageType = massageTypes.find(type => type.id === selectedMassageType);
-    return massageType ? massageType.name : 'Standard';
+  const getServiceName = () => {
+    if (!selectedServiceType || !serviceTypes.length) return 'Service';
+    const match = serviceTypes.find(t => t.id === selectedServiceType);
+    return match ? match.name : 'Service';
   };
 
-  // Helper function to calculate total price
-  const calculateTotalPrice = () => {
-    // Base price based on duration
-    const getBasePrice = () => {
-      switch (selectedDuration) {
-        case 60: return 100;
-        case 90: return 150;
-        case 120: return 200;
-        default: return 100;
-      }
-    };
-
-    // Add-ons price
-    const getAddonsPrice = () => {
-      return selectedAddons.reduce((total, addonId) => {
-        const addon = addons.find(a => a.id === addonId);
-        return total + (addon ? addon.price : 0);
-      }, 0);
-    };
-
-    return getBasePrice() + getAddonsPrice();
-  };
+  const totalPrice = typeof pricing.totalPrice === 'number'
+    ? pricing.totalPrice
+    : (pricing.basePrice || 0) + (pricing.addonsPrice || 0);
 
   // Render booking details
   const renderBookingDetails = () => {
@@ -79,14 +60,14 @@ const BookingConfirmationModal = ({
                 Your session is scheduled for {formatDate(selectedDate)} at {selectedTime.display || selectedTime.local}.
               </p>
               
-              {/* Massage Type & Duration */}
+              {/* Service & Duration */}
               <div className="mb-2">
-                <span className="font-medium">Type:</span> {getMassageTypeName()}
+                <span className="font-medium">Service:</span> {getServiceName()}
                 <br />
-                <span className="font-medium">Duration:</span> {selectedDuration} minutes
-                {selectedAddons.includes('stretching') && ' + 30 minutes stretching'}
+                <span className="font-medium">Duration:</span> {selectedDuration + (pricing.extraTime || 0)} minutes
+                {pricing.extraTime > 0 && ` (includes +${pricing.extraTime} min from add-ons)`}
               </div>
-              
+
               {/* Add-ons if any */}
               {selectedAddons.length > 0 && (
                 <div className="mb-2">
@@ -103,10 +84,10 @@ const BookingConfirmationModal = ({
                   </ul>
                 </div>
               )}
-              
+
               {/* Price */}
               <div className="mt-3 pt-2 border-t border-blue-200">
-                <span className="font-medium">Total Price:</span> ${calculateTotalPrice()}
+                <span className="font-medium">Total Price:</span> ${totalPrice}
               </div>
               
               {/* Recipient Information */}

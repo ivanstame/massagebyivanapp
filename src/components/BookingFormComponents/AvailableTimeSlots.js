@@ -96,7 +96,7 @@ const AvailableTimeSlots = ({
           <div>
             <h3 className="font-medium text-amber-900">Duration Required</h3>
             <p className="text-sm text-amber-700 mt-1">
-              Please select a massage duration to see available appointment times
+              Please select a service to see available appointment times
             </p>
           </div>
         </div>

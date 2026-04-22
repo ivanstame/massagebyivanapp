@@ -100,7 +100,7 @@ const AddressSection = ({
           </div>
           <div>
             <h3 className="text-xl font-semibold text-slate-900">Service Location</h3>
-            <p className="text-sm text-slate-600 mt-1">Where should we send your therapist?</p>
+            <p className="text-sm text-slate-600 mt-1">Where should we send your provider?</p>
           </div>
         </div>
       </div>

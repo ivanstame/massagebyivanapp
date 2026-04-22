@@ -99,7 +99,7 @@ const tests = {
         lat: 37.7749,
         lng: -122.4194
       },
-      massageType: { id: 'swedish', name: 'Swedish Massage' },
+      serviceType: { id: 'test-package', name: 'Test Package' },
       recipientType: 'self'
     };
     

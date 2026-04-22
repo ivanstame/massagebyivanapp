@@ -17,8 +17,8 @@ const RecipientSection = ({
             <Users className="w-6 h-6 text-teal-700" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Who is this massage for?</h3>
-            <p className="text-sm text-slate-600 mt-1">Select the recipient of this service</p>
+            <h3 className="text-xl font-semibold text-slate-900">Who is this service for?</h3>
+            <p className="text-sm text-slate-600 mt-1">Select the recipient of this appointment</p>
           </div>
         </div>
       </div>

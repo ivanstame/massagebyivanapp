@@ -23,8 +23,8 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
             <Plus className="w-6 h-6 text-teal-700" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Optional Enhancements</h3>
-            <p className="text-sm text-slate-600 mt-1">Add extras to customize your experience</p>
+            <h3 className="text-xl font-semibold text-slate-900">Add-ons</h3>
+            <p className="text-sm text-slate-600 mt-1">Optional extras to customize your appointment</p>
           </div>
         </div>
       </div>
@@ -72,7 +72,7 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
                     )}
                     {addon.extraTime > 0 && (
                       <div className="text-xs text-teal-600 mt-1 font-medium">
-                        +{addon.extraTime} minutes added to session
+                        +{addon.extraTime} min added to appointment
                       </div>
                     )}
                   </div>
@@ -95,7 +95,7 @@ const AddOnsSelector = ({ selectedAddons, onAddonsChange, isComplete, availableA
         <div className="flex items-start space-x-2">
           <Info className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-slate-600">
-            All add-ons are optional. Your therapist will discuss these with you before your session.
+            Add-ons are optional. Your provider will confirm them before the appointment starts.
           </p>
         </div>
       </div>

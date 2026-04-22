@@ -5,6 +5,7 @@ import AddressForm from './AddressForm';
 import api from '../services/api';
 import { AlertCircle, User, Phone, Briefcase, MapPin, AlertTriangle, Link as LinkIcon, Check, X } from 'lucide-react';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
+import { TRADES, TRADE_KEYS } from '../shared/trades';
 
 const STATES = [
   ['AK', 'Alaska'], ['AL', 'Alabama'], ['AR', 'Arkansas'], ['AZ', 'Arizona'], 
@@ -72,6 +73,7 @@ const ProfileSetup = () => {
     state: '',
     zip: '',
     businessName: '',
+    trade: 'other',
     joinCode: '',
     // Only include health fields for clients
     ...(user?.accountType === 'CLIENT' && {
@@ -172,7 +174,8 @@ const ProfileSetup = () => {
       // For providers, include the business name in providerProfile and set join code
       if (user?.accountType === 'PROVIDER') {
         requestBody.providerProfile = {
-          businessName: formData.businessName.trim()
+          businessName: formData.businessName.trim(),
+          trade: formData.trade || 'other'
         };
         requestBody.joinCode = formData.joinCode.trim();
       } else {
@@ -317,10 +320,29 @@ const ProfileSetup = () => {
                       onChange={handleChange}
                       required
                       className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
-                      placeholder="Healing Hands Massage Therapy"
+                      placeholder="e.g. Healing Hands, Glow Studio, Shine Detailing"
                     />
                     <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-2">
+                    What do you offer?
+                  </label>
+                  <select
+                    name="trade"
+                    value={formData.trade}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition bg-white"
+                  >
+                    {TRADE_KEYS.map(key => (
+                      <option key={key} value={key}>{TRADES[key].displayName}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    We&rsquo;ll use this to suggest starter packages &mdash; you can always customize them.
+                  </p>
                 </div>
 
                 <div>
@@ -411,7 +433,7 @@ const ProfileSetup = () => {
                     <AlertTriangle className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    List any allergies your therapist should be aware of
+                    List any allergies your provider should be aware of
                   </p>
                 </div>
 
@@ -427,7 +449,7 @@ const ProfileSetup = () => {
                     placeholder="List any medical conditions or concerns that may affect your treatment (e.g., pregnancy, injuries, chronic conditions)"
                   />
                   <p className="mt-1 text-xs text-slate-500">
-                    This information helps your therapist provide safe, effective treatment
+                    This information helps your provider deliver safe, appropriate service
                   </p>
                 </div>
               </div>

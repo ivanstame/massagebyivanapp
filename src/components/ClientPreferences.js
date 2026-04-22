@@ -118,7 +118,7 @@ const ClientPreferences = () => {
         <div className="bg-paper-elev rounded-lg shadow-md p-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-normal text-slate-700">Treatment Preferences</h2>
-            <p className="mt-2 text-slate-500">Step 3 of 3: Help your therapist understand your needs</p>
+            <p className="mt-2 text-slate-500">Step 3 of 3: Help your provider understand your needs</p>
           </div>
 
           {error && (
@@ -174,7 +174,7 @@ const ClientPreferences = () => {
               <textarea
                 value={preferences.notes}
                 onChange={(e) => handleChange('notes', e.target.value)}
-                placeholder="Any specific instructions or concerns for your therapist..."
+                placeholder="Any specific instructions or concerns for your provider..."
                 className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] h-24"
               />
             </div>

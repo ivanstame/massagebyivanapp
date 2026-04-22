@@ -136,7 +136,7 @@ const BookingList = () => {
       hour: parseInt(booking.startTime.split(':')[0]),
       minute: parseInt(booking.startTime.split(':')[1])
     })).as('minutes')));
-    const title = `${duration} min${booking.massageType?.name ? ` · ${booking.massageType.name.toLowerCase()}` : ''}`;
+    const title = `${duration} min${booking.serviceType?.name ? ` · ${booking.serviceType.name.toLowerCase()}` : ''}`;
 
     return (
       <div

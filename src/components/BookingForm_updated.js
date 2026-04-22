@@ -40,7 +40,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [location, setLocation] = useState(null);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
-  const [selectedMassageType] = useState('focused');
+  // Identifier stored alongside the booking; name comes from the selected package's label.
+  const [selectedServiceType] = useState('package');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -92,17 +93,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
           if (basePricing && basePricing.length > 0) {
             setDurationOptions(basePricing);
-            // Auto-select first duration if none selected
+            // Auto-select first package if none selected
             setSelectedDuration(basePricing[0].duration);
-          } else {
-            // Fallback defaults
-            const defaults = [
-              { duration: 60, price: 125, label: '60 Minutes' },
-              { duration: 90, price: 180, label: '90 Minutes' },
-              { duration: 120, price: 250, label: '120 Minutes' },
-            ];
-            setDurationOptions(defaults);
-            setSelectedDuration(60);
           }
 
           if (addons && addons.length > 0) {
@@ -110,14 +102,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
           }
         } catch (err) {
           console.error('Error fetching provider services:', err);
-          // Fallback defaults
-          const defaults = [
-            { duration: 60, price: 125, label: '60 Minutes' },
-            { duration: 90, price: 180, label: '90 Minutes' },
-            { duration: 120, price: 250, label: '120 Minutes' },
-          ];
-          setDurationOptions(defaults);
-          setSelectedDuration(60);
         }
       }
     };
@@ -238,6 +222,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
       // Calculate pricing from provider data
       const pricingTier = durationOptions.find(p => p.duration === selectedDuration);
       const basePrice = pricingTier?.price || 0;
+      const packageName = (pricingTier?.label && pricingTier.label.trim())
+        || `${selectedDuration} min service`;
 
       const selectedAddonDetails = selectedAddons.map(name =>
         availableAddons.find(a => a.name === name)
@@ -255,9 +241,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
           lat: location.lat,
           lng: location.lng
         },
-        massageType: {
-          id: selectedMassageType,
-          name: 'Focused Therapeutic'
+        serviceType: {
+          id: selectedServiceType,
+          name: packageName
         },
         addons: selectedAddonDetails.map(addon => ({
           id: addon.name.toLowerCase().replace(/\s+/g, '-'),
@@ -493,22 +479,32 @@ const BookingForm = ({ googleMapsLoaded }) => {
         {/* Booking Confirmation Modal */}
         <BookingConfirmationModal
           isVisible={bookingSuccess}
-          bookingDetails={{
-            selectedTime,
-            selectedDate,
-            fullAddress,
-            numSessions: 1,
-            bookingId: newBookingId,
-            selectedDuration,
-            selectedAddons,
-            selectedMassageType,
-            massageTypes: [
-              { id: 'focused', name: 'Focused Therapeutic' }
-            ],
-            addons: availableAddons.map(a => ({ id: a.name, name: a.name, price: a.price })),
-            recipientType,
-            recipientInfo
-          }}
+          bookingDetails={(() => {
+            const tier = durationOptions.find(p => p.duration === selectedDuration);
+            const packageName = (tier?.label && tier.label.trim())
+              || (selectedDuration ? `${selectedDuration} min service` : 'Service');
+            const basePrice = tier?.price || 0;
+            const selectedAddonDetails = selectedAddons
+              .map(name => availableAddons.find(a => a.name === name))
+              .filter(Boolean);
+            const addonsPrice = selectedAddonDetails.reduce((s, a) => s + (a.price || 0), 0);
+            const extraTime = selectedAddonDetails.reduce((s, a) => s + (a.extraTime || 0), 0);
+            return {
+              selectedTime,
+              selectedDate,
+              fullAddress,
+              numSessions: 1,
+              bookingId: newBookingId,
+              selectedDuration,
+              selectedAddons,
+              selectedServiceType,
+              serviceTypes: [{ id: selectedServiceType, name: packageName }],
+              addons: availableAddons.map(a => ({ id: a.name, name: a.name, price: a.price })),
+              pricing: { basePrice, addonsPrice, totalPrice: basePrice + addonsPrice, extraTime },
+              recipientType,
+              recipientInfo
+            };
+          })()}
           onViewBookings={() => navigate('/my-bookings')}
           onReturnToDashboard={() => navigate('/admin')}
           onBookAnother={resetForm}

@@ -91,16 +91,19 @@ const BookingSummaryCard = ({
             </div>
           )}
 
-          {/* Duration */}
+          {/* Service */}
           {selectedDuration && (
             <div className="pb-4 border-b border-slate-100">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Duration</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Service</p>
                 <p className="text-base text-slate-900">
-                  {totalDuration} minutes
+                  {pricingTier?.label?.trim() || `${durationMinutes} min`}
+                </p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {totalDuration} min
                   {extraTime > 0 && (
-                    <span className="text-sm text-teal-600 ml-2">
-                      (includes {extraTime}min add-on time)
+                    <span className="text-teal-600 ml-2">
+                      (includes +{extraTime} min from add-ons)
                     </span>
                   )}
                 </p>
@@ -140,7 +143,7 @@ const BookingSummaryCard = ({
           {/* Add-ons */}
           {selectedAddonDetails.length > 0 && (
             <div className="pb-4 border-b border-slate-100">
-              <p className="text-sm font-medium text-slate-600 mb-2">Enhancements</p>
+              <p className="text-sm font-medium text-slate-600 mb-2">Add-ons</p>
               <div className="space-y-2">
                 {selectedAddonDetails.map(addon => (
                   <div key={addon.name} className="flex justify-between items-center">
@@ -176,7 +179,9 @@ const BookingSummaryCard = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-sm text-teal-700">Base Service ({durationMinutes} min)</span>
+                  <span className="text-sm text-teal-700">
+                    {pricingTier?.label?.trim() || `${durationMinutes} min`}
+                  </span>
                   <span className="text-sm font-medium text-teal-900">${basePrice}</span>
                 </div>
                 {addonsPrice > 0 && (

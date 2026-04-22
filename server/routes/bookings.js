@@ -199,11 +199,11 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         lng: location.lng,
         address: location.address
       },
-      // Add massage type if provided
-      ...(req.body.massageType && {
-        massageType: {
-          id: req.body.massageType.id,
-          name: req.body.massageType.name
+      // Add service type if provided
+      ...(req.body.serviceType && {
+        serviceType: {
+          id: req.body.serviceType.id,
+          name: req.body.serviceType.name
         }
       }),
       // Add add-ons if provided

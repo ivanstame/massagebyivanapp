@@ -6,24 +6,22 @@ import {
   DollarSign, Plus, Trash2, Clock, AlertCircle, CheckCircle,
   Save, GripVertical, ToggleLeft, ToggleRight
 } from 'lucide-react';
-
-const DEFAULT_PRICING = [
-  { duration: 60, price: 125, label: '60 Minutes' },
-  { duration: 90, price: 180, label: '90 Minutes' },
-  { duration: 120, price: 250, label: '120 Minutes' },
-];
+import { getTrade } from '../shared/trades';
 
 const ProviderServices = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [basePricing, setBasePricing] = useState([]);
   const [addons, setAddons] = useState([]);
+  const [trade, setTrade] = useState('other');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [showAddAddon, setShowAddAddon] = useState(false);
   const [newAddon, setNewAddon] = useState({ name: '', price: '', description: '', extraTime: 0 });
+
+  const tradePreset = getTrade(trade);
 
   useEffect(() => {
     if (!user || user.accountType !== 'PROVIDER') {
@@ -36,22 +34,25 @@ const ProviderServices = () => {
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`/api/users/provider/${user._id}/services`);
-      // The GET endpoint only returns active addons for clients.
-      // For management, load from user profile to get ALL addons (including inactive)
+      // Load from user profile to get trade, ALL addons (including inactive), and pricing
       const profileRes = await axios.get('/api/users/profile', { withCredentials: true });
       const providerProfile = profileRes.data?.providerProfile || {};
+      const providerTrade = providerProfile.trade || 'other';
+      setTrade(providerTrade);
 
-      // Use provider's saved pricing or defaults
+      // Seed with trade-appropriate starter packages when the provider has none yet.
+      // These are in-memory suggestions; nothing is persisted until Save.
       const savedPricing = providerProfile.basePricing || [];
-      setBasePricing(savedPricing.length > 0 ? savedPricing : DEFAULT_PRICING);
+      if (savedPricing.length > 0) {
+        setBasePricing(savedPricing);
+      } else {
+        setBasePricing(getTrade(providerTrade).starterPackages.map(p => ({ ...p })));
+      }
 
-      // Load all addons (including inactive) for management
       setAddons(providerProfile.addons || []);
     } catch (err) {
       console.error('Error fetching services:', err);
-      // Initialize with defaults if fetch fails
-      setBasePricing(DEFAULT_PRICING);
+      setBasePricing(getTrade('other').starterPackages.map(p => ({ ...p })));
       setAddons([]);
     } finally {
       setLoading(false);
@@ -174,7 +175,7 @@ const ProviderServices = () => {
             Services &amp; <em style={{ color: '#B07A4E' }}>pricing</em>
           </h1>
           <p className="text-sm text-ink-2 mt-1.5">
-            Set your session pricing and add-on services. Clients see these when booking.
+            Define the packages you offer and any optional add-ons. Clients see these when booking.
           </p>
         </div>
 
@@ -195,58 +196,60 @@ const ProviderServices = () => {
           </div>
         )}
 
-        {/* Base Session Pricing */}
+        {/* Service Packages */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[#B07A4E]" />
-              <h3 className="font-medium text-slate-900">Session Pricing</h3>
+              <h3 className="font-medium text-slate-900">Service Packages</h3>
             </div>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Set the price for each session duration you offer.
+            Each package is what a client picks when booking &mdash; give it a clear name, duration, and price.
           </p>
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 bg-paper-deep rounded-lg border border-line-soft">
-                <div className="flex-1 grid grid-cols-3 gap-3">
+              <div key={index} className="flex items-start gap-3 p-3 bg-paper-deep rounded-lg border border-line-soft">
+                <div className="flex-1 space-y-2">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Duration (min)</label>
-                    <select
-                      value={tier.duration}
-                      onChange={(e) => handlePricingChange(index, 'duration', Number(e.target.value))}
-                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-                    >
-                      {[30, 45, 60, 75, 90, 120, 150, 180].map(d => (
-                        <option key={d} value={d}>{d} min</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Price ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={tier.price}
-                      onChange={(e) => handlePricingChange(index, 'price', e.target.value)}
-                      className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-500 mb-1">Label</label>
+                    <label className="block text-xs text-slate-500 mb-1">Package name</label>
                     <input
                       type="text"
                       value={tier.label || ''}
                       onChange={(e) => handlePricingChange(index, 'label', e.target.value)}
-                      placeholder={`${tier.duration} Minutes`}
+                      placeholder={tradePreset.packagePlaceholder}
                       className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Duration (min)</label>
+                      <select
+                        value={tier.duration}
+                        onChange={(e) => handlePricingChange(index, 'duration', Number(e.target.value))}
+                        className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                      >
+                        {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
+                          <option key={d} value={d}>{d} min</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Price ($)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={tier.price}
+                        onChange={(e) => handlePricingChange(index, 'price', e.target.value)}
+                        className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                      />
+                    </div>
                   </div>
                 </div>
                 <button
                   onClick={() => handleRemovePricingTier(index)}
-                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-6"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -259,26 +262,26 @@ const ProviderServices = () => {
             className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Duration
+            Add Package
           </button>
         </div>
 
-        {/* Add-on Services */}
+        {/* Add-ons */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-[#B07A4E]" />
-              <h3 className="font-medium text-slate-900">Add-on Services</h3>
+              <h3 className="font-medium text-slate-900">Add-ons</h3>
             </div>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Optional extras clients can add to their session. Toggle to enable/disable without deleting.
+            Optional extras clients can tack onto any package. Toggle to hide one without deleting it.
           </p>
 
           {addons.length === 0 && !showAddAddon ? (
             <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
-              <p className="text-slate-500 text-sm">No add-on services yet</p>
-              <p className="text-slate-400 text-xs mt-1">Add services like TheraGun, Hot Stone, etc.</p>
+              <p className="text-slate-500 text-sm">No add-ons yet</p>
+              <p className="text-slate-400 text-xs mt-1">Examples: {tradePreset.addonExamples}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -312,7 +315,7 @@ const ProviderServices = () => {
                           type="text"
                           value={addon.name}
                           onChange={(e) => handleAddonFieldChange(index, 'name', e.target.value)}
-                          placeholder="Service name"
+                          placeholder="Add-on name"
                           className="w-full border border-line rounded px-2 py-1.5 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                         />
                       </div>
@@ -372,12 +375,12 @@ const ProviderServices = () => {
             <div className="mt-3 p-4 bg-paper-deep rounded-lg border border-line space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Service Name</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Add-on name</label>
                   <input
                     type="text"
                     value={newAddon.name}
                     onChange={(e) => setNewAddon(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. TheraGun, Hot Stone"
+                    placeholder={tradePreset.addonNamePlaceholder}
                     className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                   />
                 </div>
@@ -412,7 +415,7 @@ const ProviderServices = () => {
                   type="text"
                   value={newAddon.description}
                   onChange={(e) => setNewAddon(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Percussive therapy for deep muscle relief"
+                  placeholder="Short description clients will see at booking"
                   className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                 />
               </div>
@@ -427,7 +430,7 @@ const ProviderServices = () => {
                   onClick={handleAddAddon}
                   className="px-4 py-1.5 text-sm bg-[#B07A4E] text-white rounded hover:bg-[#8A5D36] font-medium"
                 >
-                  Add Service
+                  Add Add-on
                 </button>
               </div>
             </div>
@@ -437,7 +440,7 @@ const ProviderServices = () => {
               className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
             >
               <Plus className="w-4 h-4" />
-              Add Service
+              Add Add-on
             </button>
           )}
         </div>
@@ -454,7 +457,7 @@ const ProviderServices = () => {
             {saving ? 'Saving...' : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                Save Services
+                Save
               </>
             )}
           </button>

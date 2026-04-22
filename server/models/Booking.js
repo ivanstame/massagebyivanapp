@@ -88,8 +88,8 @@ const BookingSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // Massage type for single-session bookings
-  massageType: {
+  // Service type (usually the selected package label) for single-session bookings
+  serviceType: {
     id: { type: String },
     name: { type: String }
   },

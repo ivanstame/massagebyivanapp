@@ -166,7 +166,7 @@ const AppointmentDetail = () => {
             </span>
           </div>
           <div className="text-sm text-ink-2 mt-1">
-            {booking.duration} minutes{booking.massageType?.name ? ` · ${booking.massageType.name.toLowerCase()}` : ''}
+            {booking.duration} minutes{booking.serviceType?.name ? ` · ${booking.serviceType.name.toLowerCase()}` : ''}
           </div>
         </div>
 
@@ -289,15 +289,15 @@ const AppointmentDetail = () => {
             )}
           </div>
 
-          {/* Massage details */}
-          {(booking.massageType || (booking.addons && booking.addons.length > 0)) && (
+          {/* Service details */}
+          {(booking.serviceType || (booking.addons && booking.addons.length > 0)) && (
             <div className="p-4 space-y-3">
-              {booking.massageType && (
+              {booking.serviceType && (
                 <div className="flex items-center gap-3">
                   <Tag className="w-5 h-5 text-[#B07A4E]" />
                   <div>
-                    <p className="text-sm text-slate-500">Massage Type</p>
-                    <p className="font-medium text-slate-900">{booking.massageType.name}</p>
+                    <p className="text-sm text-slate-500">Service</p>
+                    <p className="font-medium text-slate-900">{booking.serviceType.name}</p>
                   </div>
                 </div>
               )}

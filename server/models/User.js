@@ -43,6 +43,13 @@ const UserSchema = new mongoose.Schema({
   },
   providerProfile: {
     businessName: String,
+    // Provider's trade — drives placeholder copy and starter packages on the Services page.
+    // Kept loose (default 'other') so the flow works for providers who haven't picked one.
+    trade: {
+      type: String,
+      enum: ['massage', 'esthetics', 'detailing', 'training', 'grooming', 'other'],
+      default: 'other'
+    },
     subscription: {
       plan: {
         type: String,
