@@ -200,15 +200,46 @@ app.get('/sms-consent-policy.html', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/sms-consent-policy.html'));
 });
 
+// Build-version endpoint. The version file is written by scripts/stamp-version.js
+// during heroku-postbuild. Clients poll this to detect when a new deploy is live.
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const fs = require('fs');
+    const versionPath = path.join(__dirname, '../build/version.json');
+    if (fs.existsSync(versionPath)) {
+      const data = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+      return res.json(data);
+    }
+    // Fallback for local dev where build/ may not exist
+    return res.json({ version: 'dev', buildTime: null });
+  } catch (err) {
+    console.error('Error reading version file:', err);
+    return res.status(500).json({ error: 'Failed to read version' });
+  }
+});
+
 // Serve static files from public directory in all environments
 app.use(express.static(path.join(__dirname, '../public')));
 
 if (process.env.NODE_ENV === 'production') {
-  // Serve static files from React build directory in production
-  app.use(express.static(path.join(__dirname, '../build')));
+  // Serve React build with split cache policy:
+  //   - Hashed asset files (build/static/*) get immutable long-lived caching
+  //     because CRA embeds a content hash in the filename.
+  //   - index.html must never be cached or users keep loading stale builds.
+  app.use(express.static(path.join(__dirname, '../build'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(path.sep + 'index.html') || filePath.endsWith('/index.html')) {
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else if (filePath.includes(path.sep + 'static' + path.sep)) {
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    }
+  }));
 
   // Handle React routing, return all requests to React app
   app.get('*', (req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(__dirname, '../build', 'index.html'));
   });
 }

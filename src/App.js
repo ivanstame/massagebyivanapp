@@ -48,6 +48,8 @@ import InvitationHandling from './components/InvitationHandling';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import ProviderSelection from './components/ProviderSelection';
+import UpdateAvailableBanner from './components/UpdateAvailableBanner';
+import { useVersionCheck } from './utils/useVersionCheck';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
@@ -103,6 +105,7 @@ const ProtectedRoute = ({ children, providerOnly = false }) => {
 function App() {
   const { user, loading } = useContext(AuthContext);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const { updateAvailable } = useVersionCheck();
 
   useEffect(() => {
     loadGoogleMapsScript()
@@ -123,6 +126,7 @@ function App() {
   return (
     <div className="App min-h-screen" style={{ background: 'var(--bg)' }}>
       <Header />
+      <UpdateAvailableBanner visible={updateAvailable} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>

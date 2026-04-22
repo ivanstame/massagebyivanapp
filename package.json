@@ -11,7 +11,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "dev:local": "concurrently \"npm run server:local\" \"npm run client\"",
     "build": "react-app-rewired build",
-    "heroku-postbuild": "npm run build",
+    "heroku-postbuild": "npm run build && node scripts/stamp-version.js",
     "test": "jest",
     "eject": "react-scripts eject"
   },
