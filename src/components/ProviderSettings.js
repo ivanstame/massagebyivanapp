@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw, Smartphone } from 'lucide-react';
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 import { TRADES, TRADE_KEYS } from '../shared/trades';
+import { parseVenmoInput } from '../utils/venmo';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -38,6 +39,7 @@ const ProviderSettings = () => {
   const [settings, setSettings] = useState({
     businessName: '',
     trade: 'other',
+    venmoHandle: '',
     phoneNumber: '',
     address: { street: '', unit: '', city: '', state: '', zip: '' },
     scheduling: {
@@ -55,6 +57,7 @@ const ProviderSettings = () => {
         ...prev,
         businessName: user.providerProfile?.businessName || '',
         trade: user.providerProfile?.trade || 'other',
+        venmoHandle: user.providerProfile?.venmoHandle || '',
         phoneNumber: user.profile?.phoneNumber || '',
         address: {
           street: user.profile?.address?.street || '',
@@ -230,10 +233,21 @@ const ProviderSettings = () => {
 
     if (!validateSettings()) return;
 
+    // Parse Venmo input to a clean handle before sending. If the provider
+    // typed something that couldn't be parsed, stop and ask them to fix it
+    // rather than silently clearing their saved handle.
+    const rawVenmo = (settings.venmoHandle || '').trim();
+    const parsedVenmo = rawVenmo ? parseVenmoInput(rawVenmo) : '';
+    if (rawVenmo && !parsedVenmo) {
+      setError('Couldn\'t read your Venmo handle. Paste the full URL from your Venmo profile (e.g. https://venmo.com/your-handle) or clear the field.');
+      return;
+    }
+    const settingsToSend = { ...settings, venmoHandle: parsedVenmo || null };
+
     setIsLoading(true);
 
     try {
-      const response = await axios.put('/api/users/provider/settings', { settings });
+      const response = await axios.put('/api/users/provider/settings', { settings: settingsToSend });
 
       // Update the AuthContext user with new data
       if (response.data.profile || response.data.settings) {
@@ -585,6 +599,58 @@ const ProviderSettings = () => {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Venmo (direct handle) */}
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Smartphone className="w-5 h-5 text-[#B07A4E]" />
+            <h3 className="font-medium text-slate-900">Venmo</h3>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Add your Venmo profile link to let clients pay you directly via the Venmo app &mdash;
+            no fees, no Stripe in the middle. You&rsquo;ll mark bookings paid once the
+            transfer lands.
+          </p>
+
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Venmo profile URL
+          </label>
+          <input
+            type="text"
+            value={settings.venmoHandle || ''}
+            onChange={(e) => setSettings(prev => ({ ...prev, venmoHandle: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            placeholder="https://venmo.com/your-handle"
+          />
+
+          {(() => {
+            const raw = (settings.venmoHandle || '').trim();
+            if (!raw) {
+              return (
+                <p className="mt-2 text-xs text-slate-500">
+                  Open your Venmo profile in the app (Me &rarr; Share &rarr; Copy Link) and paste
+                  the URL here &mdash; we&rsquo;ll extract your handle so there&rsquo;s no typo risk.
+                  Leave blank to use Stripe-routed Venmo instead.
+                </p>
+              );
+            }
+            const parsed = parseVenmoInput(raw);
+            if (!parsed) {
+              return (
+                <p className="mt-2 text-xs text-red-600">
+                  That doesn&rsquo;t look like a Venmo URL or handle. Paste the full URL from
+                  your Venmo profile (e.g. <code>https://venmo.com/your-handle</code>).
+                </p>
+              );
+            }
+            return (
+              <p className="mt-2 text-xs text-slate-600">
+                Will save as <span className="font-semibold text-slate-900">@{parsed}</span>.
+                {' '}Clients will see a &ldquo;Pay on Venmo&rdquo; button linking to this profile.
+              </p>
+            );
+          })()}
         </div>
 
         {/* Google Calendar */}

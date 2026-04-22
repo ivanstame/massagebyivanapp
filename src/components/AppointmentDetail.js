@@ -9,6 +9,7 @@ import {
   PlayCircle, CircleCheck, Loader2
 } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
+import { buildVenmoPayUrl } from '../utils/venmo';
 
 const AppointmentDetail = () => {
   const { id } = useParams();
@@ -373,6 +374,44 @@ const AppointmentDetail = () => {
                 )}
               </div>
             </div>
+
+            {(() => {
+              const providerVenmoHandle = booking.provider?.providerProfile?.venmoHandle;
+              if (
+                booking.paymentMethod !== 'venmo' ||
+                booking.paymentStatus === 'paid' ||
+                booking.status === 'cancelled' ||
+                !providerVenmoHandle ||
+                isProvider
+              ) return null;
+
+              const total = booking.pricing?.totalPrice || 0;
+              const serviceLabel = booking.serviceType?.name || `${booking.duration} min service`;
+              const providerName = booking.provider?.providerProfile?.businessName;
+              const dateLabel = booking.localDate || '';
+              const note = [serviceLabel, dateLabel, providerName ? `w/ ${providerName}` : null]
+                .filter(Boolean).join(' · ');
+              const venmoUrl = buildVenmoPayUrl(providerVenmoHandle, total, note);
+              if (!venmoUrl) return null;
+
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                    Before paying, confirm <span className="font-semibold">@{providerVenmoHandle}</span>
+                    {' '}matches your provider&rsquo;s actual Venmo profile. We can&rsquo;t verify
+                    Venmo accounts on our end.
+                  </p>
+                  <a
+                    href={venmoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full bg-[#3D95CE] text-white py-2.5 px-4 rounded-lg hover:bg-[#2C7FB3] font-medium text-sm transition-colors"
+                  >
+                    Pay ${total} to @{providerVenmoHandle} on Venmo &rarr;
+                  </a>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

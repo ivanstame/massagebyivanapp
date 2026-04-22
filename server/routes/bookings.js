@@ -839,7 +839,7 @@ router.get('/:id', ensureAuthenticated, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
       .populate('client', 'email profile.fullName profile.phoneNumber')
-      .populate('provider', 'email profile.fullName profile.phoneNumber providerProfile.businessName');
+      .populate('provider', 'email profile.fullName profile.phoneNumber providerProfile.businessName providerProfile.venmoHandle');
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });

@@ -335,6 +335,12 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
     const user = await User.findById(req.user._id);
     const { settings } = req.body;
 
+    // Normalize venmoHandle: strip leading '@' and whitespace; empty => null
+    if (settings.venmoHandle !== undefined) {
+      const raw = String(settings.venmoHandle || '').trim().replace(/^@+/, '');
+      settings.venmoHandle = raw.length ? raw : null;
+    }
+
     // Update provider profile settings (businessName, scheduling, etc)
     user.providerProfile = {
       ...user.providerProfile,
@@ -348,6 +354,16 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
 
     // Remove address from providerProfile — it belongs in profile.address
     delete user.providerProfile.address;
+
+    // Sync acceptedPaymentMethods with venmoHandle presence so clients see Venmo
+    // as an option exactly when the provider has a handle configured.
+    const currentMethods = new Set(user.providerProfile.acceptedPaymentMethods || ['cash']);
+    if (user.providerProfile.venmoHandle) {
+      currentMethods.add('venmo');
+    } else {
+      currentMethods.delete('venmo');
+    }
+    user.providerProfile.acceptedPaymentMethods = Array.from(currentMethods);
 
     // Update phone number if provided
     if (settings.phoneNumber !== undefined) {
@@ -449,7 +465,8 @@ router.get('/provider/:providerId/services', async (req, res) => {
     res.json({
       basePricing: provider.providerProfile?.basePricing || [],
       addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
-      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash']
+      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash'],
+      venmoHandle: provider.providerProfile?.venmoHandle || null
     });
   } catch (error) {
     console.error('Error fetching provider services:', error);

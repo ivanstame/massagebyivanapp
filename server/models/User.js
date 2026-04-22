@@ -69,6 +69,16 @@ const UserSchema = new mongoose.Schema({
       enum: ['cash', 'zelle', 'venmo', 'card'],
       default: ['cash']
     },
+    // Direct Venmo handle (e.g. "ivan-stame"). When present, Venmo bookings
+    // skip Stripe and surface a pay-on-Venmo deep link instead. Storage is
+    // without the leading @; validation trims and lowercases the prefix.
+    venmoHandle: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 30,
+      match: [/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/, 'Venmo handle may only contain letters, numbers, dashes, and underscores']
+    },
     // Provider-configured pricing by duration
     basePricing: [{
       duration: { type: Number, required: true },  // minutes: 60, 90, 120
