@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { SkeletonText } from './ui/Skeleton';
+import AddManagedClientModal from './AddManagedClientModal';
 
 const formatClientAddress = (address) => {
   if (!address) return '';
@@ -51,6 +52,7 @@ const ProviderClients = () => {
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [error, setError] = useState(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddManagedModal, setShowAddManagedModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteStatus, setInviteStatus] = useState(null);
   const [invitationCode, setInvitationCode] = useState('');
@@ -148,15 +150,15 @@ const ProviderClients = () => {
       filtered = filtered.filter(client => {
         const searchLower = searchQuery.toLowerCase();
         const fullName = (client.profile?.fullName || '').toLowerCase();
-        const email = client.email.toLowerCase();
+        const email = (client.email || '').toLowerCase();
         const phone = (client.profile?.phoneNumber || '').toLowerCase();
-        
-        return fullName.includes(searchLower) || 
-               email.includes(searchLower) || 
+
+        return fullName.includes(searchLower) ||
+               email.includes(searchLower) ||
                phone.includes(searchLower);
       });
     }
-    
+
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -165,7 +167,7 @@ const ProviderClients = () => {
           const nameB = (b.profile?.fullName || 'Unnamed').toLowerCase();
           return nameA.localeCompare(nameB);
         case 'email':
-          return a.email.localeCompare(b.email);
+          return (a.email || '').localeCompare(b.email || '');
         case 'recent':
           // Assuming we'll have lastBookingDate in future
           return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
@@ -353,14 +355,24 @@ const ProviderClients = () => {
             </p>
           </div>
           
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="inline-flex items-center justify-center px-4 py-2 bg-[#B07A4E]
-              text-white rounded-lg hover:bg-[#8A5D36] w-full sm:w-auto"
-          >
-            <UserPlus className="w-5 h-5 mr-2" />
-            Invite Client
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowAddManagedModal(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2
+                bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              Add Client
+            </button>
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2
+                text-[#B07A4E] border border-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/10"
+            >
+              <Mail className="w-5 h-5 mr-2" />
+              Invite
+            </button>
+          </div>
         </div>
 
         {/* Join Code Card */}
@@ -568,14 +580,26 @@ const ProviderClients = () => {
               ) : clients.length === 0 ? (
                 <div className="p-8 text-center">
                   <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600 mb-4">No clients yet.</p>
-                  <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
-                  >
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    Invite Your First Client
-                  </button>
+                  <p className="text-slate-600 mb-1">No clients yet.</p>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Add existing clients yourself, or invite new ones to sign up.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                    <button
+                      onClick={() => setShowAddManagedModal(true)}
+                      className="inline-flex items-center justify-center px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
+                    >
+                      <UserPlus className="w-5 h-5 mr-2" />
+                      Add a Client
+                    </button>
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="inline-flex items-center justify-center px-4 py-2 text-[#B07A4E] border border-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/10"
+                    >
+                      <Mail className="w-5 h-5 mr-2" />
+                      Invite to Sign Up
+                    </button>
+                  </div>
                 </div>
               ) : filteredClients.length === 0 ? (
                 <div className="p-8 text-center">
@@ -603,6 +627,14 @@ const ProviderClients = () => {
                               <h3 className="text-base sm:text-lg font-medium text-slate-900 truncate">
                                 {client.profile?.fullName || 'Unnamed Client'}
                               </h3>
+                              {client.isManaged && (
+                                <span
+                                  className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 flex-shrink-0"
+                                  title="Client profile you manage on their behalf"
+                                >
+                                  Managed
+                                </span>
+                              )}
                               {hasHealthInfo && (
                                 <span title="Has health info on file">
                                   <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
@@ -612,10 +644,12 @@ const ProviderClients = () => {
 
                             {/* Contact info row */}
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                              <div className="flex items-center text-sm text-slate-500">
-                                <Mail className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">{client.email}</span>
-                              </div>
+                              {client.email && (
+                                <div className="flex items-center text-sm text-slate-500">
+                                  <Mail className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                                  <span className="truncate">{client.email}</span>
+                                </div>
+                              )}
                               {client.profile?.phoneNumber && (
                                 <div className="flex items-center text-sm text-slate-500">
                                   <Phone className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
@@ -793,6 +827,16 @@ const ProviderClients = () => {
       </div>
 
       {showInviteModal && <InviteModal />}
+      {showAddManagedModal && (
+        <AddManagedClientModal
+          onClose={() => setShowAddManagedModal(false)}
+          onCreated={(newClient) => {
+            setShowAddManagedModal(false);
+            // Seed the new row into the list so the provider sees it immediately.
+            setClients(prev => [{ ...newClient, bookingStats: null }, ...prev]);
+          }}
+        />
+      )}
     </div>
   );
 };

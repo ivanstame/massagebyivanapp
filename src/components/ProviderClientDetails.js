@@ -5,7 +5,7 @@ import {
   User, Phone, Mail, MapPin, Calendar, Clock,
   AlertCircle, MessageSquare, FileText,
   MoreHorizontal, Trash2, Edit, DollarSign,
-  CheckCircle, Clock8, BarChart2, StickyNote
+  CheckCircle, Clock8, BarChart2, StickyNote, CalendarPlus
 } from 'lucide-react';
 import axios from 'axios';
 import moment from 'moment-timezone';
@@ -137,9 +137,13 @@ const ProviderClientDetails = () => {
   const DeleteConfirmationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-paper-elev rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-medium text-slate-900 mb-4">Remove Client</h3>
+        <h3 className="text-lg font-medium text-slate-900 mb-4">
+          {client?.isManaged ? 'Delete Managed Client' : 'Remove Client'}
+        </h3>
         <p className="text-slate-500 mb-4">
-          Are you sure you want to remove this client? This action cannot be undone.
+          {client?.isManaged
+            ? 'This will permanently delete this client profile and all of their appointments. This action cannot be undone.'
+            : 'Are you sure you want to remove this client? This action cannot be undone.'}
         </p>
         <div className="flex justify-end space-x-3">
           <button
@@ -152,7 +156,7 @@ const ProviderClientDetails = () => {
             onClick={handleRemoveClient}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
           >
-            Remove Client
+            {client?.isManaged ? 'Delete' : 'Remove Client'}
           </button>
         </div>
       </div>
@@ -223,14 +227,26 @@ const ProviderClientDetails = () => {
                 <User className="w-6 h-6 text-slate-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">
-                  {client?.profile?.fullName || 'Unnamed Client'}
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold text-slate-900">
+                    {client?.profile?.fullName || 'Unnamed Client'}
+                  </h1>
+                  {client?.isManaged && (
+                    <span
+                      className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600"
+                      title="Client profile you manage on their behalf"
+                    >
+                      Managed
+                    </span>
+                  )}
+                </div>
                 <div className="mt-2 space-y-1">
-                  <div className="flex items-center text-slate-600">
-                    <Mail className="w-4 h-4 mr-2" />
-                    {client?.email}
-                  </div>
+                  {client?.email && (
+                    <div className="flex items-center text-slate-600">
+                      <Mail className="w-4 h-4 mr-2" />
+                      {client.email}
+                    </div>
+                  )}
                   {client?.profile?.phoneNumber && (
                     <div className="flex items-center text-slate-600">
                       <Phone className="w-4 h-4 mr-2" />
@@ -246,8 +262,15 @@ const ProviderClientDetails = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => navigate(`/book?clientId=${clientId}`)}
+                className="inline-flex items-center px-3 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] text-sm font-medium"
+              >
+                <CalendarPlus className="w-4 h-4 mr-1.5" />
+                Book appointment
+              </button>
               {client?.profile?.phoneNumber && (
                 <button
                   onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
@@ -265,9 +288,6 @@ const ProviderClientDetails = () => {
                 >
                   <MessageSquare className="w-5 h-5" />
                 </button>
-              )}
-              {!client?.profile?.phoneNumber && (
-                <span className="text-sm text-slate-400 italic">No phone number available</span>
               )}
               <div className="relative">
                 <button
@@ -365,7 +385,7 @@ const ProviderClientDetails = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
             <button
-              onClick={() => navigate('/provider/calendar')}
+              onClick={() => navigate(`/book?clientId=${clientId}`)}
               className="text-[#B07A4E] hover:text-[#8A5D36]"
             >
               Schedule New

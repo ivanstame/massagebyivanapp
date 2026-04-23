@@ -9,18 +9,33 @@ const UserSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
+    // Managed clients (created by a provider on their behalf) don't have email.
+    required: function() { return !this.isManaged; },
     unique: true,
+    sparse: true,
     lowercase: true
   },
   password: {
     type: String,
-    required: true
+    required: function() { return !this.isManaged; }
   },
   accountType: {
     type: String,
     enum: ['PROVIDER', 'CLIENT', 'SUPER_ADMIN'],
     required: true
+  },
+  // A provider-managed client profile: created by the provider for someone who
+  // won't register themselves (elderly/low-tech). Never logs in. managedBy is
+  // the provider who owns the record; providerId is also set so existing
+  // client-list / booking queries pick them up without changes.
+  isManaged: {
+    type: Boolean,
+    default: false
+  },
+  managedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   providerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -205,8 +220,8 @@ const UserSchema = new mongoose.Schema({
 
 // Password hashing middleware
 UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+  if (!this.isModified('password') || !this.password) return next();
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -224,8 +239,10 @@ UserSchema.pre('save', function(next) {
   next();
 });
 
-// Password comparison for Passport
+// Password comparison for Passport. Managed clients have no password and
+// must never authenticate.
 UserSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
   try {
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {

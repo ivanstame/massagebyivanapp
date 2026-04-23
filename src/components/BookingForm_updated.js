@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { bookingService } from '../services/bookingService';
 import api from '../services/api';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User as UserIcon } from 'lucide-react';
 
 // Import the new components
 import CalendarSection from './BookingFormComponents/CalendarSection';
@@ -19,13 +19,22 @@ import AvailableTimeSlots from './BookingFormComponents/AvailableTimeSlots';
 import BookingConfirmationModal from './BookingFormComponents/BookingConfirmationModal';
 import PaymentMethodSelector from './BookingFormComponents/PaymentMethodSelector';
 import StripeCheckout from './BookingFormComponents/StripeCheckout';
+import ClientPickerModal from './ClientPickerModal';
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useContext(AuthContext);
+  const isProviderBooking = user?.accountType === 'PROVIDER';
 
   // Provider state
   const [provider, setProvider] = useState(null);
+
+  // Target client — when a provider books on behalf of someone. For regular
+  // client self-bookings this stays null and the form falls back to `user`.
+  const [targetClient, setTargetClient] = useState(null);
+  const [targetClientLoading, setTargetClientLoading] = useState(false);
+  const [showClientPicker, setShowClientPicker] = useState(false);
 
   // Provider services (fetched from API)
   const [durationOptions, setDurationOptions] = useState([]);
@@ -121,40 +130,83 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   }, [user]);
 
+  // Load the target client whenever ?clientId= changes (provider booking path).
+  // For CLIENT-self bookings this effect is a no-op.
+  useEffect(() => {
+    if (!isProviderBooking) return;
+
+    const clientId = searchParams.get('clientId');
+    if (!clientId) {
+      setTargetClient(null);
+      setShowClientPicker(true); // force a choice before the provider can book
+      return;
+    }
+
+    setShowClientPicker(false);
+    setTargetClientLoading(true);
+    (async () => {
+      try {
+        const res = await api.get(`/api/users/provider/clients/${clientId}`);
+        setTargetClient(res.data);
+      } catch (err) {
+        console.error('Failed to load target client:', err);
+        setError('Could not load the selected client. Pick another.');
+        setTargetClient(null);
+        setShowClientPicker(true);
+      } finally {
+        setTargetClientLoading(false);
+      }
+    })();
+  }, [isProviderBooking, searchParams]);
+
+  // When a client is picked inline, swap the URL so reloads land in the same
+  // context. Address/preferences reload via the targetClient effect below;
+  // date/duration/add-ons already chosen are preserved.
+  const handleClientPicked = (client) => {
+    setShowClientPicker(false);
+    setSelectedTime(null);
+    setAvailableSlots([]);
+    setSearchParams({ clientId: client._id }, { replace: true });
+  };
+
   // Handle address confirmation
   const handleAddressConfirmed = async (addressData) => {
     setLocation(addressData);
     setFullAddress(addressData.fullAddress);
   };
 
-  // Load saved address for clients
+  // Load saved address. For client self-bookings this reads user.profile.address;
+  // for provider-on-behalf bookings this reads the target client's address so
+  // the booking defaults to where the *recipient* is, not the provider.
   useEffect(() => {
-    if (user && user.accountType === 'CLIENT' && user.profile?.address) {
-      const addr = user.profile.address;
-      const combinedAddress = (addr.street && addr.city && addr.state && addr.zip)
-        ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}`
-        : addr.formatted || null;
-
-      if (combinedAddress) {
-        setFullAddress(combinedAddress);
-
-        (async () => {
-          try {
-            const geo = await api.get('/api/geocode', {
-              params: { address: combinedAddress },
-            });
-            setLocation({
-              lat: geo.data.lat,
-              lng: geo.data.lng,
-              fullAddress: combinedAddress,
-            });
-          } catch (err) {
-            console.error('Auto-geocode failed', err);
-          }
-        })();
-      }
+    const source = isProviderBooking ? targetClient : user;
+    if (!source || source.accountType !== 'CLIENT' || !source.profile?.address) {
+      return;
     }
-  }, [user]);
+
+    const addr = source.profile.address;
+    const combinedAddress = (addr.street && addr.city && addr.state && addr.zip)
+      ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}`
+      : addr.formatted || null;
+
+    if (!combinedAddress) return;
+
+    setFullAddress(combinedAddress);
+    (async () => {
+      try {
+        const geo = await api.get('/api/geocode', {
+          params: { address: combinedAddress },
+        });
+        setLocation({
+          lat: geo.data.lat,
+          lng: geo.data.lng,
+          fullAddress: combinedAddress,
+        });
+      } catch (err) {
+        console.error('Auto-geocode failed', err);
+      }
+    })();
+  }, [user, targetClient, isProviderBooking]);
 
   // Fetch available time slots
   const fetchAvailableSlots = async () => {
@@ -242,6 +294,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
       const addonsPrice = selectedAddonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
       const extraTime = selectedAddonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
 
+      // Provider-on-behalf bookings: the target client IS the recipient, and
+      // we pass clientId so the backend records it against their account
+      // rather than the provider's. Registered clients hit the existing
+      // self/other recipient logic unchanged.
+      const isOnBehalf = isProviderBooking && targetClient?._id;
+      if (isOnBehalf === false && isProviderBooking) {
+        throw new Error('Please pick a client before booking.');
+      }
+
       const bookingData = {
         date: bookingDateStr,
         time: formattedTime,
@@ -267,14 +328,21 @@ const BookingForm = ({ googleMapsLoaded }) => {
           totalPrice: basePrice + addonsPrice
         },
         paymentMethod: selectedPaymentMethod,
-        recipientType,
-        ...(recipientType === 'other' && {
-          recipientInfo: {
-            name: recipientInfo.name,
-            phone: recipientInfo.phone,
-            email: recipientInfo.email || ''
-          }
-        })
+        ...(isOnBehalf
+          ? {
+              clientId: targetClient._id,
+              recipientType: 'self',
+            }
+          : {
+              recipientType,
+              ...(recipientType === 'other' && {
+                recipientInfo: {
+                  name: recipientInfo.name,
+                  phone: recipientInfo.phone,
+                  email: recipientInfo.email || ''
+                }
+              })
+            }),
       };
 
       const response = await bookingService.createBooking(bookingData);
@@ -307,16 +375,19 @@ const BookingForm = ({ googleMapsLoaded }) => {
   };
 
   const isBookingComplete = () => {
-    const isRecipientComplete =
-      recipientType === 'self' ||
-      (recipientType === 'other' && recipientInfo.name && recipientInfo.phone);
+    const isOnBehalf = isProviderBooking && targetClient?._id;
+    const isRecipientComplete = isOnBehalf
+      ? true
+      : recipientType === 'self' ||
+        (recipientType === 'other' && recipientInfo.name && recipientInfo.phone);
 
     return (
       selectedDate &&
       fullAddress &&
       selectedTime &&
       selectedDuration &&
-      isRecipientComplete
+      isRecipientComplete &&
+      (!isProviderBooking || !!targetClient?._id)
     );
   };
 
@@ -354,6 +425,37 @@ const BookingForm = ({ googleMapsLoaded }) => {
         </div>
 
         <div className="space-y-6">
+          {/* Provider-on-behalf banner — shown instead of the recipient selector
+              when a provider is booking for one of their clients. The "Change"
+              link re-opens the client picker so they can switch mid-flow. */}
+          {isProviderBooking && (
+            <div className="bg-paper-elev border border-line rounded-lg p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#B07A4E]/10 flex items-center justify-center flex-shrink-0">
+                <UserIcon className="w-5 h-5 text-[#B07A4E]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Booking for</p>
+                <p className="text-base font-medium text-slate-900 truncate flex items-center gap-2">
+                  {targetClientLoading
+                    ? 'Loading…'
+                    : targetClient?.profile?.fullName || 'Pick a client'}
+                  {targetClient?.isManaged && (
+                    <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                      Managed
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClientPicker(true)}
+                className="text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36] px-3 py-1.5 rounded-lg hover:bg-[#B07A4E]/10"
+              >
+                Change
+              </button>
+            </div>
+          )}
+
           {/* 1. Calendar */}
           <CalendarSection
             selectedDate={selectedDate}
@@ -361,19 +463,25 @@ const BookingForm = ({ googleMapsLoaded }) => {
             isComplete={selectedDate !== null}
           />
 
-          {/* 2. Recipient */}
-          <RecipientSection
-            recipientType={recipientType}
-            recipientInfo={recipientInfo}
-            onRecipientTypeChange={setRecipientType}
-            onRecipientInfoChange={setRecipientInfo}
-            isComplete={recipientType === 'self' || (recipientInfo.name && recipientInfo.phone)}
-          />
+          {/* 2. Recipient — only for client self-bookings. When a provider
+              books on behalf, the target client IS the recipient, shown in
+              the banner above. */}
+          {!isProviderBooking && (
+            <RecipientSection
+              recipientType={recipientType}
+              recipientInfo={recipientInfo}
+              onRecipientTypeChange={setRecipientType}
+              onRecipientInfoChange={setRecipientInfo}
+              isComplete={recipientType === 'self' || (recipientInfo.name && recipientInfo.phone)}
+            />
+          )}
 
-          {/* 3. Address */}
+          {/* 3. Address — saved-address comes from the target client when a
+              provider is booking on their behalf, otherwise from the logged-in user. */}
           <AddressSection
             savedAddress={(() => {
-              const addr = user?.profile?.address;
+              const addrSource = isProviderBooking ? targetClient : user;
+              const addr = addrSource?.profile?.address;
               if (!addr) return null;
               const fullAddr = addr.formatted ||
                 (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
@@ -475,6 +583,18 @@ const BookingForm = ({ googleMapsLoaded }) => {
             </button>
           </div>
         </div>
+
+        {/* Client picker — providers must choose a client before booking.
+            Auto-opens when /book is visited without ?clientId=, and can be
+            reopened via the "Change" link in the banner above. */}
+        {showClientPicker && isProviderBooking && (
+          <ClientPickerModal
+            currentClientId={targetClient?._id}
+            onSelect={handleClientPicked}
+            onClose={() => setShowClientPicker(false)}
+            canDismiss={!!targetClient?._id}
+          />
+        )}
 
         {/* Stripe Checkout Modal (shown after booking created with card payment) */}
         {showStripeCheckout && newBookingId && (

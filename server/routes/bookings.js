@@ -292,31 +292,33 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         // Get provider details
         const provider = await User.findById(savedBooking.provider);
         const providerName = provider.profile.fullName || provider.email;
-        
+
         // Determine recipient details
         let recipientPhone, recipientName;
         if (savedBooking.recipientType === 'self') {
           const client = await User.findById(savedBooking.client);
-          recipientPhone = client.profile.phoneNumber;
-          recipientName = client.profile.fullName || client.email;
+          recipientPhone = client.profile?.phoneNumber || null;
+          recipientName = client.profile?.fullName || client.email || 'Client';
         } else {
-          recipientPhone = savedBooking.recipientInfo.phone;
-          recipientName = savedBooking.recipientInfo.name;
+          recipientPhone = savedBooking.recipientInfo?.phone || null;
+          recipientName = savedBooking.recipientInfo?.name || 'Guest';
         }
-        
-        // Format phone numbers
-        const formattedRecipientPhone = formatPhoneNumber(recipientPhone);
-        const formattedProviderPhone = formatPhoneNumber(provider.profile.phoneNumber);
-        
-        // Construct messages
+
+        const providerPhone = provider.profile?.phoneNumber || null;
+
         const recipientMessage = `Hi ${recipientName}, your massage with ${providerName} is confirmed on ${savedBooking.localDate} at ${savedBooking.startTime}.`;
         const providerMessage = `New booking: ${recipientName} on ${savedBooking.localDate} at ${savedBooking.startTime}.`;
-        
-        // Send SMS
-        await smsService.sendSms(formattedRecipientPhone, recipientMessage);
-        await smsService.sendSms(formattedProviderPhone, providerMessage);
-        
-        console.log('✅ SMS notifications sent successfully');
+
+        if (recipientPhone) {
+          await smsService.sendSms(formatPhoneNumber(recipientPhone), recipientMessage);
+        } else {
+          console.log('Skipping recipient SMS: no phone number on file');
+        }
+        if (providerPhone) {
+          await smsService.sendSms(formatPhoneNumber(providerPhone), providerMessage);
+        }
+
+        console.log('✅ SMS notifications processed');
       } catch (smsError) {
         console.error('❌ Error sending SMS notifications:', smsError);
       }
@@ -934,28 +936,27 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       // Determine recipient details
       let recipientPhone, recipientName;
       if (booking.recipientType === 'self') {
-        recipientPhone = client.profile.phoneNumber;
-        recipientName = client.profile.fullName || client.email;
+        recipientPhone = client.profile?.phoneNumber || null;
+        recipientName = client.profile?.fullName || client.email || 'Client';
       } else {
-        recipientPhone = booking.recipientInfo.phone;
-        recipientName = booking.recipientInfo.name;
+        recipientPhone = booking.recipientInfo?.phone || null;
+        recipientName = booking.recipientInfo?.name || 'Guest';
       }
 
-      const providerName = provider.profile.fullName || provider.email;
+      const providerName = provider.profile?.fullName || provider.email;
+      const providerPhone = provider.profile?.phoneNumber || null;
       const dateStr = booking.localDate;
       const timeStr = booking.startTime;
 
       if (cancelledByType === 'CLIENT') {
-        // Notify provider that client cancelled
-        const formattedProviderPhone = formatPhoneNumber(provider.profile.phoneNumber);
-        const providerMsg = `Cancelled: ${recipientName}'s appointment on ${dateStr} at ${timeStr} has been cancelled by the client.`;
-        await smsService.sendSms(formattedProviderPhone, providerMsg);
-        console.log('✅ Cancellation SMS sent to provider');
-      } else {
-        // Notify client that provider cancelled
-        const formattedRecipientPhone = formatPhoneNumber(recipientPhone);
+        if (providerPhone) {
+          const providerMsg = `Cancelled: ${recipientName}'s appointment on ${dateStr} at ${timeStr} has been cancelled by the client.`;
+          await smsService.sendSms(formatPhoneNumber(providerPhone), providerMsg);
+          console.log('✅ Cancellation SMS sent to provider');
+        }
+      } else if (recipientPhone) {
         const clientMsg = `Hi ${recipientName}, your massage with ${providerName} on ${dateStr} at ${timeStr} has been cancelled. Please rebook at your convenience.`;
-        await smsService.sendSms(formattedRecipientPhone, clientMsg);
+        await smsService.sendSms(formatPhoneNumber(recipientPhone), clientMsg);
         console.log('✅ Cancellation SMS sent to client');
       }
     } catch (smsError) {
@@ -1132,14 +1133,15 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
 
       const smsMsg = `Rescheduled: Appointment moved from ${fmtDate(oldDate)} at ${fmtTime(oldTime)} to ${fmtDate(localDateStr)} at ${fmtTime(time)} by ${rescheduledBy}.`;
 
-      // Notify the other party via SMS
+      // Notify the other party via SMS (skip silently if they have no phone)
       if (isClient && provider.profile?.phoneNumber) {
         await smsService.sendSms(formatPhoneNumber(provider.profile.phoneNumber), smsMsg);
       } else if (isProvider && client.profile?.phoneNumber) {
         await smsService.sendSms(formatPhoneNumber(client.profile.phoneNumber), smsMsg);
       }
 
-      // Send updated confirmation email with new calendar invite to client
+      // Send updated confirmation email with new calendar invite if the
+      // client has an email on file.
       if (client.email) {
         sendBookingConfirmationEmail(client.email, booking, providerName, clientName);
       }

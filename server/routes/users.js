@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
@@ -298,6 +299,177 @@ router.patch('/provider/clients/:clientId/notes', ensureAuthenticated, async (re
   }
 });
 
+// Build a client address object + derived formatted string from incoming body.
+// Shared by managed-client create/update so storage matches the shape used by
+// the rest of the app (profile.address).
+function buildAddress(input) {
+  if (!input) return null;
+  const street = (input.street || '').trim();
+  const city = (input.city || '').trim();
+  const state = (input.state || '').trim();
+  const zip = (input.zip || '').trim();
+  const unit = (input.unit || '').trim();
+  if (!street && !city && !state && !zip) return null;
+  const formatted = `${street}${unit ? ' ' + unit : ''}, ${city}, ${state} ${zip}`
+    .replace(/, ,/g, ',').replace(/\s+/g, ' ').trim();
+  return { street, unit, city, state, zip, formatted };
+}
+
+// Geocode a formatted address string. Returns { lat, lng } or null on failure.
+// Non-fatal — managed clients can be created without coords, but bookings for
+// them won't have travel-time calculations until an address is resolvable.
+async function geocodeIfPossible(addressStr) {
+  if (!addressStr || !process.env.GOOGLE_MAPS_API_KEY) return null;
+  try {
+    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      params: { address: addressStr, key: process.env.GOOGLE_MAPS_API_KEY }
+    });
+    if (response.data.status === 'OK' && response.data.results.length > 0) {
+      const { lat, lng } = response.data.results[0].geometry.location;
+      return { lat, lng, formatted: response.data.results[0].formatted_address };
+    }
+  } catch (err) {
+    console.warn('[managed-clients] Geocode failed:', err.message);
+  }
+  return null;
+}
+
+// Create a provider-managed client profile. The resulting User has no password
+// and cannot log in; the provider owns and edits it.
+router.post('/managed-clients', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const { firstName, lastName, phoneNumber, email, address, notes, smsConsent } = req.body;
+    if (!firstName || !firstName.trim()) {
+      return res.status(400).json({ message: 'First name is required' });
+    }
+    if (!lastName || !lastName.trim()) {
+      return res.status(400).json({ message: 'Last name is required' });
+    }
+
+    const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
+    const addressObj = buildAddress(address);
+    if (addressObj) {
+      const geo = await geocodeIfPossible(addressObj.formatted);
+      if (geo) addressObj.formatted = geo.formatted;
+    }
+
+    // Email uniqueness: if provider supplied one, make sure it isn't already
+    // in use (prevents silently shadowing a registered client's login).
+    if (email && email.trim()) {
+      const existing = await User.findByEmail(email.trim());
+      if (existing) {
+        return res.status(400).json({ message: 'An account with that email already exists' });
+      }
+    }
+
+    const managed = new User({
+      accountType: 'CLIENT',
+      isManaged: true,
+      managedBy: req.user._id,
+      providerId: req.user._id,
+      smsConsent: !!smsConsent,
+      profile: {
+        fullName,
+        phoneNumber: phoneNumber ? phoneNumber.trim() : '',
+        address: addressObj || undefined,
+      },
+      clientProfile: {
+        notes: notes || '',
+        preferences: {},
+        stats: {
+          totalAppointments: 0,
+          upcomingAppointments: 0,
+          completedAppointments: 0,
+          totalRevenue: 0,
+        },
+      },
+      ...(email && email.trim() ? { email: email.trim().toLowerCase() } : {}),
+    });
+
+    await managed.save();
+    res.status(201).json(managed.getPublicProfile());
+  } catch (err) {
+    console.error('Error creating managed client:', err);
+    res.status(500).json({ message: 'Error creating client', error: err.message });
+  }
+});
+
+// Update a managed client's profile. Registered clients edit their own
+// profile via PUT /profile; managed clients never log in, so the provider
+// edits them through this endpoint.
+router.patch('/managed-clients/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const managed = await User.findOne({
+      _id: req.params.id,
+      isManaged: true,
+      managedBy: req.user._id,
+    });
+    if (!managed) {
+      return res.status(404).json({ message: 'Managed client not found' });
+    }
+
+    const { firstName, lastName, phoneNumber, email, address, smsConsent } = req.body;
+
+    if (firstName || lastName) {
+      const [curFirst, ...rest] = (managed.profile?.fullName || '').split(' ');
+      const curLast = rest.join(' ');
+      const nextFirst = (firstName ?? curFirst ?? '').trim();
+      const nextLast = (lastName ?? curLast ?? '').trim();
+      managed.profile = {
+        ...managed.profile,
+        fullName: `${nextFirst} ${nextLast}`.trim(),
+      };
+    }
+
+    if (phoneNumber !== undefined) {
+      managed.profile = { ...managed.profile, phoneNumber: phoneNumber || '' };
+    }
+
+    if (email !== undefined) {
+      if (email) {
+        const existing = await User.findOne({
+          email: email.trim().toLowerCase(),
+          _id: { $ne: managed._id },
+        });
+        if (existing) {
+          return res.status(400).json({ message: 'An account with that email already exists' });
+        }
+        managed.email = email.trim().toLowerCase();
+      } else {
+        managed.email = undefined;
+      }
+    }
+
+    if (address !== undefined) {
+      const addressObj = buildAddress(address);
+      if (addressObj) {
+        const geo = await geocodeIfPossible(addressObj.formatted);
+        if (geo) addressObj.formatted = geo.formatted;
+      }
+      managed.profile = { ...managed.profile, address: addressObj || undefined };
+    }
+
+    if (smsConsent !== undefined) {
+      managed.smsConsent = !!smsConsent;
+    }
+
+    await managed.save();
+    res.json(managed.getPublicProfile());
+  } catch (err) {
+    console.error('Error updating managed client:', err);
+    res.status(500).json({ message: 'Error updating client', error: err.message });
+  }
+});
+
 // Remove client from provider
 router.delete('/provider/clients/:clientId', ensureAuthenticated, async (req, res) => {
   try {
@@ -314,7 +486,15 @@ router.delete('/provider/clients/:clientId', ensureAuthenticated, async (req, re
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Remove provider association
+    if (client.isManaged) {
+      // Managed clients have no life outside the provider — hard delete them
+      // along with their bookings rather than leaving orphaned records.
+      await Booking.deleteMany({ client: client._id });
+      await User.findByIdAndDelete(client._id);
+      return res.json({ message: 'Managed client deleted' });
+    }
+
+    // Registered client: remove provider association, preserve the user.
     client.providerId = null;
     await client.save();
 
