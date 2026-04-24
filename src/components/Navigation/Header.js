@@ -50,6 +50,8 @@ const Header = () => {
     return [
       { href: '/book', label: 'Book Appointment' },
       { href: '/my-bookings', label: 'My Bookings' },
+      { href: '/my-packages', label: 'My Packages' },
+      { href: '/packages', label: 'Buy Packages' },
       { href: '/privacy-policy.html', label: 'Privacy Policy' }
     ];
   };

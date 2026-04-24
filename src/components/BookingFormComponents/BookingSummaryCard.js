@@ -20,6 +20,7 @@ const BookingSummaryCard = ({
     zelle: 'Zelle',
     venmo: 'Venmo',
     card: 'Card',
+    package: 'Package credit',
   };
   const formattedDate = selectedDate
     ? DateTime.fromJSDate(selectedDate)

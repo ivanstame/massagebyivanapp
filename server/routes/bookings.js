@@ -5,6 +5,7 @@ const Availability = require('../models/Availability');
 const BlockedTime = require('../models/BlockedTime');
 const User = require('../models/User');
 const SavedLocation = require('../models/SavedLocation');
+const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
@@ -23,6 +24,56 @@ const calculatePrice = (duration) => {
   const BASE_RATE = 120; // $120 per hour
   return Math.ceil((duration / 60) * BASE_RATE);
 };
+
+// Atomically reserve a credit on a PackagePurchase by pushing a redemption
+// entry referencing the future booking ID. The conditional on the update
+// guarantees we only succeed if the package is paid, not cancelled, owned
+// by this client, scoped to this provider, and has remaining credits — so
+// concurrent attempts can't both win.
+//
+// Returns the redemption sub-doc on success, null on failure (no credit
+// available or package not redeemable). If success, the caller MUST
+// either complete the booking or call returnReservedCredit() to roll back.
+async function reservePackageCredit({ packageId, clientId, providerId, duration, bookingId }) {
+  const updated = await PackagePurchase.findOneAndUpdate(
+    {
+      _id: packageId,
+      client: clientId,
+      provider: providerId,
+      sessionDuration: duration,
+      paymentStatus: 'paid',
+      cancelledAt: null,
+      $expr: {
+        $gt: [
+          '$sessionsTotal',
+          {
+            $size: {
+              $filter: {
+                input: '$redemptions',
+                as: 'r',
+                cond: { $eq: ['$$r.returnedAt', null] },
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $push: { redemptions: { booking: bookingId, redeemedAt: new Date() } },
+    },
+    { new: true }
+  );
+  return updated;
+}
+
+// Roll back a reserved credit (used when booking save fails after we
+// already pushed a redemption). Pulls the entry out by booking ID.
+async function returnReservedCredit({ packageId, bookingId }) {
+  await PackagePurchase.updateOne(
+    { _id: packageId },
+    { $pull: { redemptions: { booking: bookingId } } }
+  );
+}
 
 // POST / (Create a new booking)
 router.post('/', ensureAuthenticated, async (req, res) => {
@@ -186,7 +237,36 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       location
     });
 
+    // Determine if this booking is being paid via a package credit. The
+    // client sends `packagePurchaseId` when they pick "Use package credit"
+    // in the booking form's payment step. We reserve the credit atomically
+    // BEFORE saving the booking so concurrent uses can't double-redeem.
+    const requestedPackageId = req.body.packagePurchaseId || null;
+    const usingPackage = !!requestedPackageId;
+
+    // Pre-allocate the booking _id so we can reference it in the package's
+    // redemptions array atomically before the booking itself is persisted.
+    const mongoose = require('mongoose');
+    const bookingObjectId = new mongoose.Types.ObjectId();
+
+    let reservedRedemption = null;
+    if (usingPackage) {
+      reservedRedemption = await reservePackageCredit({
+        packageId: requestedPackageId,
+        clientId,
+        providerId,
+        duration,
+        bookingId: bookingObjectId,
+      });
+      if (!reservedRedemption) {
+        return res.status(400).json({
+          message: 'That package isn\'t available — it may be paid out, cancelled, or the wrong duration for this booking.',
+        });
+      }
+    }
+
     const booking = new Booking({
+      _id: bookingObjectId,
       provider: providerId,
       client: clientId,
       date: bookingDate,
@@ -234,9 +314,18 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           email: req.body.recipientInfo.email || ''
         }
       }),
-      // Payment method
-      paymentMethod: req.body.paymentMethod || 'cash',
-      paymentStatus: 'unpaid',
+      // Payment method — when paid via package, treat as 'paid' immediately
+      // (the package itself was paid for at purchase) and stash the
+      // back-reference so cancellations can return / consume the credit.
+      paymentMethod: usingPackage ? 'package' : (req.body.paymentMethod || 'cash'),
+      paymentStatus: usingPackage ? 'paid' : 'unpaid',
+      paidAt: usingPackage ? new Date() : null,
+      ...(usingPackage && {
+        packageRedemption: {
+          packagePurchase: requestedPackageId,
+          redeemedAt: new Date(),
+        },
+      }),
       // Always store who placed the booking
       bookedBy: {
         name: req.user.profile?.fullName || req.user.email,
@@ -246,7 +335,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 
     console.log('Booking object created, attempting to save to MongoDB...');
     console.log('Booking object ID (pre-save):', booking._id);
-    
+
     try {
       const savedBooking = await booking.save();
       console.log('✅ BOOKING SAVED SUCCESSFULLY!');
@@ -352,6 +441,19 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       console.error('Error message:', saveError.message);
       if (saveError.errors) {
         console.error('Validation errors:', saveError.errors);
+      }
+      // If we already pulled a credit off a package and the booking save
+      // failed, return the credit so it isn't silently consumed.
+      if (usingPackage) {
+        try {
+          await returnReservedCredit({
+            packageId: requestedPackageId,
+            bookingId: bookingObjectId,
+          });
+          console.log('Reserved package credit returned after save failure.');
+        } catch (returnErr) {
+          console.error('Failed to return reserved package credit:', returnErr.message);
+        }
       }
       throw saveError;
     }
@@ -926,6 +1028,34 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     booking.cancelledBy = req.user.accountType;
     await booking.save();
     console.log('✅ Booking cancelled (soft delete):', booking._id);
+
+    // Package credit handling: if this booking was paid via a package,
+    // return the credit on in-window cancellations and on provider-side
+    // cancellations (regardless of window). Late client-side cancellations
+    // consume the credit, but the provider can manually reinstate it from
+    // the client's package detail view (see Phase 6 endpoint).
+    if (booking.packageRedemption?.packagePurchase) {
+      const cancelledByProvider = req.user.accountType === 'PROVIDER';
+      const isLateClientCancel = !cancelledByProvider && booking.lateCancellation;
+
+      if (!isLateClientCancel) {
+        try {
+          await PackagePurchase.updateOne(
+            {
+              _id: booking.packageRedemption.packagePurchase,
+              'redemptions.booking': booking._id,
+              'redemptions.returnedAt': null,
+            },
+            { $set: { 'redemptions.$.returnedAt': new Date() } }
+          );
+          console.log(`✅ Returned package credit to ${booking.packageRedemption.packagePurchase}`);
+        } catch (creditErr) {
+          console.error('Failed to return package credit on cancel:', creditErr.message);
+        }
+      } else {
+        console.log('Late client cancellation — package credit consumed (not returned).');
+      }
+    }
 
     // Send cancellation SMS notifications
     try {

@@ -56,6 +56,8 @@ import AppointmentDetail from './components/AppointmentDetail';
 import PublicProviderProfile from './components/PublicProviderProfile';
 import MileageReport from './components/MileageReport';
 import ClaimAccount from './components/ClaimAccount';
+import Packages from './components/Packages';
+import MyPackages from './components/MyPackages';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -222,6 +224,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <BookingList />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/packages"
+            element={
+              <ProtectedRoute>
+                <Packages />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-packages"
+            element={
+              <ProtectedRoute>
+                <MyPackages />
               </ProtectedRoute>
             }
           />

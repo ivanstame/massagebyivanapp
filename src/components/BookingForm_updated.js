@@ -53,6 +53,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // Identifier stored alongside the booking; name comes from the selected package's label.
   const [selectedServiceType] = useState('package');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
+  // Set when client picks "Use package credit" — sent as packagePurchaseId
+  // in the booking payload so the server can atomically reserve the credit.
+  const [selectedPackageId, setSelectedPackageId] = useState(null);
+  const [redeemablePackages, setRedeemablePackages] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
 
@@ -208,6 +212,53 @@ const BookingForm = ({ googleMapsLoaded }) => {
     })();
   }, [user, targetClient, isProviderBooking]);
 
+  // Fetch the client's redeemable packages so the payment-method step can
+  // offer "Use package credit" when one matches the selected duration.
+  // For provider-on-behalf bookings, this is left empty for now (the
+  // provider won't see package options); Phase 6 introduces a provider-side
+  // endpoint to fetch the target client's packages.
+  useEffect(() => {
+    if (!user || isProviderBooking) {
+      setRedeemablePackages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/packages/mine');
+        if (cancelled) return;
+        // Only show packages that are paid, not cancelled, and have credits left.
+        const eligible = (res.data || []).filter(p =>
+          p.paymentStatus === 'paid' && !p.cancelledAt && (p.sessionsRemaining || 0) > 0
+        );
+        setRedeemablePackages(eligible);
+      } catch (err) {
+        // Non-fatal — booking still works without packages.
+        console.error('Failed to load packages for booking form:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, isProviderBooking]);
+
+  // Filter redeemable packages to those matching the currently-selected
+  // duration. If the client switches duration after picking a package,
+  // we clear the selection so they don't accidentally submit a mismatch
+  // (the server would reject it anyway, but front-end clarity matters).
+  const matchingPackages = redeemablePackages.filter(
+    p => p.sessionDuration === selectedDuration
+  );
+  useEffect(() => {
+    if (selectedPackageId) {
+      const stillValid = matchingPackages.some(p => p._id === selectedPackageId);
+      if (!stillValid) {
+        setSelectedPackageId(null);
+        if (selectedPaymentMethod === 'package') {
+          setSelectedPaymentMethod(acceptedPaymentMethods[0] || 'cash');
+        }
+      }
+    }
+  }, [selectedDuration, matchingPackages, selectedPackageId, selectedPaymentMethod, acceptedPaymentMethods]);
+
   // Fetch available time slots
   const fetchAvailableSlots = async () => {
     const providerId = user.accountType === 'PROVIDER' ? user._id : user.providerId;
@@ -328,6 +379,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
           totalPrice: basePrice + addonsPrice
         },
         paymentMethod: selectedPaymentMethod,
+        // When paying via a package credit, send the package id so the
+        // server can atomically reserve the credit. The server enforces
+        // ownership / paid-status / duration-match server-side; the client
+        // value is just an intent signal.
+        ...(selectedPaymentMethod === 'package' && selectedPackageId && {
+          packagePurchaseId: selectedPackageId,
+        }),
         ...(isOnBehalf
           ? {
               clientId: targetClient._id,
@@ -509,12 +567,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
             availableAddons={availableAddons}
           />
 
-          {/* 6. Payment Method */}
+          {/* 6. Payment Method (incl. package-credit options when eligible) */}
           <PaymentMethodSelector
             selectedMethod={selectedPaymentMethod}
             onMethodChange={setSelectedPaymentMethod}
             acceptedMethods={acceptedPaymentMethods}
             isComplete={selectedPaymentMethod !== null}
+            redeemablePackages={matchingPackages}
+            selectedPackageId={selectedPackageId}
+            onPackageSelect={setSelectedPackageId}
           />
 
           {/* 7. Booking Summary */}

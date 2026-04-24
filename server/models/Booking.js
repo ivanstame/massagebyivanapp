@@ -109,7 +109,10 @@ const BookingSchema = new mongoose.Schema({
   // Payment information
   paymentMethod: {
     type: String,
-    enum: ['cash', 'zelle', 'venmo', 'card'],
+    // 'package' = paid via a previously-purchased package credit; in that
+    // case paymentStatus flips to 'paid' immediately at booking time and
+    // packageRedemption holds a back-reference to the consumed credit.
+    enum: ['cash', 'zelle', 'venmo', 'card', 'package'],
     default: 'cash'
   },
   paymentStatus: {
@@ -124,6 +127,18 @@ const BookingSchema = new mongoose.Schema({
   stripePaymentIntentId: {
     type: String,
     default: null
+  },
+  // Set when this booking consumed a credit from a PackagePurchase. The
+  // credit is returned to the package on in-window cancellations (per
+  // provider policy) and stays consumed on late cancellations. If null,
+  // this booking was paid in cash/card/venmo/zelle, not a package.
+  packageRedemption: {
+    packagePurchase: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PackagePurchase',
+      default: null,
+    },
+    redeemedAt: { type: Date, default: null },
   },
   // Mileage tracking (distance from previous stop to this booking's location)
   travelDistance: {

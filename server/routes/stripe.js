@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -215,6 +216,8 @@ router.post('/webhook', requireStripe, async (req, res) => {
     case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object;
       const bookingId = paymentIntent.metadata?.bookingId;
+      const packagePurchaseId = paymentIntent.metadata?.packagePurchaseId;
+
       if (bookingId) {
         try {
           await Booking.findByIdAndUpdate(bookingId, {
@@ -224,6 +227,18 @@ router.post('/webhook', requireStripe, async (req, res) => {
           console.log(`Booking ${bookingId} marked as paid via webhook`);
         } catch (err) {
           console.error('Error updating booking from webhook:', err);
+        }
+      }
+
+      if (packagePurchaseId) {
+        try {
+          await PackagePurchase.findByIdAndUpdate(packagePurchaseId, {
+            paymentStatus: 'paid',
+            purchasedAt: new Date(),
+          });
+          console.log(`Package purchase ${packagePurchaseId} marked as paid via webhook`);
+        } catch (err) {
+          console.error('Error updating package purchase from webhook:', err);
         }
       }
       break;

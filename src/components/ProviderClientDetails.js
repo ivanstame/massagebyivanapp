@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import moment from 'moment-timezone';
+import ClientPackagesSection from './ClientPackagesSection';
 
 const ProviderClientDetails = () => {
   console.log('NEW ProviderClientDetails loaded');
@@ -466,6 +467,12 @@ const ProviderClientDetails = () => {
             </div>
           </div>
         </div>
+
+        {/* Packages — view, comp, cancel/refund, reinstate consumed credits */}
+        <ClientPackagesSection
+          clientId={clientId}
+          clientName={client?.profile?.fullName || ''}
+        />
 
         {/* Client Notes Section */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
