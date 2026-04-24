@@ -460,9 +460,9 @@ const SignUp = () => {
   return (
     <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center bg-paper-deep">
       <div className="mb-8">
-        <img 
-          src="/imgs/logo.png"
-          alt="Massage by Ivan" 
+        <img
+          src="/imgs/avayble_logo.png"
+          alt="Avayble"
           className="h-32 w-auto"
         />
       </div>

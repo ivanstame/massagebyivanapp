@@ -64,8 +64,8 @@ const Header = () => {
           <div className="flex-shrink-0 flex items-center">
             <Link to="/" className="block">
               <img
-                src="/imgs/logo.png"
-                alt="Massage by Ivan"
+                src="/imgs/avayble_logo.png"
+                alt="Avayble"
                 className="h-12 w-auto"
               />
             </Link>

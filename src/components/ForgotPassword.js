@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
-import { AvMonogram, BrushStroke } from './brush/BrushMotifs';
+import { BrushStroke } from './brush/BrushMotifs';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ const ForgotPassword = () => {
     <div className="av-paper pt-16 min-h-screen">
       <div className="max-w-md mx-auto w-full px-7 pt-10 pb-8">
         <div className="flex justify-center mb-3">
-          <AvMonogram size={56} ringColor="#1B7F84" inkColor="#2A2520" accent="#B07A4E" />
+          <img src="/imgs/avayble_icon.png" alt="" className="h-14 w-14" />
         </div>
         <div className="text-center mb-8">
           <div className="av-meta mb-1.5">A moment of forgetfulness</div>

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import { AlertCircle, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
-import { BrushStroke, AvMonogram } from './brush/BrushMotifs';
+import { BrushStroke } from './brush/BrushMotifs';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -56,9 +56,9 @@ const Login = () => {
   return (
     <div className="av-paper pt-16">
       <div className="max-w-md mx-auto w-full px-7 pt-10 pb-8">
-        {/* Monogram */}
+        {/* Avayble icon */}
         <div className="flex justify-center mb-3">
-          <AvMonogram size={64} ringColor="#1B7F84" inkColor="#2A2520" accent="#B07A4E" />
+          <img src="/imgs/avayble_icon.png" alt="" className="h-16 w-16" />
         </div>
 
         {/* Eyebrow + headline */}

@@ -67,22 +67,3 @@ export const BrushBlob = ({ width = 400, height = 400, color = 'currentColor', o
   </svg>
 );
 
-export const AvMonogram = ({ size = 48, ringColor = '#1B7F84', inkColor = '#2A2520', accent = '#B07A4E' }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" style={{ display: 'block' }}>
-    <defs>
-      <filter id={`mg-${size}`} x="-5%" y="-5%" width="110%" height="110%">
-        <feTurbulence baseFrequency="0.9" numOctaves="2" seed="4" />
-        <feDisplacementMap in="SourceGraphic" scale="1.2" />
-      </filter>
-    </defs>
-    <path
-      d="M 24 5 C 13 5, 5 13, 5 24 C 5 35, 13 43, 24 43 C 35 43, 43 35, 43 24 C 43 16, 38 10, 30 7"
-      fill="none" stroke={ringColor} strokeWidth="2.2" strokeLinecap="round"
-      filter={`url(#mg-${size})`}
-    />
-    <path d="M 33 22 C 35 19, 38 18, 40 19 C 39 22, 36 24, 33 22 Z" fill={accent} opacity="0.9"/>
-    <text x="24" y="28" textAnchor="middle"
-      fontFamily="Cormorant Garamond, Georgia, serif" fontSize="14" fontStyle="italic"
-      fill={inkColor} fontWeight="500">av</text>
-  </svg>
-);

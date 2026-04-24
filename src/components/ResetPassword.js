@@ -44,8 +44,8 @@ const ResetPassword = () => {
       <div className="flex flex-col justify-center pt-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <img
-            src="/imgs/logo.png"
-            alt="Massage by Ivan"
+            src="/imgs/avayble_logo.png"
+            alt="Avayble"
             className="mx-auto h-32 w-auto"
           />
           <h2 className="mt-6 text-center text-2xl font-semibold text-slate-900">
