@@ -7,6 +7,7 @@ import {
   Save, GripVertical, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { getTrade } from '../shared/trades';
+import PackageDealsSection from './PackageDealsSection';
 
 const ProviderServices = () => {
   const { user } = useContext(AuthContext);
@@ -445,7 +446,14 @@ const ProviderServices = () => {
           )}
         </div>
 
-        {/* Save button */}
+        {/* Package Deals — multi-session prepaid packs. Saves per-template
+            via its own endpoints, so the global Save button below doesn't
+            need to know about these. */}
+        <PackageDealsSection
+          availableDurations={basePricing.map(p => Number(p.duration)).filter(Boolean)}
+        />
+
+        {/* Save button (covers Service Packages + Add-ons, NOT Package Deals) */}
         <div className="flex justify-end mb-8">
           <button
             onClick={handleSave}
