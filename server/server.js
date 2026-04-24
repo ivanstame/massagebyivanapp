@@ -41,9 +41,24 @@ mongoose.connect(process.env.MONGODB_URI, {
   useUnifiedTopology: true,
   useCreateIndex: true, // This fixes the ensureIndex depercation warning
   autoIndex: true // Make sure indexes are created
-}).then(() => {
+}).then(async () => {
   console.log('Connected to MongoDB Atlas');
-  
+
+  // Reconcile the User collection's indexes against the current schema.
+  // autoIndex creates missing indexes but never drops/recreates on option
+  // changes — syncIndexes does. This caught us once (see
+  // scripts/fix-email-index.js for the backstory); running it on boot
+  // means future schema-level index changes apply without a manual step.
+  // Non-fatal on failure so the server still comes up.
+  try {
+    const result = await User.syncIndexes();
+    if (result && result.length) {
+      console.log('[DB] User index reconciliation:', result);
+    }
+  } catch (err) {
+    console.error('[DB] User.syncIndexes failed:', err.message);
+  }
+
   // Start the reminder scheduler
   const { startReminderScheduler } = require('./services/reminderScheduler');
   startReminderScheduler();
