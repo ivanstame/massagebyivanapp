@@ -505,6 +505,61 @@ router.delete('/provider/clients/:clientId', ensureAuthenticated, async (req, re
   }
 });
 
+// Update just the Venmo handle. Split from the full settings PUT so the
+// settings UI can have an inline Save button next to the Venmo field rather
+// than making the provider scroll down to the global Save.
+router.patch('/provider/venmo-handle', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    // Normalize: trim, strip leading @, empty -> null so the Mongoose sparse
+    // unique index stays happy.
+    const raw = String(req.body.venmoHandle || '').trim().replace(/^@+/, '');
+    const next = raw.length ? raw : null;
+
+    if (next !== null && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/.test(next)) {
+      return res.status(400).json({
+        message: 'Venmo handle may only contain letters, numbers, dashes, and underscores (max 30).'
+      });
+    }
+    // Pure-numeric "handles" are almost always a user ID pasted from a QR
+    // share link — reject so the provider sees an error instead of saving
+    // something that won't resolve on Venmo.
+    if (next !== null && /^\d+$/.test(next)) {
+      return res.status(400).json({
+        message: 'That looks like a Venmo user ID, not a handle. Copy your @handle from your Venmo profile instead of the share link.'
+      });
+    }
+
+    user.providerProfile.venmoHandle = next;
+
+    // Keep acceptedPaymentMethods in sync so clients only see Venmo as an
+    // option when a handle is actually on file. Mirror of the global
+    // settings PUT's behavior.
+    const methods = new Set(user.providerProfile.acceptedPaymentMethods || ['cash']);
+    if (next) {
+      methods.add('venmo');
+    } else {
+      methods.delete('venmo');
+    }
+    user.providerProfile.acceptedPaymentMethods = Array.from(methods);
+
+    await user.save();
+
+    res.json({
+      venmoHandle: user.providerProfile.venmoHandle,
+      acceptedPaymentMethods: user.providerProfile.acceptedPaymentMethods,
+    });
+  } catch (err) {
+    console.error('Error updating Venmo handle:', err);
+    res.status(500).json({ message: 'Failed to update Venmo handle' });
+  }
+});
+
 // Update provider profile settings
 router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
   try {

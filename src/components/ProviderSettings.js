@@ -5,7 +5,7 @@ import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, Credit
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 import { TRADES, TRADE_KEYS } from '../shared/trades';
-import { parseVenmoInput } from '../utils/venmo';
+import { describeVenmoInput, buildVenmoProfileUrl } from '../utils/venmo';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -27,6 +27,13 @@ const ProviderSettings = () => {
   // Stripe Connect state
   const [stripeStatus, setStripeStatus] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(false);
+
+  // Venmo inline save state — keeps the Venmo card self-contained (no need
+  // to hunt for the global Save button) with its own loading / success /
+  // error feedback.
+  const [venmoSaving, setVenmoSaving] = useState(false);
+  const [venmoSaveError, setVenmoSaveError] = useState(null);
+  const [venmoSaveSuccess, setVenmoSaveSuccess] = useState(false);
 
   // Google Calendar state
   const [gcalStatus, setGcalStatus] = useState(null);
@@ -233,16 +240,11 @@ const ProviderSettings = () => {
 
     if (!validateSettings()) return;
 
-    // Parse Venmo input to a clean handle before sending. If the provider
-    // typed something that couldn't be parsed, stop and ask them to fix it
-    // rather than silently clearing their saved handle.
-    const rawVenmo = (settings.venmoHandle || '').trim();
-    const parsedVenmo = rawVenmo ? parseVenmoInput(rawVenmo) : '';
-    if (rawVenmo && !parsedVenmo) {
-      setError('Couldn\'t read your Venmo handle. Paste the full URL from your Venmo profile (e.g. https://venmo.com/your-handle) or clear the field.');
-      return;
-    }
-    const settingsToSend = { ...settings, venmoHandle: parsedVenmo || null };
+    // Venmo handle is saved through its own endpoint (see handleSaveVenmo)
+    // with richer validation and inline feedback — strip it from the global
+    // payload so we don't re-save stale or unparsed input here.
+    const { venmoHandle: _omitVenmo, ...restSettings } = settings;
+    const settingsToSend = restSettings;
 
     setIsLoading(true);
 
@@ -264,6 +266,71 @@ const ProviderSettings = () => {
       setError(error.response?.data?.message || 'Failed to save settings');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Save only the Venmo handle. Dedicated endpoint so the inline Save button
+  // in the Venmo card can act without running the rest of the settings form's
+  // validation (phone, daily-bookings range, etc.) which is irrelevant here.
+  const handleSaveVenmo = async () => {
+    setVenmoSaveError(null);
+    setVenmoSaveSuccess(false);
+
+    const raw = (settings.venmoHandle || '').trim();
+    const description = describeVenmoInput(raw);
+
+    if (description.kind === 'user_id_link') {
+      setVenmoSaveError(
+        'That link contains a Venmo user ID, not a handle. On your Venmo profile, ' +
+        'copy the @handle shown under your name (e.g. @ivan-stame) — the "Share profile" ' +
+        'link in newer app versions uses a user ID that clients can\'t pay to.'
+      );
+      return;
+    }
+    if (description.kind === 'numeric') {
+      setVenmoSaveError(
+        'That looks like a numeric user ID. Copy your @handle instead — it\'s the ' +
+        'short text under your name on your Venmo profile.'
+      );
+      return;
+    }
+    if (raw && description.kind === 'invalid') {
+      setVenmoSaveError(
+        'Couldn\'t read a Venmo handle from that. Paste your @handle or your ' +
+        'Venmo profile URL (https://venmo.com/u/your-handle).'
+      );
+      return;
+    }
+
+    const nextHandle = description.kind === 'ok' ? description.handle : null;
+
+    setVenmoSaving(true);
+    try {
+      const res = await axios.patch('/api/users/provider/venmo-handle', {
+        venmoHandle: nextHandle,
+      });
+
+      // Reflect the clean server-side value back into the form so the user
+      // sees exactly what got saved (e.g. URL input collapses to a handle).
+      setSettings(prev => ({ ...prev, venmoHandle: res.data.venmoHandle || '' }));
+
+      // Keep AuthContext in sync so the booking UI picks up the new handle
+      // immediately without a page reload.
+      setUser(prev => ({
+        ...prev,
+        providerProfile: {
+          ...prev.providerProfile,
+          venmoHandle: res.data.venmoHandle,
+          acceptedPaymentMethods: res.data.acceptedPaymentMethods,
+        },
+      }));
+
+      setVenmoSaveSuccess(true);
+      setTimeout(() => setVenmoSaveSuccess(false), 2500);
+    } catch (err) {
+      setVenmoSaveError(err.response?.data?.message || 'Failed to save Venmo handle');
+    } finally {
+      setVenmoSaving(false);
     }
   };
 
@@ -608,49 +675,145 @@ const ProviderSettings = () => {
             <h3 className="font-medium text-slate-900">Venmo</h3>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Add your Venmo profile link to let clients pay you directly via the Venmo app &mdash;
-            no fees, no Stripe in the middle. You&rsquo;ll mark bookings paid once the
-            transfer lands.
+            Add your Venmo <span className="font-medium">@handle</span> to let clients pay you
+            directly via the Venmo app &mdash; no fees, no Stripe in the middle. You&rsquo;ll
+            mark bookings paid once the transfer lands.
           </p>
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Venmo profile URL
+            Venmo @handle
           </label>
           <input
             type="text"
             value={settings.venmoHandle || ''}
-            onChange={(e) => setSettings(prev => ({ ...prev, venmoHandle: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-            placeholder="https://venmo.com/your-handle"
+            onChange={(e) => {
+              setSettings(prev => ({ ...prev, venmoHandle: e.target.value }));
+              // Clear stale feedback the moment they start editing again.
+              setVenmoSaveError(null);
+              setVenmoSaveSuccess(false);
+            }}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] font-mono"
+            placeholder="@your-handle"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck="false"
           />
 
           {(() => {
             const raw = (settings.venmoHandle || '').trim();
-            if (!raw) {
+            const description = describeVenmoInput(raw);
+
+            // Precedence: show explicit save error/success over the live hint
+            // so the provider sees action feedback without it getting
+            // overwritten by the passive "will save as" preview.
+            if (venmoSaveError) {
               return (
-                <p className="mt-2 text-xs text-slate-500">
-                  Open your Venmo profile in the app (Me &rarr; Share &rarr; Copy Link) and paste
-                  the URL here &mdash; we&rsquo;ll extract your handle so there&rsquo;s no typo risk.
-                  Leave blank to use Stripe-routed Venmo instead.
+                <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700 leading-relaxed">{venmoSaveError}</p>
+                </div>
+              );
+            }
+            if (venmoSaveSuccess) {
+              return (
+                <p className="mt-2 text-xs text-green-700 flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4" /> Saved.
                 </p>
               );
             }
-            const parsed = parseVenmoInput(raw);
-            if (!parsed) {
+
+            if (description.kind === 'empty') {
               return (
-                <p className="mt-2 text-xs text-red-600">
-                  That doesn&rsquo;t look like a Venmo URL or handle. Paste the full URL from
-                  your Venmo profile (e.g. <code>https://venmo.com/your-handle</code>).
+                <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                  Your @handle is the short identifier under your name on your Venmo profile
+                  (e.g. <code className="text-slate-700">@ivan-stame</code>). A profile URL
+                  like <code className="text-slate-700">https://venmo.com/u/your-handle</code>
+                  {' '}works too &mdash; we&rsquo;ll extract the handle. Leave blank to use
+                  Stripe-routed Venmo instead.
                 </p>
               );
             }
+            if (description.kind === 'user_id_link') {
+              return (
+                <p className="mt-2 text-xs text-amber-700 leading-relaxed">
+                  That&rsquo;s a share link with a <em>user ID</em>, not a handle &mdash; newer
+                  Venmo app versions produce these and they can&rsquo;t be used for payment
+                  links. Open your Venmo profile and copy the @handle shown under your name
+                  instead.
+                </p>
+              );
+            }
+            if (description.kind === 'numeric') {
+              return (
+                <p className="mt-2 text-xs text-amber-700 leading-relaxed">
+                  That&rsquo;s a numeric Venmo user ID. Clients can&rsquo;t pay a user ID
+                  &mdash; paste your @handle (the short text under your name on your Venmo
+                  profile).
+                </p>
+              );
+            }
+            if (description.kind === 'invalid') {
+              return (
+                <p className="mt-2 text-xs text-red-600 leading-relaxed">
+                  Couldn&rsquo;t read a Venmo handle from that. Paste your @handle or your
+                  profile URL (<code>https://venmo.com/u/your-handle</code>).
+                </p>
+              );
+            }
+            // kind === 'ok'
+            const savedHandle = (user?.providerProfile?.venmoHandle || '').trim();
+            const isUnsaved = description.handle !== savedHandle;
             return (
-              <p className="mt-2 text-xs text-slate-600">
-                Will save as <span className="font-semibold text-slate-900">@{parsed}</span>.
-                {' '}Clients will see a &ldquo;Pay on Venmo&rdquo; button linking to this profile.
-              </p>
+              <div className="mt-2 space-y-1.5">
+                <p className="text-xs text-slate-600">
+                  {isUnsaved ? 'Will save as' : 'Saved as'}{' '}
+                  <span className="font-semibold text-slate-900">@{description.handle}</span>.
+                  {' '}Clients will see a &ldquo;Pay on Venmo&rdquo; button linking here.
+                </p>
+                <a
+                  href={buildVenmoProfileUrl(description.handle)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-[#B07A4E] hover:text-[#8A5D36] underline"
+                >
+                  Open @{description.handle} on Venmo
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+                {' '}
+                <span className="text-xs text-slate-400">(verify the profile loads before saving)</span>
+              </div>
             );
           })()}
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveVenmo}
+              disabled={venmoSaving}
+              className="inline-flex items-center justify-center px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] disabled:opacity-50 text-sm font-medium"
+            >
+              {venmoSaving ? (
+                <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Saving…</>
+              ) : (
+                (user?.providerProfile?.venmoHandle || '').trim()
+                  ? 'Update Venmo handle'
+                  : 'Save Venmo handle'
+              )}
+            </button>
+            {(user?.providerProfile?.venmoHandle || '').trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSettings(prev => ({ ...prev, venmoHandle: '' }));
+                  setVenmoSaveError(null);
+                  setVenmoSaveSuccess(false);
+                }}
+                className="text-xs text-slate-500 hover:text-slate-700 underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Google Calendar */}
