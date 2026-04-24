@@ -5,7 +5,8 @@ import {
   User, Phone, Mail, MapPin, Calendar, Clock,
   AlertCircle, MessageSquare, FileText,
   MoreHorizontal, Trash2, Edit, DollarSign,
-  CheckCircle, Clock8, BarChart2, StickyNote, CalendarPlus
+  CheckCircle, Clock8, BarChart2, StickyNote, CalendarPlus,
+  Send, Copy, Loader2
 } from 'lucide-react';
 import axios from 'axios';
 import moment from 'moment-timezone';
@@ -35,6 +36,16 @@ const ProviderClientDetails = () => {
     completedAppointments: 0,
     totalRevenue: 0
   });
+
+  // Claim-link generation state. Kept minimal — the provider generates a
+  // link, copies it (or uses the prefilled SMS/email deep links), and hands
+  // it off however makes sense for their client. Regenerating replaces the
+  // previous link server-side.
+  const [claimLink, setClaimLink] = useState(null);
+  const [claimLinkExpiresAt, setClaimLinkExpiresAt] = useState(null);
+  const [generatingClaim, setGeneratingClaim] = useState(false);
+  const [claimError, setClaimError] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (user?.accountType !== 'PROVIDER') {
@@ -112,6 +123,28 @@ const ProviderClientDetails = () => {
     }
   };
   
+  const handleGenerateClaimLink = async () => {
+    setClaimError(null);
+    setCopied(false);
+    setGeneratingClaim(true);
+    try {
+      const res = await axios.post(`/api/claim/generate/${clientId}`);
+      setClaimLink(res.data.url);
+      setClaimLinkExpiresAt(res.data.expiresAt);
+    } catch (err) {
+      setClaimError(err.response?.data?.message || 'Failed to generate claim link');
+    } finally {
+      setGeneratingClaim(false);
+    }
+  };
+
+  const handleCopyClaimLink = () => {
+    if (!claimLink) return;
+    navigator.clipboard.writeText(claimLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleUpdateNotes = async () => {
     try {
       await axios.patch(`/api/users/provider/clients/${clientId}/notes`, {
@@ -300,6 +333,101 @@ const ProviderClientDetails = () => {
             </div>
           </div>
         </div>
+
+        {/* Claim-link section — only shown for managed clients. Lets the
+            provider send a one-time signup link so the client can set a
+            password and take ownership of this account. */}
+        {client?.isManaged && (
+          <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <h2 className="text-lg font-medium text-slate-900">Let {client.profile?.fullName?.split(' ')[0] || 'them'} take over</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Send a one-time link so they can set a password and manage their own
+                  appointments. After they claim it, you won't be able to edit their profile anymore.
+                </p>
+              </div>
+            </div>
+
+            {claimError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{claimError}</p>
+              </div>
+            )}
+
+            {!claimLink ? (
+              <button
+                onClick={handleGenerateClaimLink}
+                disabled={generatingClaim}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] disabled:opacity-50 text-sm font-medium"
+              >
+                {generatingClaim ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+                ) : (
+                  <><Send className="w-4 h-4" /> Generate claim link</>
+                )}
+              </button>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div className="p-3 bg-paper-deep border border-line rounded-lg">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Claim link</p>
+                  <p className="text-xs text-slate-900 font-mono break-all">{claimLink}</p>
+                  {claimLinkExpiresAt && (
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      Expires {new Date(claimLinkExpiresAt).toLocaleDateString(undefined, {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      })}. Single-use.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={handleCopyClaimLink}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 border border-line rounded-lg hover:bg-paper-deep"
+                  >
+                    {copied ? (
+                      <><CheckCircle className="w-4 h-4 text-green-600" /> Copied</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> Copy link</>
+                    )}
+                  </button>
+
+                  {client.profile?.phoneNumber && (
+                    <a
+                      href={`sms:${client.profile.phoneNumber}?&body=${encodeURIComponent(
+                        `Hi ${client.profile?.fullName?.split(' ')[0] || ''}, set up your Avayble account here: ${claimLink}`
+                      )}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 border border-line rounded-lg hover:bg-paper-deep"
+                    >
+                      <MessageSquare className="w-4 h-4" /> Send via SMS
+                    </a>
+                  )}
+
+                  {client.email && (
+                    <a
+                      href={`mailto:${client.email}?subject=${encodeURIComponent('Set up your Avayble account')}&body=${encodeURIComponent(
+                        `Hi ${client.profile?.fullName?.split(' ')[0] || ''},\n\nFollow this link to set a password and manage your Avayble appointments:\n\n${claimLink}\n\nThe link expires in 7 days and can only be used once.`
+                      )}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 border border-line rounded-lg hover:bg-paper-deep"
+                    >
+                      <Mail className="w-4 h-4" /> Send via email
+                    </a>
+                  )}
+
+                  <button
+                    onClick={handleGenerateClaimLink}
+                    disabled={generatingClaim}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 underline"
+                  >
+                    {generatingClaim ? 'Regenerating…' : 'Regenerate'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Client Stats Section */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">

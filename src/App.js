@@ -55,6 +55,7 @@ import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
 import PublicProviderProfile from './components/PublicProviderProfile';
 import MileageReport from './components/MileageReport';
+import ClaimAccount from './components/ClaimAccount';
 
 const RegistrationProtectedRoute = ({ children, requiredStep }) => {
   const { user } = useContext(AuthContext);
@@ -150,6 +151,14 @@ function App() {
           <Route
             path="/p/:joinCode"
             element={<PublicProviderProfile />}
+          />
+          {/* Claim flow — public, intentionally accessible while logged in too
+              in case the managed client follows the link from a device where
+              the provider (or someone else) already has a session. The server
+              treats each request standalone — token is the auth for this flow. */}
+          <Route
+            path="/claim/:token"
+            element={<ClaimAccount />}
           />
 
           {/* Registration Flow Routes */}

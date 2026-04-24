@@ -181,6 +181,7 @@ app.use('/api/join-code', require('./routes/join-code'));
 app.use('/api/stripe', require('./routes/stripe'));
 app.use('/api/google-calendar', require('./routes/googleCalendar'));
 app.use('/api/google-calendar', require('./routes/googleCalendarWebhook'));
+app.use('/api/claim', require('./routes/claim'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({
