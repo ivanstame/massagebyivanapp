@@ -357,13 +357,23 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       return res.status(200).json([]);
     }
 
-    // Get existing bookings for the day
-    const bookings = await Booking.find({
-      date: {
-        $gte: startOfDay.toUTC().toJSDate(),
-        $lt: endOfDay.toUTC().toJSDate()
-      }
-    }).sort({ startTime: 1 });
+    // Get existing bookings for the day. Two filters that were missing:
+    //   - provider scope: without it, this query returned every other
+    //     provider's bookings on the same date, silently blocking slots
+    //     this provider was actually free for.
+    //   - status filter: cancelled bookings are still in the DB (soft
+    //     delete), but they shouldn't block new ones from being booked
+    //     into the same slot.
+    const bookings = availQuery.provider
+      ? await Booking.find({
+          provider: availQuery.provider,
+          date: {
+            $gte: startOfDay.toUTC().toJSDate(),
+            $lt: endOfDay.toUTC().toJSDate()
+          },
+          status: { $ne: 'cancelled' }
+        }).sort({ startTime: 1 })
+      : [];
 
     console.log('Found bookings:',
       bookings.map(b => `${b.startTime}-${b.endTime}`)

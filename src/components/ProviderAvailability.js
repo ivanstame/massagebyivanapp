@@ -164,7 +164,13 @@ const ProviderAvailability = () => {
         `/api/bookings?date=${date.toISOString().split('T')[0]}`,
         { withCredentials: true }
       );
-      setBookings(response.data);
+      // The /api/bookings endpoint includes cancelled bookings (other
+      // pages — ProviderAppointments, BookingList — show them styled
+      // muted/red as history). The availability day view is a "what's
+      // blocking my day" surface, so cancelled entries shouldn't show
+      // up on the timeline at all.
+      const live = (response.data || []).filter(b => b.status !== 'cancelled');
+      setBookings(live);
     } catch (error) {
       console.error('Error fetching bookings:', error);
     }
