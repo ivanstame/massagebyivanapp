@@ -22,14 +22,14 @@ router.post('/register', ensureGuest, async (req, res) => {
     if (accountType === 'PROVIDER') {
       const providerPassword = req.body.providerPassword;
       const expectedPassword = process.env.PROVIDER_SIGNUP_PASSWORD;
-      
-      console.log('Provider sign-up attempt:', {
-        providedPassword: providerPassword,
-        expectedPassword: expectedPassword,
-        envVarSet: !!process.env.PROVIDER_SIGNUP_PASSWORD
-      });
-      
-      if (!providerPassword || providerPassword !== expectedPassword) {
+
+      // Log only the outcome — earlier versions logged the typed and
+      // expected passwords in plaintext, which leaks credentials into
+      // Heroku log history.
+      const ok = providerPassword && providerPassword === expectedPassword;
+      console.log(`Provider sign-up attempt for ${email}: ${ok ? 'accepted' : 'rejected'}`);
+
+      if (!ok) {
         return res.status(400).json({ message: 'Invalid provider access password' });
       }
     }

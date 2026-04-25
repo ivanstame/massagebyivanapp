@@ -34,7 +34,9 @@ app.set('trust proxy', 1);
 if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI environment variable is required');
 }
-console.log('Using MongoDB Atlas URI:', process.env.MONGODB_URI);
+// Don't log the URI — it contains the DB password. Anyone with `heroku
+// logs` access would otherwise see credentials in plaintext history.
+console.log('Connecting to MongoDB Atlas…');
 
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
