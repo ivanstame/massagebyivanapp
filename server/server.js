@@ -1,6 +1,15 @@
 // server/server.js
 require('dotenv').config();
 
+// Suppress Node's DEP0170 (Invalid URL) deprecation warning — it prints
+// the full MongoDB connection string, including the embedded password,
+// to stderr every time the MongoDB driver parses the SRV URI. Filtering
+// just that one warning keeps every other deprecation visible.
+process.on('warning', (warning) => {
+  if (warning.code === 'DEP0170') return;
+  console.warn(warning.stack || `${warning.name}: ${warning.message}`);
+});
+
 const express = require('express');
 const mongoose = require('mongoose');
 const session = require('express-session');
