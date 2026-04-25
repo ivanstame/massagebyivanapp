@@ -1,90 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
-import LuxonService from '../utils/LuxonService';
 
+// Modify-availability modal. Mirrors AddAvailabilityModal's time-picker
+// pattern: select values are stored as 24-hour "HH:mm" strings (matching
+// what the backend expects), and the dropdown labels render as 12-hour
+// for human readability. The entire 24-hour day is covered in 30-minute
+// increments so any existing block — early-morning or late-night —
+// pre-fills correctly.
+//
+// Earlier version split block.start as if it were already an "HH:MM"
+// string, but the API returns it as an ISO timestamp from the Date
+// field on Availability — so the modal opened with garbage values for
+// every block. Now we parse via Luxon, accepting Date or ISO string.
 const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
-  const [startTime, setStartTime] = useState('09:00 AM');
-  const [endTime, setEndTime] = useState('05:00 PM');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    // Convert 24h to 12h format for initial values
-    const convert24to12 = (time24) => {
-      const [hours, minutes] = time24.split(':');
-      const hour = parseInt(hours);
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour % 12 || 12;
-      return `${displayHour.toString().padStart(2, '0')}:${minutes} ${period}`;
-    };
-
-    if (block) {
-      setStartTime(convert24to12(block.start));
-      setEndTime(convert24to12(block.end));
+  // Coerce whatever the API gave us (Date instance, ISO string, or
+  // already-formatted "HH:mm" string) into a 24-hour "HH:mm" string in
+  // the LA timezone.
+  const toHHmm = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) {
+      return DateTime.fromJSDate(value).setZone(DEFAULT_TZ).toFormat('HH:mm');
     }
+    if (typeof value === 'string') {
+      if (value.includes('T')) {
+        return DateTime.fromISO(value).setZone(DEFAULT_TZ).toFormat('HH:mm');
+      }
+      // Already in HH:mm form (or close enough for the regex below to catch).
+      return /^\d{2}:\d{2}$/.test(value) ? value : null;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (!block) return;
+    const startHHmm = toHHmm(block.start);
+    const endHHmm = toHHmm(block.end);
+    if (startHHmm) setStartTime(startHHmm);
+    if (endHHmm) setEndTime(endHHmm);
   }, [block]);
 
-  const formatTime = (hour, minute) => {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${period}`;
-  };
+  // Generate every 30-min slot from 00:00 to 23:30 — full day coverage so
+  // pre-dawn or late-night blocks don't get truncated.
+  const timeOptions = [];
+  {
+    let cur = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: DEFAULT_TZ });
+    const end = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: DEFAULT_TZ });
+    while (cur <= end) {
+      timeOptions.push({
+        value: cur.toFormat('HH:mm'),
+        label: cur.toFormat(TIME_FORMATS.TIME_12H),
+      });
+      cur = cur.plus({ minutes: 30 });
+    }
+  }
 
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let hour = 7; hour <= 23; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const time = formatTime(hour, minute);
-        options.push(<option key={time} value={time}>{time}</option>);
+  // If the block's exact start/end isn't on a 30-min boundary (rare —
+  // shouldn't happen per the Add flow), insert the actual value into the
+  // option list so the select doesn't render blank.
+  const ensureOption = (val) => {
+    if (val && !timeOptions.some(o => o.value === val)) {
+      const dt = DateTime.fromFormat(val, 'HH:mm', { zone: DEFAULT_TZ });
+      if (dt.isValid) {
+        timeOptions.push({ value: val, label: dt.toFormat(TIME_FORMATS.TIME_12H) });
+        timeOptions.sort((a, b) => a.value.localeCompare(b.value));
       }
     }
-    return options;
   };
+  ensureOption(startTime);
+  ensureOption(endTime);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true);
 
-    // Convert back to 24-hour format for backend
-    const to24Hour = (time) => {
-      const [timePart, period] = time.split(' ');
-      let [hours, minutes] = timePart.split(':');
-      hours = parseInt(hours);
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
-      return `${hours.toString().padStart(2, '0')}:${minutes}`;
-    };
-
-    const start24 = to24Hour(startTime);
-    const end24 = to24Hour(endTime);
-
-    // Validate times before submitting
-    const startHour = parseInt(start24.split(':')[0]);
-    const startMin = parseInt(start24.split(':')[1]);
-    const endHour = parseInt(end24.split(':')[0]);
-    const endMin = parseInt(end24.split(':')[1]);
-    
-    const startTotalMinutes = startHour * 60 + startMin;
-    const endTotalMinutes = endHour * 60 + endMin;
-    
-    if (endTotalMinutes <= startTotalMinutes) {
-      setError('End time must be after start time');
-      setIsSubmitting(false);
+    // Validate end-after-start using minute arithmetic — both values are
+    // guaranteed "HH:mm" by the option list.
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    if (eh * 60 + em <= sh * 60 + sm) {
+      setError('End time must be after start time.');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await onModify({
         ...block,
-        start: start24,
-        end: end24
+        start: startTime,
+        end: endTime,
       });
-      // Success handled by parent component
     } catch (err) {
-      // Error is handled by parent component, but we stop the loading state
+      // Parent surfaces the error; we just stop the spinner.
       console.error('Modification error:', err);
     } finally {
       setIsSubmitting(false);
@@ -92,52 +105,56 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full 
+    <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
       flex items-center justify-center z-50">
-      <div className="bg-paper-elev p-6 rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-paper-elev p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex justify-between items-start mb-4">
           <h2 className="text-xl font-bold text-slate-900">Modify Availability</h2>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-400 text-red-700 flex items-start">
+          <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-400 text-red-700 flex items-start rounded">
             <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
             <p className="text-sm">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-slate-700 mb-1">
-              Start Time
-            </label>
-            <select
-              id="startTime"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full border rounded-lg p-2 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-            >
-              {generateTimeOptions()}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium text-slate-700 mb-1">
+                Start Time
+              </label>
+              <select
+                id="startTime"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+              >
+                {timeOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="endTime" className="block text-sm font-medium text-slate-700 mb-1">
+                End Time
+              </label>
+              <select
+                id="endTime"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+              >
+                {timeOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-
-          <div>
-            <label htmlFor="endTime" className="block text-sm font-medium text-slate-700 mb-1">
-              End Time
-            </label>
-            <select
-              id="endTime"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full border rounded-lg p-2 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-            >
-              {generateTimeOptions()}
-            </select>
-          </div>
-
 
           {onBlockOff && (
-            <div className="pt-4 border-t border-line">
+            <div className="pt-3 border-t border-line">
               <button
                 type="button"
                 onClick={() => {
@@ -151,7 +168,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}

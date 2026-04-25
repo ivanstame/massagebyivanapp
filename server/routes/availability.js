@@ -823,35 +823,50 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'End time must be after start time' });
     }
 
-    // Check for existing bookings that would conflict with the updated availability
+    // Check for existing bookings that would conflict with the updated
+    // availability. Two bugs were lurking here:
+    //   1. The query had no provider filter, so it would scan every other
+    //      provider's bookings on this date — false positives in a multi-
+    //      provider deployment.
+    //   2. The conflict filter passed booking.startTime / endTime (which
+    //      are "HH:mm" strings per the Booking schema) into
+    //      DateTime.fromJSDate, which silently produced invalid DateTimes
+    //      so the comparisons always evaluated false. The conflict
+    //      detection has effectively never worked.
     const bookings = await Booking.find({
+      provider: req.user._id,
       date: {
         $gte: laDate.startOf('day').toUTC().toJSDate(),
         $lt: laDate.endOf('day').toUTC().toJSDate()
-      }
-    });
+      },
+      status: { $nin: ['cancelled'] }
+    }).populate('client', 'profile.fullName email');
 
-    // Check for conflicts with existing bookings
+    const dateStr = laDate.toFormat('yyyy-MM-dd');
     const conflicts = bookings.filter(booking => {
-      const bookingStart = DateTime.fromJSDate(booking.startTime, { zone: 'UTC' })
-        .setZone(DEFAULT_TZ);
-      const bookingEnd = DateTime.fromJSDate(booking.endTime, { zone: 'UTC' })
-        .setZone(DEFAULT_TZ);
-      
-      // If the booking starts before the new end time and ends after the new start time,
-      // there's a conflict
-      return (bookingStart < endLA && bookingEnd > startLA);
+      const bookingStart = DateTime.fromFormat(
+        `${dateStr} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      const bookingEnd = DateTime.fromFormat(
+        `${dateStr} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      // Conflict when the new window doesn't fully contain the booking.
+      return bookingStart < startLA || bookingEnd > endLA;
     });
 
     if (conflicts.length > 0) {
       return res.status(400).json({
-        message: 'This modification conflicts with existing bookings',
+        message: 'This modification would orphan existing bookings',
         conflicts: conflicts.map(booking => ({
           id: booking._id,
-          time: DateTime.fromJSDate(booking.startTime)
-            .setZone(DEFAULT_TZ)
-            .toFormat(TIME_FORMATS.TIME_12H),
-          client: booking.clientName || 'Client'
+          time: `${booking.startTime} - ${booking.endTime}`,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          client: booking.client?.profile?.fullName || booking.client?.email || 'Client'
         }))
       });
     }
