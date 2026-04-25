@@ -278,6 +278,60 @@ Things to keep open-ended so v2 additions stay easy:
 
 ---
 
+## Operational follow-ups (non-package)
+
+Things outside the packages roadmap that are tracked here so they don't
+get lost. Move into their own file once this section grows beyond ~5
+items.
+
+### Rotate the MongoDB Atlas password
+
+**What.** The `massage-app-user` Atlas password (currently embedded in
+the Heroku `MONGODB_URI` env var) needs to be rotated. The old value
+appeared in plaintext in Heroku log history from v90 through v95
+because:
+
+1. `server.js` used to log the full URI on every boot.
+2. Node's `DEP0170` deprecation warning printed the URI to stderr each
+   time the MongoDB driver parsed the SRV connection string.
+
+Both leaks were stopped in v94/v96 (log line removed, deprecation
+suppressed via `NODE_OPTIONS=--no-deprecation`), but **the password
+that's still in use is also still in the existing log history.**
+Anyone who runs `heroku logs --tail` on logs older than v96 will see
+it.
+
+**Why deferred.** The rotation requires manual action in MongoDB Atlas
+(Database Access → edit `massage-app-user`) which only the account
+owner can do. Once the new password is in hand, updating
+`MONGODB_URI` on Heroku is a one-liner.
+
+**Steps when rotating.**
+
+1. In Atlas: Database Access → edit `massage-app-user` → Edit Password
+   → generate (or set) a new password → Update User.
+2. Copy the new full SRV connection string from Atlas → Database →
+   Connect → Drivers (Node.js).
+3. Run `heroku config:set MONGODB_URI='<new-uri>' -a massagebyivan`.
+   That triggers a dyno restart automatically.
+4. Verify by tailing logs for `Connected to MongoDB Atlas` after the
+   restart.
+
+**Open follow-up.** Old log history still contains the leaked old
+password. After rotation it's a dead credential, but for full hygiene
+consider purging Heroku log drains or accepting that the leak window
+existed and moving on.
+
+### Optional: rotate PROVIDER_SIGNUP_PASSWORD
+
+Same exposure window — log history from before v94 contains the typed
+and expected values for every provider signup attempt during that
+period. Lower urgency than the DB password (it's only a gate on
+provider signup, not actual data access), but rotate if any untrusted
+party had log access during that window.
+
+---
+
 ## Review cadence
 
 Re-read this doc:
