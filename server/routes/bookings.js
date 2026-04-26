@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
@@ -246,7 +247,6 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 
     // Pre-allocate the booking _id so we can reference it in the package's
     // redemptions array atomically before the booking itself is persisted.
-    const mongoose = require('mongoose');
     const bookingObjectId = new mongoose.Types.ObjectId();
 
     let reservedRedemption = null;
@@ -679,12 +679,11 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
     // already saved and return all package credits.
     const created = [];
     const reservedCredits = []; // [{ packageId, bookingId }]
-    const mongooseRef = require('mongoose');
 
     try {
       for (let i = 0; i < sessionPlan.length; i++) {
         const { start, end, duration: dur, request: r } = sessionPlan[i];
-        const bookingObjectId = new mongooseRef.Types.ObjectId();
+        const bookingObjectId = new mongoose.Types.ObjectId();
 
         // Optional package redemption per session. Same atomic reserve
         // pattern as the single-booking path.
