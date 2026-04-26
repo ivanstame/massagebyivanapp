@@ -551,6 +551,127 @@ Things v1 deliberately keeps open-ended for v2 to slot into easily:
 
 ---
 
+# Back-to-Back Bookings — v2 Deferred Features
+
+v1 (shipped 2026-04-26): client-initiated chain of up to 6 sessions at
+the same date + address. Each session gets its own recipient (self or
+other), duration, addons. Times auto-cascade from the first session's
+start + cumulative (duration + settle-buffer). Atomic creation via
+POST /api/bookings/bulk with rollback on any partial failure. Buffer
+logic correctly separates travel time (0 for same-address, handled by
+the boundary engine) from settle time (always applies between siblings).
+Each booking carries a shared `groupId` so future scope-aware
+operations can find siblings.
+
+Items below are intentionally out of v1.
+
+## v2 — Deferred Features
+
+### 1. Per-session payment methods
+
+**What.** Each session in a chain can have its own payment method —
+e.g. "I'll pay cash for mine, charge my wife's to her card."
+
+**Why deferred.** v1 has the chain inherit the first session's
+payment method, which fits the canonical couple's-massage case (one
+payer, often the booking client). Per-session payment forks the
+booking-confirmation flow (one Stripe checkout vs. several? sequenced
+or parallel?) and adds confusion that doesn't pay off until real users
+ask for it.
+
+**Design notes.**
+- Already on the data model — `Booking.paymentMethod` is per-booking,
+  no schema change needed.
+- The `paymentMethod` field on each `AdditionalSessionRow` is the
+  obvious extension point.
+- Stripe + Venmo flows would need to handle multi-intent or sequenced
+  intents per chain.
+
+---
+
+### 2. Group-aware cancel scope
+
+**What.** When cancelling a booking that's part of a back-to-back
+group, offer "Just this one / The whole group" — same pattern as the
+standing-appointment scope picker.
+
+**Why deferred.** v1 lets each chain booking be cancelled individually,
+which is the safe default. The `groupId` is set on every chain
+booking so adding the scope picker is plumbing-ready: it's mostly the
+same code as the series-scope path, just keyed on `groupId` instead
+of `series`.
+
+**Design notes.**
+- Extend `DELETE /api/bookings/:id` with `?groupScope=one|all`
+  (orthogonal to the existing `scope=one|following|all` for series).
+- Reuse the existing scope-confirmation UI in `AppointmentDetail`,
+  branched by whether the booking has `groupId` or `series`.
+- The "all" semantics for groups is simpler than for series — no
+  past/future distinction, just "every booking with this groupId."
+
+---
+
+### 3. Repeat icon for chain bookings
+
+**What.** A small visual marker on each booking in `DaySchedule` /
+`BookingList` / `ProviderAppointments` indicating "this is part of a
+back-to-back group" — analogous to the repeat icon already shown for
+standing appointments.
+
+**Why deferred.** Lower urgency than the cancel scope; identifying a
+chain visually is nice but not blocking.
+
+**Design notes.**
+- Component pattern is already in `DaySchedule.js` for series.
+- Different icon — maybe a "link" or "chain" lucide icon — to
+  distinguish from the recurring `Repeat` icon.
+
+---
+
+### 4. Cross-day groups
+
+**What.** A back-to-back group could span days — e.g. a couple's
+massage Saturday at 2pm + a couple's massage Sunday at 2pm, treated
+as a single bundle that cancels together.
+
+**Why deferred.** Not a real-world pattern in mobile services. Same-
+day chains cover the realistic cases. If a couple wants both Saturday
+and Sunday, they book them as two separate chains today; nothing's
+broken.
+
+---
+
+### 5. Mid-chain insert / remove
+
+**What.** "I want to add a 30-min session for my mother-in-law between
+my session and my wife's." Today the user has to remove and rebuild.
+
+**Why deferred.** Genuinely complex — inserting shifts every later
+session's time, which might push the chain past available-end. v1
+just lets the user redo. If real demand materializes, the UI is the
+hard part, not the data.
+
+---
+
+## What back-to-back v1 deliberately does *not* paint us into
+
+- **`groupId` is on every chain booking** — not just on a "primary"
+  booking with siblings linking back. Means group-aware queries like
+  "all bookings in this chain" are one-line `find({ groupId })` calls
+  with no special-casing.
+- **No "primary booking" concept** — each session in the chain is a
+  peer. The first session is `isLastInGroup: false` and has the
+  earliest start time, but otherwise it's a normal booking. Means we
+  could in theory cancel the first session and keep the rest, though
+  that would orphan the chain visually (a v2 ergonomic to address).
+- **Buffer is computed at slot-pick time, not stored on the booking**
+  — server uses `SETTLE_BUFFER` constant in `routes/bookings.js`. If
+  per-provider buffer config ever needs to vary (some providers want
+  20-min between siblings), it's one constant to lift to a provider
+  setting.
+
+---
+
 ## Operational follow-ups (non-package)
 
 Things outside the packages roadmap that are tracked here so they don't
