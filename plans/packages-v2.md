@@ -1,3 +1,67 @@
+# Avayble Roadmap & Decisions
+
+This document tracks deferred features (per-feature v2 lists), explicit
+decisions to *not* build something, and operational follow-ups. The
+filename is historical (started as packages-v2) — the contents are the
+project's running TODO and rationale log.
+
+---
+
+## Design principles
+
+These guard rails apply to every feature decision recorded in this doc.
+When considering whether to build something, especially when industry
+peers offer it, check the proposal against these first.
+
+### Facilitate and record-keep, don't replace
+
+> **Avayble facilitates and records real-world interactions with reduced
+> friction. It does not replace those interactions with app-originated
+> automation.**
+
+Concretely: features that *originate* a request, commitment, or workload
+that didn't exist in the underlying relationship are off the table, even
+when industry-standard apps offer them. The test is whether the app is
+*recording a decision the parties have already made in real life* (build
+it) or *generating a new decision request the app itself invented* (don't
+build it).
+
+This is also why the existing app already feels different from competitors
+— each surface today is a record of something that already happened or
+was already agreed:
+
+- **Client books an appointment** within a window the provider already
+  set up. The app records the choice; it doesn't ask the provider for
+  re-approval.
+- **Managed client profiles** are records the provider was already
+  keeping in a notebook or head. The app gives them durability.
+- **Standing appointments** are agreements like "every Tuesday at 10"
+  that already exist between Ivan and Mabel. The app records the rule
+  and stops Ivan from re-entering it weekly.
+- **Claim flow** turns a managed profile into an account — explicit
+  hand-off of a record from custodianship to ownership, again recording
+  a decision the two parties made out of band.
+
+Features explicitly considered and rejected on this basis:
+
+- **Client-initiated recurring appointments** (even with provider-approval
+  backstop). Industry default is "off" because the request flow generates
+  app-originated workload — provider has to triage in-app requests for
+  recurrences they didn't ask for. The actual real-world interaction
+  ("Mabel asks Ivan, Ivan agrees, Ivan adds it") is faster than any
+  in-app analog.
+
+### Provider's record-keeping is the point of the app
+
+Sub-principle: when in doubt, optimize for the provider's bookkeeping
+disappearing — not for client autonomy. Avayble exists because real
+mobile providers were stitching their day together from a calendar app,
+Maps, an SMS thread, Venmo, and a paper mileage log. Removing that
+friction is the work. Anything that adds an inbox to triage instead of
+removing one is moving the wrong direction.
+
+---
+
 # Packages — v2 Deferred Features
 
 This document captures everything we intentionally pushed out of the v1
@@ -376,29 +440,7 @@ than core. v1 cancel-each-individually works.
 
 ---
 
-### 5. Client-initiated recurring
-
-**What.** Client books a one-off, sees a "Make this a standing
-appointment" toggle. The conversion flow uses the existing series
-machinery.
-
-**Why deferred.** Risk-management decision in v1: client-initiated
-recurring sets up refund nightmares (client commits to 26 sessions,
-relationship ends at session 3). Provider-initiated says "Ivan
-explicitly agreed to keep Mabel on his calendar," which is the
-relationship dynamic that already exists IRL.
-
-**Design notes.**
-- The existing endpoint accepts a `clientId` from the provider's auth.
-  Allowing client-initiated is just routing rule changes (any
-  authenticated client can hit it for their own ID), but should pair
-  with a provider-approval step.
-- "Provider must approve" → series starts as `status: 'pending'` until
-  the provider clicks Accept; only then does materialization run.
-
----
-
-### 6. Group standing appointments
+### 5. Group standing appointments
 
 **What.** "Five clients on Tuesdays at 6pm — yoga, training class,
 group massage." One series → N parallel bookings per occurrence, one
@@ -410,7 +452,7 @@ its own design pass.
 
 ---
 
-### 7. Conflict surfacing when one-off booking breaks a future series occurrence
+### 6. Conflict surfacing when one-off booking breaks a future series occurrence
 
 **What.** Provider books a one-off in another part of town that makes
 travel to Mabel's standing 10am next Tuesday infeasible (or simply
@@ -436,7 +478,7 @@ unless capped). v1 trusts the provider to notice.
 
 ---
 
-### 8. Edit series rule (cadence/time) propagating to future occurrences
+### 7. Edit series rule (cadence/time) propagating to future occurrences
 
 **What.** Provider wants to move Mabel from Tuesdays to Wednesdays
 going forward. Today they have to cancel the series and recreate it.
@@ -456,7 +498,7 @@ individual occurrences, etc. v1 cancel + recreate works, just clunky.
 
 ---
 
-### 9. Series-level reschedule of a single occurrence
+### 8. Series-level reschedule of a single occurrence
 
 **What.** Today, cancellation has the three-scope picker (this/
 following/all) but reschedule does not — it acts as if it's a single
@@ -470,7 +512,7 @@ reschedule is the v2 feature.
 
 ---
 
-### 10. Series analytics for the provider
+### 9. Series analytics for the provider
 
 **What.** Provider dashboard surfaces:
 - Active standing relationships count.
