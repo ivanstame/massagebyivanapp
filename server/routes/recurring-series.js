@@ -1,0 +1,483 @@
+const express = require('express');
+const router = express.Router();
+const { DateTime } = require('luxon');
+const mongoose = require('mongoose');
+const RecurringSeries = require('../models/RecurringSeries');
+const Booking = require('../models/Booking');
+const User = require('../models/User');
+const PackagePurchase = require('../models/PackagePurchase');
+const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
+
+// Rolling-window length. Each series materializes occurrences out this
+// far from "now" at creation time; the lazy-extend path (called by the
+// availability fetch flow) keeps it topped up as time passes.
+const WINDOW_DAYS = 90;
+
+// Compute the list of dates a series should occur on, bounded by the
+// window and any end-condition. Returns LA-local 'yyyy-MM-dd' strings.
+function generateOccurrenceDates(series, throughDate) {
+  const dates = [];
+  let current = DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+  const through = DateTime.fromJSDate(throughDate).setZone(DEFAULT_TZ);
+  const endDate = series.endDate
+    ? DateTime.fromFormat(series.endDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ })
+    : null;
+
+  let count = 0;
+  while (current <= through) {
+    if (endDate && current > endDate) break;
+    if (series.occurrenceLimit && count >= series.occurrenceLimit) break;
+    dates.push(current.toFormat('yyyy-MM-dd'));
+    count += 1;
+    current = current.plus({ weeks: series.intervalWeeks });
+  }
+  return dates;
+}
+
+// Materialize occurrences for a series within the window. Skips any
+// occurrence whose time slot already has a non-cancelled booking on
+// the calendar — those go in `conflicts` so the caller can surface them
+// to the provider. Idempotent: re-running won't duplicate occurrences.
+async function materializeSeries(series, options = {}) {
+  const fromDate = options.fromDate
+    ? DateTime.fromJSDate(options.fromDate).setZone(DEFAULT_TZ)
+    : DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+  const throughDate = options.throughDate
+    || DateTime.now().setZone(DEFAULT_TZ).plus({ days: WINDOW_DAYS }).toJSDate();
+
+  const allDates = generateOccurrenceDates(series, throughDate);
+  // Restrict to dates >= fromDate (caller may pass an extension cutoff).
+  const fromStr = fromDate.toFormat('yyyy-MM-dd');
+  const candidateDates = allDates.filter(d => d >= fromStr);
+
+  // Pull existing series-tagged bookings so we don't double-create on
+  // a re-materialization pass.
+  const existing = await Booking.find({
+    series: series._id,
+    localDate: { $in: candidateDates },
+  }).select('localDate');
+  const existingDates = new Set(existing.map(b => b.localDate));
+
+  // Pull other-booking conflicts in one query for efficiency.
+  const otherBookings = await Booking.find({
+    provider: series.provider,
+    series: { $ne: series._id },
+    localDate: { $in: candidateDates },
+    status: { $ne: 'cancelled' },
+  }).select('localDate startTime endTime');
+
+  // Pre-compute the new occurrence's time bounds for overlap checks.
+  const newStartMin = (() => {
+    const [h, m] = series.startTime.split(':').map(Number);
+    return h * 60 + m;
+  })();
+  const newEndMin = newStartMin + series.duration;
+
+  const created = [];
+  const conflicts = [];
+
+  for (const dateStr of candidateDates) {
+    if (existingDates.has(dateStr)) continue; // already materialized
+
+    // Conflict with an existing one-off (or another series') booking?
+    const sameDayOthers = otherBookings.filter(b => b.localDate === dateStr);
+    const hasConflict = sameDayOthers.some(b => {
+      const [bsH, bsM] = b.startTime.split(':').map(Number);
+      const [beH, beM] = b.endTime.split(':').map(Number);
+      const bStart = bsH * 60 + bsM;
+      const bEnd = beH * 60 + beM;
+      return newStartMin < bEnd && newEndMin > bStart;
+    });
+    if (hasConflict) {
+      conflicts.push({ date: dateStr, reason: 'existing_booking' });
+      continue;
+    }
+
+    // Build a fresh Booking — same fields as POST /api/bookings would
+    // create, plus the series back-reference.
+    const startLA = DateTime.fromFormat(
+      `${dateStr} ${series.startTime}`,
+      'yyyy-MM-dd HH:mm',
+      { zone: DEFAULT_TZ }
+    );
+    const endLA = startLA.plus({ minutes: series.duration });
+    const dateLA = DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: DEFAULT_TZ }).startOf('day');
+
+    // If the series is paid by package, attempt to reserve a credit per
+    // occurrence. If the package runs out or is cancelled we silently
+    // fall back to 'cash' / 'unpaid' rather than refusing to materialize
+    // — provider can sort it out at the booking level.
+    let bookingPaymentMethod = series.paymentMethod;
+    let bookingPaymentStatus = 'unpaid';
+    let paidAt = null;
+    let packageRedemption = null;
+
+    if (series.paymentMethod === 'package' && series.packagePurchase) {
+      const bookingId = new mongoose.Types.ObjectId();
+      const reserved = await PackagePurchase.findOneAndUpdate(
+        {
+          _id: series.packagePurchase,
+          client: series.client,
+          provider: series.provider,
+          sessionDuration: series.duration,
+          paymentStatus: 'paid',
+          cancelledAt: null,
+          $expr: {
+            $gt: [
+              '$sessionsTotal',
+              {
+                $size: {
+                  $filter: {
+                    input: '$redemptions',
+                    as: 'r',
+                    cond: { $eq: ['$$r.returnedAt', null] },
+                  },
+                },
+              },
+            ],
+          },
+        },
+        { $push: { redemptions: { booking: bookingId, redeemedAt: new Date() } } },
+        { new: true }
+      );
+
+      if (reserved) {
+        bookingPaymentStatus = 'paid';
+        paidAt = new Date();
+        packageRedemption = { packagePurchase: reserved._id, redeemedAt: new Date() };
+        // Use the pre-allocated id below.
+        const booking = new Booking({
+          _id: bookingId,
+          provider: series.provider,
+          client: series.client,
+          series: series._id,
+          date: dateLA.toUTC().toJSDate(),
+          localDate: dateStr,
+          startTime: series.startTime,
+          endTime: endLA.toFormat('HH:mm'),
+          duration: series.duration,
+          location: series.location,
+          serviceType: series.serviceType,
+          addons: series.addons,
+          pricing: series.pricing,
+          paymentMethod: 'package',
+          paymentStatus: 'paid',
+          paidAt,
+          packageRedemption,
+          recipientType: series.recipientType,
+          ...(series.recipientType === 'other' && series.recipientInfo
+            ? { recipientInfo: series.recipientInfo }
+            : {}),
+          status: 'confirmed', // provider explicitly set up this commitment
+          bookedBy: { name: 'Standing appointment', userId: series.provider },
+        });
+        try {
+          await booking.save();
+          created.push(booking);
+        } catch (saveErr) {
+          // Roll back the credit reservation on save failure.
+          await PackagePurchase.updateOne(
+            { _id: reserved._id },
+            { $pull: { redemptions: { booking: bookingId } } }
+          );
+          conflicts.push({ date: dateStr, reason: 'save_failed', error: saveErr.message });
+        }
+        continue;
+      } else {
+        // Package not redeemable — fall through to non-package booking.
+        bookingPaymentMethod = 'cash';
+      }
+    }
+
+    const booking = new Booking({
+      provider: series.provider,
+      client: series.client,
+      series: series._id,
+      date: dateLA.toUTC().toJSDate(),
+      localDate: dateStr,
+      startTime: series.startTime,
+      endTime: endLA.toFormat('HH:mm'),
+      duration: series.duration,
+      location: series.location,
+      serviceType: series.serviceType,
+      addons: series.addons,
+      pricing: series.pricing,
+      paymentMethod: bookingPaymentMethod,
+      paymentStatus: bookingPaymentStatus,
+      paidAt,
+      recipientType: series.recipientType,
+      ...(series.recipientType === 'other' && series.recipientInfo
+        ? { recipientInfo: series.recipientInfo }
+        : {}),
+      status: 'confirmed',
+      bookedBy: { name: 'Standing appointment', userId: series.provider },
+    });
+    try {
+      await booking.save();
+      created.push(booking);
+    } catch (saveErr) {
+      conflicts.push({ date: dateStr, reason: 'save_failed', error: saveErr.message });
+    }
+  }
+
+  // Advance the watermark — anything in the candidate window has been
+  // considered, even if some were skipped.
+  series.lastMaterializedThrough = throughDate;
+  await series.save();
+
+  return { created, conflicts };
+}
+
+// Lazy-extend any active series whose window has fallen behind a target
+// date. Called by the availability-fetch path so providers don't have
+// to manually "extend my standing" — visiting any availability view
+// keeps things current. Intentionally idempotent and cheap when nothing
+// to do.
+async function lazyExtendForProvider(providerId, throughDate) {
+  const stale = await RecurringSeries.find({
+    provider: providerId,
+    status: 'active',
+    $or: [
+      { lastMaterializedThrough: null },
+      { lastMaterializedThrough: { $lt: throughDate } },
+    ],
+  });
+
+  for (const series of stale) {
+    try {
+      await materializeSeries(series, {
+        fromDate: series.lastMaterializedThrough || undefined,
+        throughDate,
+      });
+    } catch (err) {
+      console.error(`[RecurringSeries] Lazy-extend failed for series ${series._id}:`, err.message);
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Routes
+// ──────────────────────────────────────────────────────────────────────
+
+// Provider creates a standing appointment. Body mirrors the booking-form
+// payload + cadence fields (intervalWeeks, end condition).
+router.post('/', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const {
+      clientId, startDate, startTime, duration, intervalWeeks,
+      endDate, occurrenceLimit, location, serviceType, addons, pricing,
+      paymentMethod, packagePurchaseId, recipientType, recipientInfo,
+    } = req.body;
+
+    if (!clientId || !startDate || !startTime || !duration) {
+      return res.status(400).json({
+        message: 'clientId, startDate, startTime, and duration are required',
+      });
+    }
+    if (![1, 2, 4].includes(Number(intervalWeeks))) {
+      return res.status(400).json({ message: 'intervalWeeks must be 1, 2, or 4' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      return res.status(400).json({ message: 'startDate must be yyyy-MM-dd' });
+    }
+    if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(startTime)) {
+      return res.status(400).json({ message: 'startTime must be HH:mm' });
+    }
+    if (!location || !location.lat || !location.lng || !location.address) {
+      return res.status(400).json({ message: 'Full location (lat/lng/address) is required' });
+    }
+    if (endDate && occurrenceLimit) {
+      return res.status(400).json({ message: 'Set either endDate or occurrenceLimit, not both' });
+    }
+
+    // Verify the target user is a client of this provider.
+    const client = await User.findOne({
+      _id: clientId,
+      providerId: req.user._id,
+      accountType: 'CLIENT',
+    });
+    if (!client) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+
+    // dayOfWeek derived from startDate. Luxon's weekday is 1..7
+    // (Mon..Sun); convert to 0..6 (Sun..Sat) used elsewhere.
+    const startDt = DateTime.fromFormat(startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+    if (!startDt.isValid) {
+      return res.status(400).json({ message: 'startDate is not a valid date' });
+    }
+    const dayOfWeek = startDt.weekday === 7 ? 0 : startDt.weekday;
+
+    const series = await RecurringSeries.create({
+      provider: req.user._id,
+      client: clientId,
+      startDate,
+      startTime,
+      duration: Number(duration),
+      intervalWeeks: Number(intervalWeeks),
+      dayOfWeek,
+      endDate: endDate || null,
+      occurrenceLimit: occurrenceLimit ? Number(occurrenceLimit) : null,
+      serviceType,
+      addons: addons || [],
+      pricing,
+      paymentMethod: paymentMethod || 'cash',
+      packagePurchase: paymentMethod === 'package' ? packagePurchaseId : null,
+      location,
+      recipientType: recipientType || 'self',
+      recipientInfo: recipientType === 'other' ? recipientInfo : undefined,
+    });
+
+    const result = await materializeSeries(series);
+
+    res.status(201).json({
+      series,
+      occurrencesCreated: result.created.length,
+      conflicts: result.conflicts,
+    });
+  } catch (err) {
+    console.error('Error creating recurring series:', err);
+    res.status(500).json({ message: 'Failed to create standing appointment' });
+  }
+});
+
+// List a provider's series — used by the client detail page's "Standing
+// appointments" section. Includes a compact summary of upcoming
+// occurrences so the UI doesn't need a second round-trip.
+router.get('/', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+    const filter = { provider: req.user._id };
+    if (req.query.clientId) filter.client = req.query.clientId;
+    if (req.query.status) filter.status = req.query.status;
+
+    const series = await RecurringSeries.find(filter).sort({ createdAt: -1 });
+
+    // Attach next upcoming + total occurrence count for each.
+    const todayStr = DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+    const enriched = await Promise.all(series.map(async (s) => {
+      const [nextBooking, total] = await Promise.all([
+        Booking.findOne({
+          series: s._id,
+          status: { $ne: 'cancelled' },
+          localDate: { $gte: todayStr },
+        }).sort({ localDate: 1, startTime: 1 }).select('localDate startTime'),
+        Booking.countDocuments({ series: s._id }),
+      ]);
+      return {
+        ...s.toObject(),
+        nextOccurrence: nextBooking
+          ? { date: nextBooking.localDate, startTime: nextBooking.startTime }
+          : null,
+        totalOccurrences: total,
+      };
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    console.error('Error listing recurring series:', err);
+    res.status(500).json({ message: 'Failed to list standing appointments' });
+  }
+});
+
+// Detail view — series + the occurrences. Useful for a future "manage
+// this series" page if we add one.
+router.get('/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+    const series = await RecurringSeries.findOne({
+      _id: req.params.id,
+      provider: req.user._id,
+    });
+    if (!series) {
+      return res.status(404).json({ message: 'Series not found' });
+    }
+    const occurrences = await Booking.find({ series: series._id })
+      .sort({ localDate: 1, startTime: 1 });
+    res.json({ series, occurrences });
+  } catch (err) {
+    console.error('Error loading series:', err);
+    res.status(500).json({ message: 'Failed to load series' });
+  }
+});
+
+// Cancel the series. Default cancels future un-started occurrences too;
+// pass `?keepBookings=true` to leave existing materialized bookings
+// alone (rare — usually if the provider cancels a series they want
+// future appointments cleared).
+router.delete('/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+    const series = await RecurringSeries.findOne({
+      _id: req.params.id,
+      provider: req.user._id,
+    });
+    if (!series) {
+      return res.status(404).json({ message: 'Series not found' });
+    }
+    if (series.status === 'cancelled') {
+      return res.status(400).json({ message: 'Series is already cancelled' });
+    }
+
+    series.status = 'cancelled';
+    series.cancelledAt = new Date();
+    series.cancelledBy = 'PROVIDER';
+    await series.save();
+
+    let cancelledOccurrences = 0;
+    if (req.query.keepBookings !== 'true') {
+      // Soft-cancel future occurrences. Past occurrences (already
+      // happened) are left as historical record.
+      const todayStr = DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+      const future = await Booking.find({
+        series: series._id,
+        localDate: { $gte: todayStr },
+        status: { $nin: ['cancelled', 'completed'] },
+      });
+      for (const b of future) {
+        b.status = 'cancelled';
+        b.cancelledAt = new Date();
+        b.cancelledBy = 'PROVIDER';
+        await b.save();
+        // Return any package credits this occurrence had reserved.
+        if (b.packageRedemption?.packagePurchase) {
+          await PackagePurchase.updateOne(
+            {
+              _id: b.packageRedemption.packagePurchase,
+              'redemptions.booking': b._id,
+              'redemptions.returnedAt': null,
+            },
+            { $set: { 'redemptions.$.returnedAt': new Date() } }
+          );
+        }
+        cancelledOccurrences += 1;
+      }
+    }
+
+    res.json({
+      message: 'Series cancelled',
+      cancelledOccurrences,
+    });
+  } catch (err) {
+    console.error('Error cancelling series:', err);
+    res.status(500).json({ message: 'Failed to cancel series' });
+  }
+});
+
+// Exposed for use by other server code (e.g. availability route's lazy-
+// extend path) — not a route, so attached to the module.
+router.lazyExtendForProvider = lazyExtendForProvider;
+router.materializeSeries = materializeSeries;
+
+module.exports = router;

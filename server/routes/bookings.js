@@ -1111,7 +1111,76 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       console.error('❌ Error sending cancellation email:', emailError);
     }
 
-    res.json({ message: 'Booking cancelled successfully' });
+    // Series scope expansion. If this booking belongs to a recurring
+    // series and the caller asked to cancel siblings too, fan out:
+    //   - scope=one (default)      → just this booking, already done
+    //   - scope=following          → this + every later un-cancelled occurrence
+    //   - scope=all                → also cancel the series itself + every
+    //                                un-cancelled occurrence (past not touched)
+    // Sibling cancellations are silent (no SMS/email per occurrence) so the
+    // user isn't spammed; the parent cancel's notification covers the action.
+    let siblingsCancelled = 0;
+    let seriesCancelled = false;
+    const scope = req.query.scope;
+    if (booking.series && (scope === 'following' || scope === 'all')) {
+      try {
+        const RecurringSeries = require('../models/RecurringSeries');
+        const series = await RecurringSeries.findById(booking.series);
+
+        // Authorization: only the provider or this booking's client can
+        // affect siblings. The DELETE has already verified the user is on
+        // this booking, so "following/all" cancellations against siblings
+        // they own (same provider, or as client of this provider) are OK.
+        if (series) {
+          const siblingFilter = {
+            series: series._id,
+            _id: { $ne: booking._id },
+            status: { $nin: ['cancelled', 'completed'] },
+          };
+          if (scope === 'following') {
+            // "From this date forward" — same localDate counts as following
+            // since the parent already covers the current occurrence.
+            siblingFilter.localDate = { $gt: booking.localDate };
+          }
+
+          const siblings = await Booking.find(siblingFilter);
+          for (const sib of siblings) {
+            sib.status = 'cancelled';
+            sib.cancelledAt = new Date();
+            sib.cancelledBy = req.user.accountType;
+            await sib.save();
+            // Return any package credit reserved by the sibling.
+            if (sib.packageRedemption?.packagePurchase) {
+              await PackagePurchase.updateOne(
+                {
+                  _id: sib.packageRedemption.packagePurchase,
+                  'redemptions.booking': sib._id,
+                  'redemptions.returnedAt': null,
+                },
+                { $set: { 'redemptions.$.returnedAt': new Date() } }
+              );
+            }
+            siblingsCancelled += 1;
+          }
+
+          if (scope === 'all' && series.status !== 'cancelled') {
+            series.status = 'cancelled';
+            series.cancelledAt = new Date();
+            series.cancelledBy = req.user.accountType;
+            await series.save();
+            seriesCancelled = true;
+          }
+        }
+      } catch (scopeErr) {
+        console.error('Series-scope cancel failed:', scopeErr.message);
+      }
+    }
+
+    res.json({
+      message: 'Booking cancelled successfully',
+      siblingsCancelled,
+      seriesCancelled,
+    });
   } catch (error) {
     console.error('❌ Error cancelling booking:', error);
     res.status(500).json({ message: 'Server error while cancelling booking' });

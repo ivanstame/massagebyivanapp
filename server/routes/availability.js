@@ -193,6 +193,19 @@ router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
     // Auto-generate from template if no availability exists for this date
     await generateFromTemplate(providerId, laDate);
 
+    // Lazy-extend any active recurring series whose materialization
+    // window has fallen behind the requested date. Means open-ended
+    // standing appointments keep populating forward without needing a
+    // cron job, and the provider doesn't have to manually re-extend.
+    try {
+      const recurringSeriesRouter = require('./recurring-series');
+      if (recurringSeriesRouter.lazyExtendForProvider) {
+        await recurringSeriesRouter.lazyExtendForProvider(providerId, laDate.toJSDate());
+      }
+    } catch (extErr) {
+      console.error('Standing-appointment lazy-extend failed:', extErr.message);
+    }
+
     const blocks = await Availability.find({
       provider: providerId,
       localDate: laDate.toFormat(TIME_FORMATS.ISO_DATE)

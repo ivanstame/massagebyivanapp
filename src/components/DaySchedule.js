@@ -1,8 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DateTime } from 'luxon';
+import { Repeat } from 'lucide-react';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
+
+// Tiny shared icon. Inline because it's literally one element used in
+// two adjacent renders.
+const RepeatIcon = () => <Repeat className="w-3 h-3 text-[#B07A4E] flex-shrink-0" />;
 
 const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], onModify, onDelete, onDeleteBlockedTime, onRestoreBlockedTime }) => {
   const navigate = useNavigate();
@@ -278,7 +283,12 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                   <div className="p-2 flex flex-col h-full justify-between">
                     <div className="space-y-1">
                       <div className="flex justify-between items-start">
-                        <span className="text-sm font-medium text-slate-700">
+                        <span className="text-sm font-medium text-slate-700 inline-flex items-center gap-1">
+                          {booking.series && (
+                            <span title="Part of a standing appointment">
+                              <RepeatIcon />
+                            </span>
+                          )}
                           {`${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`}
                         </span>
                         <span className="text-xs px-2 py-1 bg-[#FBF7EF] text-[#8A5D36] rounded-full">

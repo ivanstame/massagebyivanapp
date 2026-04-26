@@ -209,6 +209,7 @@ app.use('/api/google-calendar', require('./routes/googleCalendar'));
 app.use('/api/google-calendar', require('./routes/googleCalendarWebhook'));
 app.use('/api/claim', require('./routes/claim'));
 app.use('/api/packages', require('./routes/packages'));
+app.use('/api/recurring-series', require('./routes/recurring-series'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({

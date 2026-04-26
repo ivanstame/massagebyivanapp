@@ -39,6 +39,18 @@ const BookingSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Back-reference to a RecurringSeries when this booking was generated
+  // by a standing appointment. The booking is otherwise a normal booking
+  // — it can be cancelled, rescheduled, paid for, or skipped indpendently
+  // of the series. The series field exists so the UI can show a repeat
+  // icon and so cancel-scope semantics ("this one / following / all") can
+  // find sibling occurrences. Null for one-off bookings.
+  series: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RecurringSeries',
+    default: null,
+    index: true,
+  },
   // Store dates in both UTC and local time
   date: { 
     type: Date,  // UTC date

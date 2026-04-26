@@ -20,6 +20,11 @@ const AppointmentDetail = () => {
   const [error, setError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // For series bookings, the cancel confirm UI offers three scopes:
+  //   'one'        → just this occurrence
+  //   'following'  → this + every later occurrence on the series
+  //   'all'        → also cancel the series rule itself
+  const [cancelScope, setCancelScope] = useState('one');
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
@@ -40,7 +45,10 @@ const AppointmentDetail = () => {
   const handleCancel = async () => {
     try {
       setCancelling(true);
-      await axios.delete(`/api/bookings/${id}`, { withCredentials: true });
+      const url = booking?.series && cancelScope !== 'one'
+        ? `/api/bookings/${id}?scope=${cancelScope}`
+        : `/api/bookings/${id}`;
+      await axios.delete(url, { withCredentials: true });
       navigate(-1);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to cancel appointment');
@@ -469,6 +477,49 @@ const AppointmentDetail = () => {
                 <p className="text-sm text-red-700 mb-3">
                   Are you sure you want to cancel this appointment? This cannot be undone.
                 </p>
+
+                {/* Series-scope picker — only shown when this booking is
+                    part of a recurring series. Default 'one' so the
+                    behavior matches the old single-cancel flow. */}
+                {booking.series && (
+                  <div className="mb-3 space-y-1.5">
+                    <p className="text-xs font-medium text-red-700 mb-1">This is part of a standing appointment:</p>
+                    <label className="flex items-start gap-2 text-sm text-red-800 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cancelScope"
+                        value="one"
+                        checked={cancelScope === 'one'}
+                        onChange={(e) => setCancelScope(e.target.value)}
+                        className="mt-0.5"
+                      />
+                      <span>Cancel just this occurrence</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-red-800 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cancelScope"
+                        value="following"
+                        checked={cancelScope === 'following'}
+                        onChange={(e) => setCancelScope(e.target.value)}
+                        className="mt-0.5"
+                      />
+                      <span>Cancel this and all following occurrences</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-sm text-red-800 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cancelScope"
+                        value="all"
+                        checked={cancelScope === 'all'}
+                        onChange={(e) => setCancelScope(e.target.value)}
+                        className="mt-0.5"
+                      />
+                      <span>End the entire series (including this one)</span>
+                    </label>
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <button
                     onClick={handleCancel}

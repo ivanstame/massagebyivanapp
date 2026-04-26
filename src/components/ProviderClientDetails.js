@@ -11,6 +11,7 @@ import {
 import axios from 'axios';
 import moment from 'moment-timezone';
 import ClientPackagesSection from './ClientPackagesSection';
+import StandingAppointmentsSection from './StandingAppointmentsSection';
 
 const ProviderClientDetails = () => {
   console.log('NEW ProviderClientDetails loaded');
@@ -472,6 +473,12 @@ const ProviderClientDetails = () => {
         <ClientPackagesSection
           clientId={clientId}
           clientName={client?.profile?.fullName || ''}
+        />
+
+        {/* Standing (recurring) appointments */}
+        <StandingAppointmentsSection
+          client={client}
+          clientId={clientId}
         />
 
         {/* Client Notes Section */}
