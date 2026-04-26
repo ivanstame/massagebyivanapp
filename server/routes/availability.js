@@ -322,7 +322,18 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       }
     } else {
       appointmentDuration = parseInt(req.query.duration);
-      if (!appointmentDuration || appointmentDuration < 30 || appointmentDuration > 180) {
+      // The 180-min ceiling here was the per-session schema cap, baked
+      // in when this endpoint only served single-booking queries. The
+      // back-to-back chain flow asks for slot windows fitting the WHOLE
+      // chain (e.g. 255 min for two 120s + a 15-min buffer), which used
+      // to silently fall back to 60 — making the slot picker return
+      // single-booking-sized windows that then failed at /bulk.
+      // Ceiling matched to the multi-session path's 540-min cap so both
+      // query shapes have parity.
+      if (!appointmentDuration || appointmentDuration < 30 || appointmentDuration > 540) {
+        if (req.query.duration && (appointmentDuration < 30 || appointmentDuration > 540)) {
+          console.warn(`/api/availability/available received out-of-range duration=${req.query.duration}; defaulting to 60`);
+        }
         appointmentDuration = 60;
       }
     }
