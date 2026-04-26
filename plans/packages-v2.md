@@ -278,6 +278,237 @@ Things to keep open-ended so v2 additions stay easy:
 
 ---
 
+# Standing Appointments — v2 Deferred Features
+
+v1 (shipped 2026-04-25): provider-only, weekly + intervals (1/2/4),
+single day-of-week, three end conditions (open / end-date / count),
+hybrid materialization with rolling 90-day window + lazy-extend on
+availability fetch, three-scope cancel ("this one / following / all"),
+repeat icon on day view, full per-occurrence override (each occurrence
+is a normal Booking).
+
+Items below are intentionally out of v1.
+
+## v2 — Deferred Features
+
+### 1. Monthly patterns
+
+**What.** "First Monday of each month," "15th of each month," "Last
+Friday." Real demand — esthetician monthly facials, monthly maintenance
+detailing, etc.
+
+**Why deferred.** v1's weekly-only covers ~85% of standing appointments
+in the trades the app supports. Monthly adds nontrivial UX (ordinal
+selector — "first / second / third / last") and edge cases (what's the
+"5th Monday" when there isn't one? skip the month? roll over? — Google
+Calendar gets this wrong about half the time, design carefully).
+
+**Design notes.**
+- Schema: extend `intervalWeeks` to a discriminated `frequency:
+  'weekly' | 'monthly'` with `monthlyPattern: { kind: 'ordinal-day' |
+  'day-of-month', ... }`.
+- Generator helper changes (currently `current.plus({ weeks: ... })`).
+- Default for "5th X when month has only 4" should be "skip" with a
+  surfaced warning, not "fall through to next month."
+
+---
+
+### 2. Multi-day series
+
+**What.** "Mabel comes Tuesdays AND Thursdays." Currently you'd create
+two separate series, which works but the two are unconnected — cancel
+one, the other keeps going.
+
+**Why deferred.** Conceptually clean (just allow `daysOfWeek: [Number]`
+instead of single `dayOfWeek`), but the cancel-scope semantics get
+weird: does "cancel following" mean every Tuesday after this one, or
+every Tue+Thu after this one? "All" gets ambiguous too.
+
+**Design notes.**
+- Decision needed before building: Multi-day series = one row with
+  `daysOfWeek: [2, 4]`, or a "series-of-series" parent grouping two
+  weekly rows? The single-row model is denser; the parent-grouping
+  model keeps cancel semantics simple.
+- Whichever way, the materialization helper needs to fan out across
+  days within a single iteration.
+
+---
+
+### 3. Pause / resume series
+
+**What.** Provider goes on vacation Dec 20 – Jan 5; their standing
+appointments should skip those weeks but resume after. Or a client
+asks to pause for two months.
+
+**Why deferred.** v1's `status: 'active' | 'cancelled'` is sufficient;
+adding `paused` requires schema + UI for date-range exclusion. Also
+need to decide whether already-materialized occurrences in the paused
+window get cancelled (yes, almost certainly) and what happens to the
+rolling window (don't extend during pause).
+
+**Design notes.**
+- Status enum gains `paused`.
+- Add `pausedRanges: [{ start, end, reason? }]` to the series so
+  multiple pauses can stack (vacations, holidays).
+- Materialization respects paused ranges — skip dates falling in any
+  range, plus surface them as "skipped: paused" in the create response.
+- Resume = clear the active pause range (or set its end to today).
+
+---
+
+### 4. Holiday / skip-date support
+
+**What.** First-class skip-date list — "skip Dec 24 – Jan 2 every year"
+or one-off skips like "skip July 4 this year." Today the provider has
+to manually cancel those occurrences post-materialization.
+
+**Why deferred.** Adjacent to pause/resume but distinct: pauses are
+one-off ranges, holidays are recurring. Both are quality-of-life rather
+than core. v1 cancel-each-individually works.
+
+**Design notes.**
+- Could attach to the User (provider-wide holiday list applied to all
+  their series), per-series, or a hybrid. Provider-wide is more
+  ergonomic for the common case ("I close for Christmas").
+- Materialization filters dates against the holiday list.
+- A small UI lives in `/provider/settings` for the recurring list,
+  with the per-series option as an override.
+
+---
+
+### 5. Client-initiated recurring
+
+**What.** Client books a one-off, sees a "Make this a standing
+appointment" toggle. The conversion flow uses the existing series
+machinery.
+
+**Why deferred.** Risk-management decision in v1: client-initiated
+recurring sets up refund nightmares (client commits to 26 sessions,
+relationship ends at session 3). Provider-initiated says "Ivan
+explicitly agreed to keep Mabel on his calendar," which is the
+relationship dynamic that already exists IRL.
+
+**Design notes.**
+- The existing endpoint accepts a `clientId` from the provider's auth.
+  Allowing client-initiated is just routing rule changes (any
+  authenticated client can hit it for their own ID), but should pair
+  with a provider-approval step.
+- "Provider must approve" → series starts as `status: 'pending'` until
+  the provider clicks Accept; only then does materialization run.
+
+---
+
+### 6. Group standing appointments
+
+**What.** "Five clients on Tuesdays at 6pm — yoga, training class,
+group massage." One series → N parallel bookings per occurrence, one
+per client.
+
+**Why deferred.** Genuinely different domain — tied closely to a
+class-booking model that doesn't exist anywhere else in the app. Worth
+its own design pass.
+
+---
+
+### 7. Conflict surfacing when one-off booking breaks a future series occurrence
+
+**What.** Provider books a one-off in another part of town that makes
+travel to Mabel's standing 10am next Tuesday infeasible (or simply
+overlaps in time). Today, the new booking succeeds (since
+materialization already happened) and Mabel's appointment quietly
+remains scheduled. The provider only finds out when they realize they
+double-booked.
+
+**Why deferred.** Requires the booking-create flow to peek at all
+*future* same-day bookings (already does for time conflict — the
+overlap check), AND walk forward through all this provider's
+materialized series occurrences for travel-time feasibility (expensive
+unless capped). v1 trusts the provider to notice.
+
+**Design notes.**
+- At booking-create time, query `Booking.find({ provider, localDate,
+  series: { $ne: null }, status: { $ne: 'cancelled' } })` for the
+  same date, run the boundary travel-time check, and either:
+    - reject the new booking, OR
+    - prompt: "This conflicts with Mabel's standing 10am. Skip Mabel
+      that week?" with a one-click skip action.
+- Skip = soft-cancel that single occurrence. Rest of series intact.
+
+---
+
+### 8. Edit series rule (cadence/time) propagating to future occurrences
+
+**What.** Provider wants to move Mabel from Tuesdays to Wednesdays
+going forward. Today they have to cancel the series and recreate it.
+
+**Why deferred.** The "this and following" semantics for *edits* are
+strictly harder than for cancels — depends on whether the new schedule
+conflicts with anything, whether to preserve already-modified
+individual occurrences, etc. v1 cancel + recreate works, just clunky.
+
+**Design notes.**
+- Endpoint: `PATCH /api/recurring-series/:id` with `effectiveFrom: 'this'
+  | 'all'` and the field deltas.
+- "Effective from this date" = un-modified future occurrences get
+  re-materialized with the new rule; already-modified occurrences
+  stay (with a surfaced warning to provider).
+- Old occurrences keep the original rule snapshot.
+
+---
+
+### 9. Series-level reschedule of a single occurrence
+
+**What.** Today, cancellation has the three-scope picker (this/
+following/all) but reschedule does not — it acts as if it's a single
+booking, leaving the series rule alone. That's actually correct for
+"this one only" but there's no path for "move every Tuesday by 30 min
+going forward."
+
+**Why deferred.** Same family of problems as #8 (rule propagation).
+Single-occurrence reschedule already works correctly; series-level
+reschedule is the v2 feature.
+
+---
+
+### 10. Series analytics for the provider
+
+**What.** Provider dashboard surfaces:
+- Active standing relationships count.
+- Average series longevity.
+- Upcoming standing-appointment load (count per week).
+- Standing-revenue forecast (sum of pricing × occurrences in a window).
+
+**Why deferred.** Needs real data to be meaningful; build after we
+see how providers actually use v1.
+
+---
+
+## What standing-appointments v1 should *not* paint us into
+
+Things v1 deliberately keeps open-ended for v2 to slot into easily:
+
+- **Don't** add code anywhere that assumes "one series = one weekly
+  cadence on one day." The model already has `dayOfWeek` as a single
+  number rather than an array — when we add multi-day, we'll switch
+  to `daysOfWeek: [Number]` with backfill (existing rows become
+  `[dayOfWeek]`). Materialization helper should be the only place
+  that needs to change.
+- **Don't** treat `lastMaterializedThrough` as the source of truth for
+  "what occurrences exist." Always read from `Booking` docs — which
+  is what the cancel-scope flow does. This keeps pause/resume + edit-
+  rule features from accidentally breaking the materialization
+  watermark.
+- **Don't** hard-code 90 days as the window everywhere. It's
+  `WINDOW_DAYS` in `routes/recurring-series.js`; if we ever want
+  per-series window control (e.g. "only materialize 30 days for an
+  occurrenceLimit series"), it's one constant to lift.
+- **Don't** implement "edit single occurrence" by special-casing the
+  series — each occurrence is already an independent Booking, so
+  individual edits Just Work. v2's challenge is only **rule-level**
+  edits (#8 / #9), not occurrence-level.
+
+---
+
 ## Operational follow-ups (non-package)
 
 Things outside the packages roadmap that are tracked here so they don't
