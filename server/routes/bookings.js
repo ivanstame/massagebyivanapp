@@ -614,11 +614,44 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
       );
       chainSlots = chainSlots.concat(slots);
     }
-    const chainSlotTimes = new Set(chainSlots.map(slot =>
-      DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toFormat('HH:mm')
-    ));
-    if (!chainSlotTimes.has(first.time)) {
-      return res.status(400).json({ message: 'This back-to-back chain doesn\'t fit at the selected time' });
+
+    // Match by minute-of-day (integer), not formatted string. Eliminates
+    // any chance of an HH:mm formatting / timezone edge-case false negative
+    // — both sides reduce to the same numeric value regardless of how
+    // their string representations are produced.
+    const wantedMinute = (() => {
+      const [h, m] = first.time.split(':').map(Number);
+      return h * 60 + m;
+    })();
+    const chainSlotMinutes = chainSlots
+      .map(slot => {
+        const dt = DateTime.fromJSDate(slot).setZone('America/Los_Angeles');
+        return dt.hour * 60 + dt.minute;
+      })
+      .sort((a, b) => a - b);
+    const chainSlotMinuteSet = new Set(chainSlotMinutes);
+
+    if (!chainSlotMinuteSet.has(wantedMinute)) {
+      // Surface alternatives so the client can show actionable options
+      // instead of a dead-end "doesn't fit" message. Includes only times
+      // strictly within an hour either side of the user's pick to keep
+      // the suggestion list short and obviously relevant.
+      const minuteToLabel = (m) =>
+        `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      const nearby = chainSlotMinutes
+        .filter(m => Math.abs(m - wantedMinute) <= 60)
+        .map(minuteToLabel);
+      const allAlternatives = chainSlotMinutes.map(minuteToLabel);
+
+      return res.status(400).json({
+        message: `This back-to-back chain (${totalDurationWithBuffers} min including buffers) doesn't fit at ${first.time}. ${
+          allAlternatives.length === 0
+            ? 'No start time today fits the full chain.'
+            : `Closest fits: ${nearby.length > 0 ? nearby.slice(0, 4).join(', ') : allAlternatives.slice(0, 4).join(', ')}.`
+        }`,
+        chainDurationMin: totalDurationWithBuffers,
+        alternatives: allAlternatives,
+      });
     }
 
     // Per-session addon validation against the provider's configured addons.

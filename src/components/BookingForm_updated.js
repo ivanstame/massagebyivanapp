@@ -65,6 +65,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [redeemablePackages, setRedeemablePackages] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
+  // When the chain expands (added session, added addon) and the user's
+  // previously-picked time no longer fits the new chain, we auto-clear
+  // selectedTime and show this notice so they pick again rather than
+  // submit a stale value that will fail at /bulk validation.
+  const [staleTimeNotice, setStaleTimeNotice] = useState(null);
 
   // Back-to-back chain — additional sessions stack onto the first booking.
   // Each entry mirrors a subset of the main form's state; the time
@@ -341,6 +346,33 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions]);
 
+  // If the chain expands past where the user's selected time can fit
+  // (because they added an addon, added another session, or the slot
+  // picker got a new list back from the server), clear selectedTime
+  // and surface a notice. Prevents the submit-fails-with-doesn't-fit
+  // dead-end. Compares by ISO so a slot that's the same exact moment
+  // is considered identical.
+  useEffect(() => {
+    if (!selectedTime) {
+      setStaleTimeNotice(null);
+      return;
+    }
+    if (availableSlots.length === 0) {
+      // Slot list pending or empty — don't clear yet. The next render
+      // with populated slots will resolve.
+      return;
+    }
+    const stillValid = availableSlots.some(s => s.iso === selectedTime.iso);
+    if (!stillValid) {
+      setStaleTimeNotice(
+        `Your previously selected time no longer fits this back-to-back chain. Pick a new time below.`
+      );
+      setSelectedTime(null);
+    } else {
+      setStaleTimeNotice(null);
+    }
+  }, [availableSlots, selectedTime]);
+
   // Handle booking submission
   const handleSubmit = async () => {
     if (loading) return;
@@ -461,7 +493,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
             const sLabel = (tier?.label && tier.label.trim()) || `${s.duration} min service`;
             return {
               date: bookingDateStr,
-              duration: s.duration,
+              // Bake addon extraTime into the duration so the server's
+              // chain math (which sums per-session durations) matches
+              // the totalDuration the slot picker showed. Without this
+              // the server computes a shorter chain than the frontend
+              // displayed, and end times stored on the saved bookings
+              // are wrong even though validation passes.
+              duration: s.duration + sExtraTime,
               location: bookingData.location,
               serviceType: { id: 'package', name: sLabel },
               addons: addonDetails.map(a => ({
@@ -518,7 +556,22 @@ const BookingForm = ({ googleMapsLoaded }) => {
       }
     } catch (err) {
       console.error('Error creating booking:', err);
-      setError(err.message || 'Failed to create booking');
+      // err can be an Error instance (with .alternatives for chain
+      // failures) or a plain string (single-booking createBooking still
+      // throws strings). Read both shapes safely.
+      const message = (err && err.message) || (typeof err === 'string' ? err : null) || 'Failed to create booking';
+      setError(message);
+      // If the server returned chain alternatives, drop the user's
+      // selection so the slot picker re-prompts them; the alternatives
+      // are already a subset of the slot list, so picking from the
+      // freshly-rendered slot picker is the natural recovery path.
+      if (err?.alternatives && err.alternatives.length > 0) {
+        setSelectedTime(null);
+        setStaleTimeNotice(
+          `That time doesn't fit the chain (${err.chainDurationMin || 'combined'} min). ` +
+          `Try one of these: ${err.alternatives.slice(0, 5).join(', ')}.`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -706,6 +759,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
             isComplete={selectedTime !== null}
             selectedDate={selectedDate}
           />
+
+          {/* Surfaces when the chain expanded (added session, added addon,
+              or server rejected the picked time with a list of fits) and
+              the user's previous time pick is no longer valid. */}
+          {staleTimeNotice && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-800">
+              {staleTimeNotice}
+            </div>
+          )}
 
           {/* Back-to-back chain — only surfaced after a time is picked, so
               the addition is a deliberate "I want another session right

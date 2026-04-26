@@ -15,12 +15,20 @@ export const bookingService = {
   // address. The server cascades times from the first session, applies
   // the standard inter-session buffer, and creates the chain atomically
   // (rolling back any partials on failure).
+  //
+  // Throws an Error with .message + (when the server returned them)
+  // .alternatives and .chainDurationMin so the booking form can show
+  // actionable suggestions instead of a dead-end "doesn't fit" message.
   createBulkBookings: async (sessionsPayload) => {
     try {
       const response = await api.post('/api/bookings/bulk', sessionsPayload);
       return response.data;
     } catch (error) {
-      throw error.response?.data?.message || 'Error creating back-to-back bookings';
+      const data = error.response?.data;
+      const err = new Error(data?.message || 'Error creating back-to-back bookings');
+      if (data?.alternatives) err.alternatives = data.alternatives;
+      if (data?.chainDurationMin) err.chainDurationMin = data.chainDurationMin;
+      throw err;
     }
   },
 
