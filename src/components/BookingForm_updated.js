@@ -347,25 +347,30 @@ const BookingForm = ({ googleMapsLoaded }) => {
   }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions]);
 
   // If the chain expands past where the user's selected time can fit
-  // (because they added an addon, added another session, or the slot
-  // picker got a new list back from the server), clear selectedTime
-  // and surface a notice. Prevents the submit-fails-with-doesn't-fit
-  // dead-end. Compares by ISO so a slot that's the same exact moment
-  // is considered identical.
+  // (added an addon, added another session, or the slot list refreshed),
+  // clear selectedTime and surface a notice. Prevents the submit-fails-
+  // with-"doesn't-fit" dead-end. Compares by ISO so a slot that's the
+  // same exact moment is considered identical.
+  //
+  // Important: an empty availableSlots list AFTER a fetch is meaningful
+  // — it means "no time today fits this chain at all," not "still
+  // loading." The earlier version of this effect early-returned on
+  // empty slots, which left a stale selectedTime in place when the user
+  // pushed the chain past the day's longest contiguous window. The
+  // server then rejected on submit. Treat empty as authoritative;
+  // initial-load with no selection is handled by the !selectedTime
+  // branch above.
   useEffect(() => {
     if (!selectedTime) {
       setStaleTimeNotice(null);
       return;
     }
-    if (availableSlots.length === 0) {
-      // Slot list pending or empty — don't clear yet. The next render
-      // with populated slots will resolve.
-      return;
-    }
     const stillValid = availableSlots.some(s => s.iso === selectedTime.iso);
     if (!stillValid) {
       setStaleTimeNotice(
-        `Your previously selected time no longer fits this back-to-back chain. Pick a new time below.`
+        availableSlots.length === 0
+          ? `No start time today fits this back-to-back chain. Try a different day, fewer sessions, or shorter durations.`
+          : `Your previously selected time no longer fits this back-to-back chain. Pick a new time below.`
       );
       setSelectedTime(null);
     } else {
