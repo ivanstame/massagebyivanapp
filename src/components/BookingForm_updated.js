@@ -585,12 +585,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
         (recipientType === 'other' && recipientInfo.name && recipientInfo.phone);
 
     // Each additional session in the chain must have a duration and, if
-    // recipient is "other," a name + phone. Self-recipient back-to-backs
-    // (split-the-2-hour case) need no extra info.
+    // recipient is "other," a name. Phone is optional — many providers
+    // already have the recipient's number out of band, and missing
+    // numbers are handled gracefully downstream (SMS reminders simply
+    // don't fire when there's no phone on file).
     const additionalsOk = additionalSessions.every(s => {
       if (!s.duration) return false;
       if (s.recipientType === 'other') {
-        return !!(s.recipientInfo?.name && s.recipientInfo?.phone);
+        return !!s.recipientInfo?.name;
       }
       return true;
     });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, User, Users, Plus, Check } from 'lucide-react';
+import { formatPhoneNumber } from '../../utils/phoneUtils';
 
 // One row in the back-to-back chain. The first session uses the main
 // booking form (RecipientSection / SimpleDurationSelector / AddOnsSelector);
@@ -99,9 +100,19 @@ const AdditionalSessionRow = ({
           />
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             value={session.recipientInfo?.phone || ''}
-            onChange={(e) => update({ recipientInfo: { ...session.recipientInfo, phone: e.target.value } })}
-            placeholder="(555) 555-5555"
+            // Run pasted/typed input through formatPhoneNumber on every
+            // change — accepts "5551234567" / "555-123-4567" / "(555)1234567"
+            // / "555.123.4567" / etc. and normalizes to "(555) 123-4567".
+            onChange={(e) => update({
+              recipientInfo: {
+                ...session.recipientInfo,
+                phone: formatPhoneNumber(e.target.value),
+              },
+            })}
+            placeholder="(555) 555-5555 — optional"
             className="border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
           />
         </div>
