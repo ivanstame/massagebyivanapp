@@ -8,6 +8,7 @@ const User = require('../models/User');
 const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
+const { createChainBookings } = require('../services/chainBookingService');
 
 // Rolling-window length. Each series materializes occurrences out this
 // far from "now" at creation time; the lazy-extend path (called by the
@@ -77,10 +78,64 @@ async function materializeSeries(series, options = {}) {
   const created = [];
   const conflicts = [];
 
+  const isChainSeries = Array.isArray(series.additionalSessions) && series.additionalSessions.length > 0;
+
   for (const dateStr of candidateDates) {
     if (existingDates.has(dateStr)) continue; // already materialized
 
-    // Conflict with an existing one-off (or another series') booking?
+    // Chain path: delegate to the shared chain service. It does its own
+    // availability + travel-time fit check, addon validation, atomic
+    // creation, and rollback. Conflicts surface as ChainDoesntFitError.
+    if (isChainSeries) {
+      const sessions = [
+        {
+          duration: series.duration,
+          serviceType: series.serviceType,
+          addons: series.addons,
+          pricing: series.pricing,
+          paymentMethod: series.paymentMethod,
+          packagePurchaseId: series.packagePurchase || undefined,
+          recipientType: series.recipientType,
+          recipientInfo: series.recipientInfo,
+        },
+        ...series.additionalSessions.map(as => ({
+          duration: as.duration,
+          serviceType: as.serviceType,
+          addons: as.addons,
+          pricing: as.pricing,
+          paymentMethod: as.paymentMethod,
+          packagePurchaseId: as.packagePurchase || undefined,
+          recipientType: as.recipientType,
+          recipientInfo: as.recipientInfo,
+        })),
+      ];
+
+      try {
+        const chainBookings = await createChainBookings({
+          provider: series.provider,
+          client: series.client,
+          bookedBy: { name: 'Standing appointment', userId: series.provider },
+          date: dateStr,
+          startTime: series.startTime,
+          location: series.location,
+          sessions,
+          status: 'confirmed',
+          series: series._id,
+        });
+        created.push(...chainBookings);
+      } catch (err) {
+        if (err.code === 'CHAIN_DOES_NOT_FIT') {
+          conflicts.push({ date: dateStr, reason: 'chain_does_not_fit', message: err.message });
+        } else if (err.code === 'CHAIN_VALIDATION') {
+          conflicts.push({ date: dateStr, reason: 'chain_validation', message: err.message });
+        } else {
+          conflicts.push({ date: dateStr, reason: 'save_failed', error: err.message });
+        }
+      }
+      continue;
+    }
+
+    // Single-session path — simpler conflict check against same-day bookings.
     const sameDayOthers = otherBookings.filter(b => b.localDate === dateStr);
     const hasConflict = sameDayOthers.some(b => {
       const [bsH, bsM] = b.startTime.split(':').map(Number);
@@ -272,6 +327,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       clientId, startDate, startTime, duration, intervalWeeks,
       endDate, occurrenceLimit, location, serviceType, addons, pricing,
       paymentMethod, packagePurchaseId, recipientType, recipientInfo,
+      additionalSessions,
     } = req.body;
 
     if (!clientId || !startDate || !startTime || !duration) {
@@ -313,6 +369,28 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
     const dayOfWeek = startDt.weekday === 7 ? 0 : startDt.weekday;
 
+    // Sanitize additionalSessions — same validation the per-occurrence chain
+    // service applies, hoisted up so we fail series creation rather than
+    // every materialization attempt if the shape is bad.
+    const cleanedAdditional = Array.isArray(additionalSessions)
+      ? additionalSessions.map((s, i) => {
+          const dur = Number(s.duration);
+          if (!Number.isFinite(dur) || dur < 30 || dur > 180) {
+            throw new Error(`Additional session ${i + 1}: duration must be 30–180 minutes`);
+          }
+          return {
+            duration: dur,
+            serviceType: s.serviceType,
+            addons: Array.isArray(s.addons) ? s.addons : [],
+            pricing: s.pricing,
+            paymentMethod: s.paymentMethod || 'cash',
+            packagePurchase: s.paymentMethod === 'package' ? s.packagePurchaseId : null,
+            recipientType: s.recipientType || 'other',
+            recipientInfo: s.recipientType === 'other' ? s.recipientInfo : undefined,
+          };
+        })
+      : [];
+
     const series = await RecurringSeries.create({
       provider: req.user._id,
       client: clientId,
@@ -331,6 +409,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       location,
       recipientType: recipientType || 'self',
       recipientInfo: recipientType === 'other' ? recipientInfo : undefined,
+      additionalSessions: cleanedAdditional,
     });
 
     const result = await materializeSeries(series);

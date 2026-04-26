@@ -10,6 +10,7 @@ const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
+const { createChainBookings } = require('../services/chainBookingService');
 const { DateTime } = require('luxon');
 const smsService = require('../services/smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
@@ -497,25 +498,15 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'Expected an array of booking requests' });
     }
     if (bookingRequests.length === 1) {
-      // Forwarding a single-session bulk-call to /bookings would lose
-      // request-shape parity. Reject so the client uses POST / instead.
+      // Forwarding a single-session bulk call to POST /bookings would lose
+      // request-shape parity. Reject so the client uses the right entry.
       return res.status(400).json({ message: 'Use POST /api/bookings for a single booking' });
     }
-    if (bookingRequests.length > 6) {
-      // Sanity cap. Six back-to-backs covers any plausible real case;
-      // larger values are almost certainly bugs in the caller.
-      return res.status(400).json({ message: 'A back-to-back group cannot exceed 6 sessions' });
-    }
 
-    const timeFormat24h = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
     const first = bookingRequests[0];
-    if (!timeFormat24h.test(first.time)) {
-      return res.status(400).json({ message: 'Invalid time format on first session. Use HH:mm (24-hour).' });
+    if (!first.location || !first.location.address) {
+      return res.status(400).json({ message: 'First session must include a complete location' });
     }
-    if (!first.location || !first.location.address || !Number.isFinite(first.location.lat) || !Number.isFinite(first.location.lng)) {
-      return res.status(400).json({ message: 'First session must include a complete location (address, lat, lng)' });
-    }
-
     const sameDate = bookingRequests.every(r => r.date === first.date);
     const sameAddress = bookingRequests.every(r =>
       r.location?.address === first.location.address &&
@@ -526,263 +517,55 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'All sessions in a group must share the same date and address' });
     }
 
-    // Resolve provider + client. CLIENT books for self (their providerId);
-    // PROVIDER books on behalf of a specified clientId.
-    const providerId = req.user.accountType === 'CLIENT'
-      ? req.user.providerId
-      : req.user._id;
-    const clientId = req.user.accountType === 'CLIENT'
-      ? req.user._id
-      : first.clientId;
-
-    if (!providerId || !clientId) {
+    // Resolve provider/client from auth context. CLIENT books for self;
+    // PROVIDER books on behalf of a target clientId in the request.
+    const provider = req.user.accountType === 'CLIENT' ? req.user.providerId : req.user._id;
+    const client = req.user.accountType === 'CLIENT' ? req.user._id : first.clientId;
+    if (!provider || !client) {
       return res.status(400).json({ message: 'Could not resolve provider/client for this booking' });
     }
-
-    // Provider booking on behalf — verify the client belongs to them.
     if (req.user.accountType === 'PROVIDER') {
-      const targetClient = await User.findById(clientId);
-      if (!targetClient || !targetClient.providerId?.equals(req.user._id)) {
+      const target = await User.findById(client);
+      if (!target || !target.providerId?.equals(req.user._id)) {
         return res.status(403).json({ message: 'Invalid client for this provider' });
       }
     }
 
-    const bookingDateLA = DateTime.fromISO(first.date, { zone: 'America/Los_Angeles' }).startOf('day');
-    const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
-    if (!bookingDateLA.isValid) {
-      return res.status(400).json({ message: 'Invalid date' });
-    }
+    // Hand off to the shared chain-booking service. It validates, fits,
+    // creates atomically, and rolls back on partial failure. We just
+    // surface its typed errors as appropriate HTTP responses.
+    const created = await createChainBookings({
+      provider,
+      client,
+      bookedBy: { name: req.user.profile?.fullName || req.user.email, userId: req.user._id },
+      date: first.date,
+      startTime: first.time,
+      location: first.location,
+      sessions: bookingRequests.map(r => ({
+        duration: r.duration,
+        serviceType: r.serviceType,
+        addons: r.addons,
+        pricing: r.pricing,
+        paymentMethod: r.paymentMethod,
+        packagePurchaseId: r.packagePurchaseId,
+        recipientType: r.recipientType,
+        recipientInfo: r.recipientInfo,
+      })),
+      status: 'pending',
+    });
 
-    // Cascade times from the first session forward, applying the standard
-    // settle buffer between siblings. The chain is locked here; per-session
-    // start/end derive from this.
-    const SETTLE_BUFFER = 15;
-    const sessionPlan = [];
-    {
-      let cursor = DateTime.fromFormat(`${localDateStr} ${first.time}`, 'yyyy-MM-dd HH:mm', { zone: 'America/Los_Angeles' });
-      for (let i = 0; i < bookingRequests.length; i++) {
-        const r = bookingRequests[i];
-        const dur = Number(r.duration);
-        if (!Number.isFinite(dur) || dur < 30 || dur > 180) {
-          return res.status(400).json({ message: `Session ${i + 1}: duration must be 30–180 minutes` });
-        }
-        const start = cursor;
-        const end = start.plus({ minutes: dur });
-        sessionPlan.push({ start, end, duration: dur, request: r });
-        cursor = end.plus({ minutes: SETTLE_BUFFER });
-      }
-    }
-
-    // Validate the WHOLE chain fits in an availability block. We do this
-    // by asking the slot engine for slots at the combined chain length
-    // and confirming the first start time is in the result.
-    const availabilityBlocks = await Availability.find({
-      provider: providerId,
-      localDate: localDateStr,
-    }).sort({ start: 1 });
-    if (availabilityBlocks.length === 0) {
-      return res.status(400).json({ message: 'No availability for the selected date' });
-    }
-
-    const existingBookings = await Booking.find({
-      provider: providerId,
-      date: { $gte: bookingDateLA.startOf('day').toUTC().toJSDate(), $lt: bookingDateLA.endOf('day').toUTC().toJSDate() },
-      status: { $ne: 'cancelled' }
-    }).sort({ startTime: 1 });
-
-    let homeBase = null;
-    const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
-    if (homeLoc) homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
-
-    const blockedTimes = await BlockedTime.find({ provider: providerId, localDate: localDateStr });
-
-    // Combined window the chain needs (sum of durations + (n-1) settle buffers).
-    const totalDurationWithBuffers = sessionPlan.reduce((acc, s, i) =>
-      acc + s.duration + (i < sessionPlan.length - 1 ? SETTLE_BUFFER : 0), 0);
-
-    let chainSlots = [];
-    for (const availability of availabilityBlocks) {
-      const slots = await getAvailableTimeSlots(
-        availability,
-        existingBookings,
-        first.location,
-        totalDurationWithBuffers,
-        SETTLE_BUFFER,
-        null, 0,
-        providerId, [],
-        homeBase, blockedTimes
-      );
-      chainSlots = chainSlots.concat(slots);
-    }
-
-    // Match by minute-of-day (integer), not formatted string. Eliminates
-    // any chance of an HH:mm formatting / timezone edge-case false negative
-    // — both sides reduce to the same numeric value regardless of how
-    // their string representations are produced.
-    const wantedMinute = (() => {
-      const [h, m] = first.time.split(':').map(Number);
-      return h * 60 + m;
-    })();
-    const chainSlotMinutes = chainSlots
-      .map(slot => {
-        const dt = DateTime.fromJSDate(slot).setZone('America/Los_Angeles');
-        return dt.hour * 60 + dt.minute;
-      })
-      .sort((a, b) => a - b);
-    const chainSlotMinuteSet = new Set(chainSlotMinutes);
-
-    if (!chainSlotMinuteSet.has(wantedMinute)) {
-      // Surface alternatives so the client can show actionable options
-      // instead of a dead-end "doesn't fit" message. Includes only times
-      // strictly within an hour either side of the user's pick to keep
-      // the suggestion list short and obviously relevant.
-      const minuteToLabel = (m) =>
-        `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-      const nearby = chainSlotMinutes
-        .filter(m => Math.abs(m - wantedMinute) <= 60)
-        .map(minuteToLabel);
-      const allAlternatives = chainSlotMinutes.map(minuteToLabel);
-
+    res.status(201).json(created);
+  } catch (error) {
+    if (error && error.code === 'CHAIN_DOES_NOT_FIT') {
       return res.status(400).json({
-        message: `This back-to-back chain (${totalDurationWithBuffers} min including buffers) doesn't fit at ${first.time}. ${
-          allAlternatives.length === 0
-            ? 'No start time today fits the full chain.'
-            : `Closest fits: ${nearby.length > 0 ? nearby.slice(0, 4).join(', ') : allAlternatives.slice(0, 4).join(', ')}.`
-        }`,
-        chainDurationMin: totalDurationWithBuffers,
-        alternatives: allAlternatives,
+        message: error.message,
+        chainDurationMin: error.chainDurationMin,
+        alternatives: error.alternatives,
       });
     }
-
-    // Per-session addon validation against the provider's configured addons.
-    const providerUser = await User.findById(providerId);
-    const providerAddons = providerUser?.providerProfile?.addons || [];
-    const activeAddonNames = providerAddons.filter(a => a.isActive).map(a => a.name);
-    for (let i = 0; i < bookingRequests.length; i++) {
-      const r = bookingRequests[i];
-      if (!Array.isArray(r.addons)) continue;
-      for (const addon of r.addons) {
-        if (activeAddonNames.length > 0 && !activeAddonNames.includes(addon.name)) {
-          return res.status(400).json({ message: `Session ${i + 1}: add-on "${addon.name}" is not offered` });
-        }
-        if (typeof addon.price !== 'number' || addon.price < 0) {
-          return res.status(400).json({ message: `Session ${i + 1}: invalid price for add-on "${addon.name}"` });
-        }
-      }
+    if (error && error.code === 'CHAIN_VALIDATION') {
+      return res.status(400).json({ message: error.message });
     }
-
-    // Generate the shared groupId for the chain.
-    const groupId = new mongoose.Types.ObjectId().toString();
-
-    // Build per-session draft objects, atomically reserve any package
-    // credits, then save bookings. On any failure: hard-delete what we
-    // already saved and return all package credits.
-    const created = [];
-    const reservedCredits = []; // [{ packageId, bookingId }]
-
-    try {
-      for (let i = 0; i < sessionPlan.length; i++) {
-        const { start, end, duration: dur, request: r } = sessionPlan[i];
-        const bookingObjectId = new mongoose.Types.ObjectId();
-
-        // Optional package redemption per session. Same atomic reserve
-        // pattern as the single-booking path.
-        let packageRedemption = null;
-        let paymentMethodFinal = r.paymentMethod || 'cash';
-        let paymentStatusFinal = 'unpaid';
-        let paidAtFinal = null;
-        if (r.packagePurchaseId) {
-          const reserved = await reservePackageCredit({
-            packageId: r.packagePurchaseId,
-            clientId,
-            providerId,
-            duration: dur,
-            bookingId: bookingObjectId,
-          });
-          if (!reserved) {
-            throw new Error(`Session ${i + 1}: package credit unavailable`);
-          }
-          reservedCredits.push({ packageId: r.packagePurchaseId, bookingId: bookingObjectId });
-          packageRedemption = { packagePurchase: reserved._id, redeemedAt: new Date() };
-          paymentMethodFinal = 'package';
-          paymentStatusFinal = 'paid';
-          paidAtFinal = new Date();
-        }
-
-        const booking = new Booking({
-          _id: bookingObjectId,
-          provider: providerId,
-          client: clientId,
-          date: bookingDateLA.toUTC().toJSDate(),
-          localDate: localDateStr,
-          startTime: start.toFormat('HH:mm'),
-          endTime: end.toFormat('HH:mm'),
-          duration: dur,
-          location: {
-            lat: first.location.lat,
-            lng: first.location.lng,
-            address: first.location.address,
-          },
-          ...(r.serviceType && {
-            serviceType: { id: r.serviceType.id, name: r.serviceType.name },
-          }),
-          ...(r.addons && {
-            addons: r.addons.map(a => ({
-              id: a.id,
-              name: a.name,
-              price: a.price,
-              extraTime: a.extraTime || 0,
-            })),
-          }),
-          ...(r.pricing && {
-            pricing: {
-              basePrice: r.pricing.basePrice || calculatePrice(dur),
-              addonsPrice: r.pricing.addonsPrice || 0,
-              totalPrice: r.pricing.totalPrice || calculatePrice(dur),
-            },
-          }),
-          paymentMethod: paymentMethodFinal,
-          paymentStatus: paymentStatusFinal,
-          paidAt: paidAtFinal,
-          ...(packageRedemption && { packageRedemption }),
-          recipientType: r.recipientType || 'self',
-          ...(r.recipientType === 'other' && r.recipientInfo && {
-            recipientInfo: {
-              name: r.recipientInfo.name,
-              phone: r.recipientInfo.phone,
-              email: r.recipientInfo.email || '',
-            },
-          }),
-          groupId,
-          isLastInGroup: i === sessionPlan.length - 1,
-          status: 'pending',
-          bookedBy: {
-            name: req.user.profile?.fullName || req.user.email,
-            userId: req.user._id,
-          },
-        });
-
-        await booking.save();
-        created.push(booking);
-      }
-
-      res.status(201).json(created);
-    } catch (chainErr) {
-      console.error('Bulk booking chain failed mid-flight; rolling back:', chainErr.message);
-      // Roll back: hard-delete already-created bookings and return reserved credits.
-      for (const b of created) {
-        try { await Booking.findByIdAndDelete(b._id); } catch (delErr) {
-          console.error(`Rollback failed to delete booking ${b._id}:`, delErr.message);
-        }
-      }
-      for (const rc of reservedCredits) {
-        try { await returnReservedCredit(rc); } catch (rcErr) {
-          console.error(`Rollback failed to return credit on ${rc.packageId}:`, rcErr.message);
-        }
-      }
-      return res.status(400).json({ message: chainErr.message || 'Could not create the back-to-back chain' });
-    }
-  } catch (error) {
     console.error('Bulk booking error:', error);
     res.status(500).json({ message: 'Bulk booking failed', error: error.message });
   }
@@ -1271,6 +1054,42 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       console.error('❌ Error sending cancellation email:', emailError);
     }
 
+    // Chain coupling: if this booking is part of a back-to-back chain
+    // (groupId is set — couple's massage / multi-recipient), always
+    // cascade-cancel its same-time siblings. Half-cancelling a couple's
+    // massage is virtually never what the user wants. This applies
+    // regardless of scope (one/following/all) — the chain is an atomic
+    // unit at the occurrence level.
+    let chainSiblingsCancelled = 0;
+    if (booking.groupId) {
+      try {
+        const chainSiblings = await Booking.find({
+          groupId: booking.groupId,
+          _id: { $ne: booking._id },
+          status: { $nin: ['cancelled', 'completed'] },
+        });
+        for (const sib of chainSiblings) {
+          sib.status = 'cancelled';
+          sib.cancelledAt = new Date();
+          sib.cancelledBy = req.user.accountType;
+          await sib.save();
+          if (sib.packageRedemption?.packagePurchase) {
+            await PackagePurchase.updateOne(
+              {
+                _id: sib.packageRedemption.packagePurchase,
+                'redemptions.booking': sib._id,
+                'redemptions.returnedAt': null,
+              },
+              { $set: { 'redemptions.$.returnedAt': new Date() } }
+            );
+          }
+          chainSiblingsCancelled += 1;
+        }
+      } catch (chainErr) {
+        console.error('Chain-sibling cancel failed:', chainErr.message);
+      }
+    }
+
     // Series scope expansion. If this booking belongs to a recurring
     // series and the caller asked to cancel siblings too, fan out:
     //   - scope=one (default)      → just this booking, already done
@@ -1340,6 +1159,7 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       message: 'Booking cancelled successfully',
       siblingsCancelled,
       seriesCancelled,
+      chainSiblingsCancelled,
     });
   } catch (error) {
     console.error('❌ Error cancelling booking:', error);

@@ -110,6 +110,59 @@ const RecurringSeriesSchema = new mongoose.Schema({
     email: { type: String },
   },
 
+  // Back-to-back chain support — when present, each occurrence
+  // materializes a chain of bookings (first session uses the top-level
+  // duration/serviceType/addons/etc; each entry here adds another
+  // booking right after, with the standard settle buffer between them).
+  // Empty (default) = single-session series. Non-empty = couple's
+  // massage / multi-recipient standing.
+  //
+  // Schema mirrors what the back-to-back booking form collects, with
+  // its own per-session pricing/payment so each row in the chain can
+  // be billed independently if needed (e.g. each spouse pays their
+  // own card). For v1 the entire chain inherits the first session's
+  // payment method at materialization time; per-session payment is
+  // tracked in the v2 list.
+  additionalSessions: [{
+    duration: {
+      type: Number,
+      required: true,
+      min: 30,
+      max: 180,
+    },
+    serviceType: {
+      id: { type: String },
+      name: { type: String },
+    },
+    addons: [{
+      id: { type: String },
+      name: { type: String },
+      price: { type: Number },
+      extraTime: { type: Number, default: 0 },
+    }],
+    pricing: {
+      basePrice: { type: Number },
+      addonsPrice: { type: Number },
+      totalPrice: { type: Number },
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cash', 'zelle', 'venmo', 'card', 'package'],
+      default: 'cash',
+    },
+    packagePurchase: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PackagePurchase',
+      default: null,
+    },
+    recipientType: { type: String, enum: ['self', 'other'], default: 'other' },
+    recipientInfo: {
+      name: { type: String },
+      phone: { type: String },
+      email: { type: String },
+    },
+  }],
+
   // Series lifecycle. v1 only ever uses 'active' or 'cancelled'.
   // 'paused' is reserved for v2 (skip a date range without ending).
   status: {

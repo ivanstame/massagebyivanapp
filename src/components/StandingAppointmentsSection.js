@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { DateTime } from 'luxon';
 import {
-  Repeat, Plus, AlertCircle, CheckCircle, Loader2, XCircle,
+  Repeat, Plus, AlertCircle, CheckCircle, Loader2, XCircle, Trash2, Users,
 } from 'lucide-react';
 import { DEFAULT_TZ } from '../utils/timeConstants';
 
@@ -163,6 +163,7 @@ const SeriesRow = ({ series, onCancel, working }) => {
   const nextLabel = series.nextOccurrence
     ? DateTime.fromFormat(series.nextOccurrence.date, 'yyyy-MM-dd').toFormat('EEE, MMM d')
     : null;
+  const chainCount = (series.additionalSessions?.length || 0) + 1;
 
   return (
     <div className={`p-3 rounded-lg border ${isCancelled ? 'bg-paper-deep border-line-soft opacity-70' : 'bg-paper-elev border-line'}`}>
@@ -178,6 +179,11 @@ const SeriesRow = ({ series, onCancel, working }) => {
           </div>
           <p className="text-xs text-slate-500">
             {intervalLabel} · {series.duration} min
+            {chainCount > 1 && (
+              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-paper-deep border border-line text-[10px] font-medium text-slate-700">
+                <Users className="w-3 h-3" /> {chainCount} sessions
+              </span>
+            )}
             {series.endDate && ` · until ${DateTime.fromFormat(series.endDate, 'yyyy-MM-dd').toFormat('MMM d, yyyy')}`}
             {series.occurrenceLimit && ` · ${series.occurrenceLimit} occurrences`}
           </p>
@@ -229,6 +235,9 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
   const [occurrenceLimit, setOccurrenceLimit] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState(defaultPaymentMethod);
   const [submitting, setSubmitting] = useState(false);
+  // Back-to-back chain — each entry is another session that runs after
+  // the primary at the same address (couple's-massage standing).
+  const [additionalSessions, setAdditionalSessions] = useState([]);
 
   // Re-default when provider services arrive (initial mount race).
   useEffect(() => {
@@ -284,6 +293,15 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
 
     const tier = durationsAvailable.find(d => d.duration === Number(duration)) || durationsAvailable[0];
 
+    // Sanity-check additional sessions before sending.
+    for (let i = 0; i < additionalSessions.length; i++) {
+      const s = additionalSessions[i];
+      if (!s.recipientName?.trim()) {
+        onError(`Recipient name is required for additional session ${i + 1}.`);
+        return;
+      }
+    }
+
     const payload = {
       clientId: client._id,
       startDate,
@@ -298,6 +316,21 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
       pricing: { basePrice: tier.price, addonsPrice: 0, totalPrice: tier.price },
       paymentMethod,
       recipientType: 'self',
+      additionalSessions: additionalSessions.map(s => {
+        const t = durationsAvailable.find(d => d.duration === Number(s.duration)) || durationsAvailable[0];
+        return {
+          duration: Number(s.duration),
+          serviceType: { id: 'package', name: t.label },
+          addons: [],
+          pricing: { basePrice: t.price, addonsPrice: 0, totalPrice: t.price },
+          paymentMethod,
+          recipientType: 'other',
+          recipientInfo: {
+            name: s.recipientName.trim(),
+            phone: s.recipientPhone?.trim() || '',
+          },
+        };
+      }),
     };
 
     setSubmitting(true);
@@ -432,6 +465,95 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
           <p className="text-xs text-slate-400 mt-1">
             Each occurrence inherits this. They can each be marked paid individually after the visit.
           </p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium text-slate-700 inline-flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />
+              Back-to-back at this address
+            </label>
+            <button
+              type="button"
+              onClick={() => setAdditionalSessions(prev => [
+                ...prev,
+                { duration: defaultDuration, recipientName: '', recipientPhone: '' },
+              ])}
+              className="text-xs text-[#B07A4E] hover:text-[#8A5D36] inline-flex items-center gap-0.5"
+            >
+              <Plus className="w-3 h-3" />
+              Add session
+            </button>
+          </div>
+          {additionalSessions.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              Optional. Add another session if this is a couple's massage or multi-recipient standing.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {additionalSessions.map((s, idx) => (
+                <div key={idx} className="p-2 bg-paper-elev rounded border border-line space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-slate-700">Session {idx + 2}</p>
+                    <button
+                      type="button"
+                      onClick={() => setAdditionalSessions(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-xs text-red-600 hover:text-red-700 inline-flex items-center gap-0.5"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">Duration</label>
+                      <select
+                        value={s.duration}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setAdditionalSessions(prev => prev.map((x, i) => i === idx ? { ...x, duration: v } : x));
+                        }}
+                        className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                      >
+                        {durationsAvailable.map(d => (
+                          <option key={d.duration} value={d.duration}>{d.label} (${d.price})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-0.5">Recipient name</label>
+                      <input
+                        type="text"
+                        value={s.recipientName}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setAdditionalSessions(prev => prev.map((x, i) => i === idx ? { ...x, recipientName: v } : x));
+                        }}
+                        placeholder="e.g. Spouse"
+                        className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-0.5">Recipient phone (optional)</label>
+                    <input
+                      type="tel"
+                      value={s.recipientPhone}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAdditionalSessions(prev => prev.map((x, i) => i === idx ? { ...x, recipientPhone: v } : x));
+                      }}
+                      placeholder="(optional)"
+                      className="w-full border border-slate-300 rounded px-2 py-1 text-xs focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="text-[11px] text-slate-400">
+                Each session runs back-to-back with a 15-min settle buffer between. The whole chain repeats on the same cadence.
+              </p>
+            </div>
+          )}
         </div>
 
         {!defaultAddress && (

@@ -478,6 +478,16 @@ const AppointmentDetail = () => {
                   Are you sure you want to cancel this appointment? This cannot be undone.
                 </p>
 
+                {/* Chain disclosure — if this booking is part of a back-
+                    to-back chain (couple's massage / multi-recipient),
+                    same-time siblings always cancel together. The server
+                    enforces this; we just surface it so the user knows. */}
+                {booking.groupId && (
+                  <div className="mb-3 p-2 bg-paper-deep border border-line rounded text-xs text-slate-700">
+                    This is part of a back-to-back chain. The other session{booking.isLastInGroup ? '' : 's'} at this address will be cancelled too.
+                  </div>
+                )}
+
                 {/* Series-scope picker — only shown when this booking is
                     part of a recurring series. Default 'one' so the
                     behavior matches the old single-cancel flow. */}
