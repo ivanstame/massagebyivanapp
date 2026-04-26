@@ -6,7 +6,7 @@ import api from '../services/api';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
-import { ArrowLeft, ArrowRight, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User as UserIcon, Plus } from 'lucide-react';
 
 // Import the new components
 import CalendarSection from './BookingFormComponents/CalendarSection';
@@ -20,6 +20,12 @@ import BookingConfirmationModal from './BookingFormComponents/BookingConfirmatio
 import PaymentMethodSelector from './BookingFormComponents/PaymentMethodSelector';
 import StripeCheckout from './BookingFormComponents/StripeCheckout';
 import ClientPickerModal from './ClientPickerModal';
+import AdditionalSessionRow from './BookingFormComponents/AdditionalSessionRow';
+
+// Standard inter-session settle buffer. Mirrors the server-side constant
+// in routes/bookings.js so the time cascade computed on the client matches
+// what the server schedules.
+const SETTLE_BUFFER_MIN = 15;
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();
@@ -59,6 +65,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [redeemablePackages, setRedeemablePackages] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
+
+  // Back-to-back chain — additional sessions stack onto the first booking.
+  // Each entry mirrors a subset of the main form's state; the time
+  // cascades automatically (so no per-row time picker). When this is
+  // empty (default), the form behaves as a normal single booking.
+  const [additionalSessions, setAdditionalSessions] = useState([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -267,12 +279,28 @@ const BookingForm = ({ googleMapsLoaded }) => {
     const dateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
     const formattedDate = dateLA.toFormat('yyyy-MM-dd');
 
-    // Calculate total duration including add-on extra time
+    // Calculate total duration including add-on extra time. When the user
+    // has stacked additional back-to-back sessions, sum the entire chain
+    // (per-session duration + per-session addon extra time) plus the
+    // standard settle buffer between siblings, so the slot picker only
+    // surfaces start times where the whole chain fits.
     const extraTime = selectedAddons.reduce((sum, name) => {
       const addon = availableAddons.find(a => a.name === name);
       return sum + (addon?.extraTime || 0);
     }, 0);
-    const totalDuration = selectedDuration + extraTime;
+    const firstSessionDuration = selectedDuration + extraTime;
+
+    const additionalDurations = additionalSessions.map(s => {
+      const sExtra = (s.addons || []).reduce((sum, name) => {
+        const a = availableAddons.find(x => x.name === name);
+        return sum + (a?.extraTime || 0);
+      }, 0);
+      return (s.duration || 0) + sExtra;
+    });
+
+    const totalDuration = firstSessionDuration
+      + additionalDurations.reduce((acc, d) => acc + d, 0)
+      + additionalSessions.length * SETTLE_BUFFER_MIN;
 
     try {
       const response = await api.get(`/api/availability/available/${formattedDate}`, {
@@ -311,7 +339,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     if (fullAddress && selectedDuration && selectedDate && (provider || user?.accountType === 'PROVIDER')) {
       fetchAvailableSlots();
     }
-  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location]);
+  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions]);
 
   // Handle booking submission
   const handleSubmit = async () => {
@@ -403,9 +431,73 @@ const BookingForm = ({ googleMapsLoaded }) => {
             }),
       };
 
-      const response = await bookingService.createBooking(bookingData);
-      if (!response || !response._id) {
-        throw new Error('Invalid booking response');
+      // Single booking vs. back-to-back chain: when additional sessions
+      // are configured, build a bulk payload (the time cascade was already
+      // computed for display; the server reproduces it from the chain).
+      let response;
+      if (additionalSessions.length === 0) {
+        response = await bookingService.createBooking(bookingData);
+        if (!response || !response._id) throw new Error('Invalid booking response');
+      } else {
+        // Build per-session entries for the bulk endpoint. The server
+        // re-derives times from the first session's time + cumulative
+        // durations + buffer, so we don't include `time` on additional
+        // sessions — and the server enforces same-date / same-address
+        // / addon validity.
+        const buildAddonDetails = (selectedNames) =>
+          selectedNames.map(name => availableAddons.find(a => a.name === name)).filter(Boolean);
+
+        const sessionsPayload = [
+          {
+            ...bookingData,
+            // groupId is generated server-side; we don't pass one.
+          },
+          ...additionalSessions.map(s => {
+            const addonDetails = buildAddonDetails(s.addons || []);
+            const sExtraTime = addonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
+            const sAddonsPrice = addonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
+            const tier = durationOptions.find(p => p.duration === s.duration);
+            const sBasePrice = tier?.price || 0;
+            const sLabel = (tier?.label && tier.label.trim()) || `${s.duration} min service`;
+            return {
+              date: bookingDateStr,
+              duration: s.duration,
+              location: bookingData.location,
+              serviceType: { id: 'package', name: sLabel },
+              addons: addonDetails.map(a => ({
+                id: a.name.toLowerCase().replace(/\s+/g, '-'),
+                name: a.name,
+                price: a.price,
+                extraTime: a.extraTime || 0,
+              })),
+              pricing: {
+                basePrice: sBasePrice,
+                addonsPrice: sAddonsPrice,
+                totalPrice: sBasePrice + sAddonsPrice,
+              },
+              paymentMethod: selectedPaymentMethod, // chain shares first session's method in v1
+              recipientType: s.recipientType,
+              ...(s.recipientType === 'other' && {
+                recipientInfo: {
+                  name: s.recipientInfo?.name || '',
+                  phone: s.recipientInfo?.phone || '',
+                  email: s.recipientInfo?.email || '',
+                },
+              }),
+            };
+          }),
+        ];
+
+        // The /bulk endpoint computes times for sessions 2+. Drop the
+        // unused `time` from those entries; the first session keeps its
+        // explicit time (which is what the cascade pivots from).
+        const apiResp = await bookingService.createBulkBookings(sessionsPayload);
+        if (!Array.isArray(apiResp) || apiResp.length === 0) {
+          throw new Error('Invalid bulk booking response');
+        }
+        // Treat the first booking as the primary for downstream UI (success
+        // modal, Stripe redirect, etc.).
+        response = apiResp[0];
       }
 
       setNewBookingId(response._id);
@@ -439,12 +531,24 @@ const BookingForm = ({ googleMapsLoaded }) => {
       : recipientType === 'self' ||
         (recipientType === 'other' && recipientInfo.name && recipientInfo.phone);
 
+    // Each additional session in the chain must have a duration and, if
+    // recipient is "other," a name + phone. Self-recipient back-to-backs
+    // (split-the-2-hour case) need no extra info.
+    const additionalsOk = additionalSessions.every(s => {
+      if (!s.duration) return false;
+      if (s.recipientType === 'other') {
+        return !!(s.recipientInfo?.name && s.recipientInfo?.phone);
+      }
+      return true;
+    });
+
     return (
       selectedDate &&
       fullAddress &&
       selectedTime &&
       selectedDuration &&
       isRecipientComplete &&
+      additionalsOk &&
       (!isProviderBooking || !!targetClient?._id)
     );
   };
@@ -459,6 +563,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setSelectedPaymentMethod(acceptedPaymentMethods[0] || 'cash');
     setRecipientType('self');
     setRecipientInfo({ name: '', phone: '', email: '' });
+    setAdditionalSessions([]);
     setBookingSuccess(false);
     window.scrollTo(0, 0);
   };
@@ -601,6 +706,91 @@ const BookingForm = ({ googleMapsLoaded }) => {
             isComplete={selectedTime !== null}
             selectedDate={selectedDate}
           />
+
+          {/* Back-to-back chain — only surfaced after a time is picked, so
+              the addition is a deliberate "I want another session right
+              after this one" decision rather than clutter at first sight.
+              Each additional session inherits the address; the time
+              auto-cascades from the first session + standard buffer. */}
+          {selectedTime && selectedDuration && (
+            <div className="space-y-3">
+              {additionalSessions.length > 0 && (
+                <div className="bg-paper-deep border border-line rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Back-to-back at this address
+                  </p>
+                  {additionalSessions.map((session, i) => {
+                    // Cascade: each session's start = previous end + buffer.
+                    // Compute from the first selected slot forward.
+                    const firstStartIso = selectedTime?.iso;
+                    if (!firstStartIso) return null;
+                    const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
+                    const firstExtraTime = selectedAddons.reduce((sum, name) => {
+                      const a = availableAddons.find(x => x.name === name);
+                      return sum + (a?.extraTime || 0);
+                    }, 0);
+                    let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + SETTLE_BUFFER_MIN });
+                    for (let j = 0; j < i; j++) {
+                      const earlier = additionalSessions[j];
+                      const earlierExtra = (earlier.addons || []).reduce((sum, name) => {
+                        const a = availableAddons.find(x => x.name === name);
+                        return sum + (a?.extraTime || 0);
+                      }, 0);
+                      cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + SETTLE_BUFFER_MIN });
+                    }
+                    const thisExtra = (session.addons || []).reduce((sum, name) => {
+                      const a = availableAddons.find(x => x.name === name);
+                      return sum + (a?.extraTime || 0);
+                    }, 0);
+                    const thisEnd = cursor.plus({ minutes: (session.duration || 0) + thisExtra });
+                    return (
+                      <AdditionalSessionRow
+                        key={i}
+                        index={i}
+                        session={session}
+                        durationOptions={durationOptions}
+                        availableAddons={availableAddons}
+                        computedStart={cursor.toFormat('h:mm a')}
+                        computedEnd={thisEnd.toFormat('h:mm a')}
+                        onChange={(next) => {
+                          setAdditionalSessions(prev => prev.map((s, idx) => idx === i ? next : s));
+                        }}
+                        onRemove={() => {
+                          setAdditionalSessions(prev => prev.filter((_, idx) => idx !== i));
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (additionalSessions.length >= 5) return;
+                  setAdditionalSessions(prev => [
+                    ...prev,
+                    {
+                      recipientType: 'other',
+                      recipientInfo: { name: '', phone: '', email: '' },
+                      duration: durationOptions[0]?.duration || 60,
+                      addons: [],
+                    },
+                  ]);
+                }}
+                disabled={additionalSessions.length >= 5}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3
+                  border-2 border-dashed border-slate-300 text-slate-600 rounded-lg
+                  hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors
+                  disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                {additionalSessions.length === 0
+                  ? 'Add another session right after at this address'
+                  : 'Add one more session'}
+              </button>
+            </div>
+          )}
 
           {/* Error display */}
           {error && (

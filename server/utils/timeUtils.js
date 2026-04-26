@@ -6,20 +6,30 @@ const LuxonService = require('../../src/utils/LuxonService');
 const { calculateTravelTime } = require('../services/mapService');
 
 /**
- * HELPER: Calculate buffer time between bookings based on group ID and location
+ * HELPER: Calculate buffer between bookings.
+ *
+ * Two distinct things contribute to the gap between adjacent appointments:
+ *   - Travel time:    handled in validateSlotsByBoundary via getCachedTravelTime,
+ *                     which returns 0 when both bookings share an address.
+ *   - Settle buffer:  the post-session reset (sheets, payment, transition,
+ *                     provider catching their breath). Configured per-provider,
+ *                     defaults to 15 min. Always applies between any two
+ *                     adjacent bookings, including same-address siblings in
+ *                     a back-to-back group — there's still a recipient
+ *                     hand-off, even when the table doesn't move.
+ *
+ * The earlier behavior collapsed the buffer to 0 for same-group + same-
+ * address pairs, which conflated travel and settle. Keep settle buffer
+ * always; trust the boundary engine to zero out travel where appropriate.
  */
 const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, allBookings = []) => {
   const effectiveBuffer = typeof defaultBuffer === 'number' ? defaultBuffer : 15;
   if (!booking1 || !booking2) return effectiveBuffer;
 
-  if (
-    booking1.groupId && booking2.groupId &&
-    booking1.groupId === booking2.groupId &&
-    booking1.location?.address === booking2.location?.address
-  ) {
-    return 0;
-  }
-
+  // Departure-buffer carrier: when the trailing booking flagged extra
+  // departure time at the end of a group (e.g. provider needs N×buffer
+  // to break down equipment after the last session), preserve that
+  // additional time. Rare but kept for parity with existing data.
   if (booking1.groupId && booking1.isLastInGroup && booking1.extraDepartureBuffer) {
     const groupSize = allBookings.filter(b => b.groupId === booking1.groupId).length;
     return effectiveBuffer * groupSize + booking1.extraDepartureBuffer;
