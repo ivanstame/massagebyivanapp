@@ -28,7 +28,14 @@ const BlockedTimeSchema = new mongoose.Schema({
     lng: { type: Number, default: null }
   },
   // Provider has chosen to ignore this blocked time (for Google Calendar events)
-  overridden: { type: Boolean, default: false }
+  overridden: { type: Boolean, default: false },
+  // Optional human-readable note. Surfaced in the day view so the
+  // provider remembers why the slot is held ("Doctor", "Family thing").
+  reason: { type: String, default: '', trim: true, maxlength: 200 },
+  // True for "block the entire day" — schema-level marker so the UI can
+  // render "All day" instead of "12:00 AM – 11:59 PM" and so callers can
+  // easily distinguish from a deliberately wide manual range.
+  allDay: { type: Boolean, default: false }
 }, { timestamps: true });
 
 BlockedTimeSchema.pre('save', function(next) {

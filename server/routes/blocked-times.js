@@ -1,32 +1,53 @@
 const express = require('express');
 const router = express.Router();
 const BlockedTime = require('../models/BlockedTime');
-const Availability = require('../models/Availability');
 const Booking = require('../models/Booking');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { DateTime } = require('luxon');
-const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
+const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
 
 // POST / — Create a blocked time
+//
+// Blocks live INDEPENDENTLY of availability — they're a "do not book me"
+// signal that suppresses slots wherever it lands, whether or not the
+// provider has set availability on that day. This matches how Google
+// Calendar–synced blocks already work and means a provider can mark a day
+// off (or part of a day) without first having to declare working hours.
+//
+// Modes:
+//   - allDay: true               — midnight-to-midnight LA on `date`
+//   - explicit start/end (HH:mm) — within a single LA day
+//
+// Optional `reason` is a short human-readable note shown in the day view.
 router.post('/', ensureAuthenticated, async (req, res) => {
   try {
     if (!['PROVIDER', 'ADMIN'].includes(req.user.accountType)) {
       return res.status(403).json({ message: 'Only providers can block off time' });
     }
 
-    const { date, start, end } = req.body;
-    if (!date || !start || !end) {
-      return res.status(400).json({ message: 'date, start, and end are required' });
+    const { date, start, end, allDay, reason } = req.body;
+    if (!date) {
+      return res.status(400).json({ message: 'date is required' });
     }
 
-    // Parse times in LA timezone
-    const startLA = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-    const endLA = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    let startLA, endLA;
+    if (allDay) {
+      // Midnight to one minute before next midnight, both in LA. Clean
+      // single-day boundary that won't accidentally bleed into the
+      // adjacent day's slot pool.
+      startLA = DateTime.fromFormat(`${date} 00:00`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+      endLA = DateTime.fromFormat(`${date} 23:59`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    } else {
+      if (!start || !end) {
+        return res.status(400).json({ message: 'start and end are required when not allDay' });
+      }
+      startLA = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+      endLA = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    }
 
     if (!startLA.isValid || !endLA.isValid) {
       return res.status(400).json({ message: 'Invalid date or time format' });
     }
-
     if (endLA <= startLA) {
       return res.status(400).json({ message: 'End time must be after start time' });
     }
@@ -35,28 +56,15 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const endUTC = endLA.toUTC().toJSDate();
     const providerId = req.user._id;
 
-    // Validate block falls within an existing availability block
-    const containingAvailability = await Availability.findOne({
-      provider: providerId,
-      localDate: date,
-      start: { $lte: startUTC },
-      end: { $gte: endUTC }
-    });
-
-    if (!containingAvailability) {
-      return res.status(400).json({
-        message: 'Blocked time must fall within an existing availability block'
-      });
-    }
-
-    // Check for overlapping bookings
+    // Bookings that already exist still take precedence — refuse to block
+    // a time the provider has already promised to a client.
     const overlappingBooking = await Booking.findOne({
       provider: providerId,
+      localDate: date,
       status: { $nin: ['cancelled', 'completed'] },
-      startTime: { $lt: endUTC },
-      endTime: { $gt: startUTC }
+      startTime: { $lt: endLA.toFormat('HH:mm') },
+      endTime: { $gt: startLA.toFormat('HH:mm') }
     });
-
     if (overlappingBooking) {
       return res.status(400).json({
         message: 'Cannot block time that overlaps with an existing booking',
@@ -68,7 +76,9 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       });
     }
 
-    // Check for overlapping manual blocked times (reject)
+    // Two manual blocks shouldn't overlap on the same day — collapse them
+    // into one or reject. We reject so the provider sees the conflict
+    // explicitly rather than having state silently merged.
     const overlappingManual = await BlockedTime.findOne({
       provider: providerId,
       localDate: date,
@@ -85,7 +95,9 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const blockedTime = new BlockedTime({
       provider: providerId,
       start: startUTC,
-      end: endUTC
+      end: endUTC,
+      allDay: !!allDay,
+      reason: reason ? String(reason).trim().slice(0, 200) : ''
     });
 
     await blockedTime.save();

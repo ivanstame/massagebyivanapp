@@ -585,10 +585,8 @@ const formatTime = useCallback((time) => {
                 setBlockOffTargetBlock(null);
                 setBlockOffModalOpen(true);
               }}
-              disabled={availabilityBlocks.length === 0}
               className="inline-flex items-center px-4 py-2 bg-slate-600 text-white
-                rounded-lg hover:bg-slate-700 transition-colors
-                disabled:opacity-50 disabled:cursor-not-allowed"
+                rounded-lg hover:bg-slate-700 transition-colors"
             >
               <Ban className="w-5 h-5 mr-2" />
               Block Off Time
@@ -811,19 +809,17 @@ const formatTime = useCallback((time) => {
           
           {/* Floating Buttons */}
           <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3">
-            {availabilityBlocks.length > 0 && (
-              <button
-                onClick={() => {
-                  setBlockOffTargetBlock(null);
-                  setBlockOffModalOpen(true);
-                }}
-                className="bg-slate-600 text-white p-3 rounded-full shadow-lg flex items-center justify-center
-                  hover:bg-slate-700 transition-colors duration-200"
-                aria-label="Block Off Time"
-              >
-                <Ban className="w-6 h-6" />
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setBlockOffTargetBlock(null);
+                setBlockOffModalOpen(true);
+              }}
+              className="bg-slate-600 text-white p-3 rounded-full shadow-lg flex items-center justify-center
+                hover:bg-slate-700 transition-colors duration-200"
+              aria-label="Block Off Time"
+            >
+              <Ban className="w-6 h-6" />
+            </button>
             <button
               onClick={() => setIsModalOpen(true)}
               className="bg-[#B07A4E] text-white p-3 rounded-full shadow-lg flex items-center justify-center
