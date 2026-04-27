@@ -234,7 +234,7 @@ const ProviderDashboard = () => {
               <div className="av-meta text-ink-3 mb-3">Getting around</div>
               <div className="flex flex-col gap-2">
                 <Link to="/provider/schedule-template" className="text-[13.5px] text-ink hover:text-accent transition flex items-center justify-between">
-                  Weekly template <ArrowRight className="w-3 h-3" />
+                  Weekly hours <ArrowRight className="w-3 h-3" />
                 </Link>
                 <Link to="/provider/locations" className="text-[13.5px] text-ink hover:text-accent transition flex items-center justify-between">
                   Locations <ArrowRight className="w-3 h-3" />

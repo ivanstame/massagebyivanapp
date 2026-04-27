@@ -182,7 +182,7 @@ const WeeklyTemplateEditor = () => {
   if (loading) {
     return (
       <div className="pt-16 flex items-center justify-center min-h-[50vh]">
-        <div className="text-slate-500">Loading schedule template...</div>
+        <div className="text-slate-500">Loading your weekly hours...</div>
       </div>
     );
   }
@@ -191,9 +191,10 @@ const WeeklyTemplateEditor = () => {
     <div className="pt-16">
       <div className="max-w-2xl mx-auto p-4">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Weekly Schedule Template</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Weekly hours</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Set your recurring weekly availability and anchor locations.
+            Set the hours you typically work each day. The Availability page
+            uses this as the default and lets you adjust specific dates.
           </p>
         </div>
 
