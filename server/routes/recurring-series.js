@@ -499,35 +499,37 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     series.cancelledBy = 'PROVIDER';
     await series.save();
 
-    let cancelledOccurrences = 0;
+    // Hard-delete future, not-yet-happened, not-individually-cancelled
+    // occurrences. The series doc itself preserves the audit trail
+    // (status, cancelledAt, cancelledBy). Past occurrences and any
+    // future occurrences that were already individually cancelled stay
+    // — those are real client-history events, not cascade noise.
+    let occurrencesDeleted = 0;
     if (req.query.keepBookings !== 'true') {
-      // Soft-cancel future occurrences. Past occurrences (already
-      // happened) are left as historical record.
       const todayStr = DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
       const future = await Booking.find({
         series: series._id,
-        localDate: { $gte: todayStr },
+        localDate: { $gt: todayStr },
         status: { $nin: ['cancelled', 'completed'] },
       });
       for (const b of future) {
-        b.status = 'cancelled';
-        b.cancelledAt = new Date();
-        b.cancelledBy = 'PROVIDER';
-        await b.save();
-        // Return any package credits this occurrence had reserved.
+        // Pull any package redemption rows pointing at this booking — the
+        // booking is going away, so the redemption row would orphan.
         if (b.packageRedemption?.packagePurchase) {
-          await markRedemptionReturned({
+          await returnReservedCredit({
             packageId: b.packageRedemption.packagePurchase,
             bookingId: b._id,
           });
         }
-        cancelledOccurrences += 1;
+        await Booking.deleteOne({ _id: b._id });
+        occurrencesDeleted += 1;
       }
     }
 
     res.json({
       message: 'Series cancelled',
-      cancelledOccurrences,
+      occurrencesDeleted,
+      cancelledOccurrences: occurrencesDeleted, // back-compat
     });
   } catch (err) {
     console.error('Error cancelling series:', err);

@@ -74,8 +74,9 @@ const StandingAppointmentsSection = ({ client, clientId }) => {
 
   const handleCancelSeries = async (s) => {
     if (!window.confirm(
-      'Cancel this standing appointment?\n\n' +
-      'All upcoming occurrences will be cancelled. Past appointments stay on the books as history.'
+      'End this standing appointment?\n\n' +
+      'All upcoming occurrences will be removed from the calendar. ' +
+      'Past appointments and any individual cancellations stay as history.'
     )) return;
     try {
       setWorking(s._id);
@@ -134,22 +135,31 @@ const StandingAppointmentsSection = ({ client, clientId }) => {
         />
       )}
 
+      {/* Only render active standing arrangements. A cancelled series is
+          a policy that's been ended — keeping it pinned here would mislead
+          the provider into thinking there's still a relationship to manage.
+          The series record itself stays in the DB for audit, but the UI
+          treats this section as "what's currently in effect." */}
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>
-      ) : series.length === 0 && !showCreate ? (
-        <p className="text-sm text-slate-500">No standing appointments yet.</p>
-      ) : (
-        <div className="space-y-2 mt-3">
-          {series.map(s => (
-            <SeriesRow
-              key={s._id}
-              series={s}
-              onCancel={() => handleCancelSeries(s)}
-              working={working === s._id}
-            />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        const active = series.filter(s => s.status !== 'cancelled');
+        if (active.length === 0 && !showCreate) {
+          return <p className="text-sm text-slate-500">No standing appointments yet.</p>;
+        }
+        return (
+          <div className="space-y-2 mt-3">
+            {active.map(s => (
+              <SeriesRow
+                key={s._id}
+                series={s}
+                onCancel={() => handleCancelSeries(s)}
+                working={working === s._id}
+              />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 };

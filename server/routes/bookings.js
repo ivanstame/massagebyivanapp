@@ -1050,7 +1050,24 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     //                                un-cancelled occurrence (past not touched)
     // Sibling cancellations are silent (no SMS/email per occurrence) so the
     // user isn't spammed; the parent cancel's notification covers the action.
-    let siblingsCancelled = 0;
+    // Series-scope expansion. Cancelling a series outright (scope='all' or
+    // 'following') is a policy-level action — it ends the standing
+    // arrangement, not 12 separate appointments. So instead of soft-
+    // cancelling every future occurrence (12 dead rows in the DB,
+    // cluttering UIs forever), we **hard-delete** them. The series doc
+    // itself keeps status='cancelled' + cancelledAt/By as the audit trail
+    // ("standing arrangement ended on X by Y"). The triggering booking
+    // (this one) stays soft-cancelled — it carries the moment the
+    // decision was made.
+    //
+    // What we keep:
+    //   - Past occurrences (localDate ≤ today) — those are real history.
+    //   - Future occurrences already individually cancelled before this
+    //     point — those represent specific client decisions, not cascade.
+    //
+    // What we delete (only via this scope expansion):
+    //   - Future, non-cancelled, non-completed occurrences in the series.
+    let siblingsDeleted = 0;
     let seriesCancelled = false;
     const scope = req.query.scope;
     if (booking.series && (scope === 'following' || scope === 'all')) {
@@ -1058,36 +1075,35 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
         const RecurringSeries = require('../models/RecurringSeries');
         const series = await RecurringSeries.findById(booking.series);
 
-        // Authorization: only the provider or this booking's client can
-        // affect siblings. The DELETE has already verified the user is on
-        // this booking, so "following/all" cancellations against siblings
-        // they own (same provider, or as client of this provider) are OK.
         if (series) {
+          const todayStr = DateTime.now().setZone('America/Los_Angeles').toFormat('yyyy-MM-dd');
           const siblingFilter = {
             series: series._id,
             _id: { $ne: booking._id },
             status: { $nin: ['cancelled', 'completed'] },
+            localDate: { $gt: todayStr }, // future-dated only
           };
           if (scope === 'following') {
-            // "From this date forward" — same localDate counts as following
-            // since the parent already covers the current occurrence.
-            siblingFilter.localDate = { $gt: booking.localDate };
+            // "From this date forward" — sibling must be strictly after
+            // the triggering booking's localDate (parent covers itself).
+            siblingFilter.localDate = {
+              $gt: booking.localDate > todayStr ? booking.localDate : todayStr,
+            };
           }
 
           const siblings = await Booking.find(siblingFilter);
           for (const sib of siblings) {
-            sib.status = 'cancelled';
-            sib.cancelledAt = new Date();
-            sib.cancelledBy = req.user.accountType;
-            await sib.save();
-            // Return any package credit reserved by the sibling.
+            // Pull (not just mark-returned) any package redemption rows
+            // referencing this booking — there'll be no booking left for
+            // the redemption to point at.
             if (sib.packageRedemption?.packagePurchase) {
-              await markRedemptionReturned({
+              await returnReservedCredit({
                 packageId: sib.packageRedemption.packagePurchase,
                 bookingId: sib._id,
               });
             }
-            siblingsCancelled += 1;
+            await Booking.deleteOne({ _id: sib._id });
+            siblingsDeleted += 1;
           }
 
           if (scope === 'all' && series.status !== 'cancelled') {
@@ -1102,6 +1118,7 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
         console.error('Series-scope cancel failed:', scopeErr.message);
       }
     }
+    const siblingsCancelled = siblingsDeleted; // back-compat field name
 
     res.json({
       message: 'Booking cancelled successfully',
