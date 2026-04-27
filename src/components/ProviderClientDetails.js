@@ -6,7 +6,7 @@ import {
   AlertCircle, MessageSquare, FileText,
   MoreHorizontal, Trash2, Edit, DollarSign,
   CheckCircle, Clock8, BarChart2, StickyNote, CalendarPlus,
-  Send, Copy, Loader2
+  Send, Copy, Loader2, ChevronDown, ChevronRight, Repeat
 } from 'lucide-react';
 import axios from 'axios';
 import moment from 'moment-timezone';
@@ -523,84 +523,244 @@ const ProviderClientDetails = () => {
         </div>
 
         {/* Appointments Section */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
-            <button
-              onClick={() => navigate(`/book?clientId=${clientId}`)}
-              className="text-[#B07A4E] hover:text-[#8A5D36]"
-            >
-              Schedule New
-            </button>
-          </div>
-          
-          {appointments.length === 0 ? (
-            <p className="text-slate-500">No appointments found</p>
-          ) : (
-            <div className="space-y-4">
-              {appointments.map(appointment => (
-                <div
-                  key={appointment._id}
-                  className="p-4 hover:bg-paper-deep rounded-lg border border-line-soft"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-start space-x-3">
-                      <Calendar className="w-5 h-5 text-slate-400 mt-1" />
-                      <div>
-                        <div className="font-medium text-slate-900">
-                          {moment(appointment.date).format('dddd, MMMM D, YYYY')}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {moment(appointment.startTime, 'HH:mm').format('h:mm A')} -
-                          {moment(appointment.endTime, 'HH:mm').format('h:mm A')}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-slate-100 text-slate-800'
-                      }`}>
-                        {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                      </span>
-                      <button
-                        onClick={() => navigate(`/provider/appointments/${appointment._id}`)}
-                        className="text-slate-600 hover:text-slate-900"
-                      >
-                        <FileText className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-slate-500">Duration:</span>
-                      <span className="ml-2 text-slate-700 font-medium">{appointment.duration} min</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Price:</span>
-                      <span className="ml-2 text-slate-700 font-medium">
-                        ${appointment.price ? appointment.price.toFixed(2) : ((appointment.duration / 60) * 100).toFixed(2)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Location:</span>
-                      <span className="ml-2 text-slate-700 font-medium truncate max-w-[150px] inline-block">
-                        {appointment.location?.address ? appointment.location.address.split(',')[0] : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <AppointmentHistorySection
+          appointments={appointments}
+          clientId={clientId}
+          navigate={navigate}
+        />
       </div>
 
       {showDeleteConfirm && <DeleteConfirmationModal />}
       {showEditNotes && <EditNotesModal />}
+    </div>
+  );
+};
+
+// ── Appointment History section ──────────────────────────────────────
+//
+// Renders active appointments inline + collapses cancelled ones into a
+// single accordion at the bottom. Inside the cancelled accordion, runs of
+// occurrences from the same recurring series are folded into one summary
+// row — series cancellations cascade into many docs and showing each one
+// individually buries the signal that "this series ended" under noise.
+//
+// Industry-standard "keep the trail" without sacrificing readability:
+// the data's still here, just not in your face.
+const AppointmentHistorySection = ({ appointments, clientId, navigate }) => {
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [expandedSeriesIds, setExpandedSeriesIds] = useState({});
+
+  const active = appointments.filter(a => a.status !== 'cancelled');
+  const cancelled = appointments.filter(a => a.status === 'cancelled');
+
+  // Group cancelled appointments by series. Each group becomes either a
+  // single row (no series, or series with 1 occurrence) or a collapsed
+  // summary (series with >1 occurrences).
+  const cancelledGroups = (() => {
+    const bySeries = new Map(); // seriesId → [appts]
+    const standalone = [];
+    for (const appt of cancelled) {
+      const sid = appt.series && (appt.series._id || appt.series);
+      if (sid) {
+        const key = String(sid);
+        if (!bySeries.has(key)) bySeries.set(key, []);
+        bySeries.get(key).push(appt);
+      } else {
+        standalone.push(appt);
+      }
+    }
+    const groups = [];
+    for (const [sid, appts] of bySeries.entries()) {
+      const sorted = [...appts].sort((a, b) =>
+        new Date(a.date) - new Date(b.date)
+      );
+      groups.push({
+        kind: appts.length > 1 ? 'series' : 'single',
+        seriesId: sid,
+        appointments: sorted,
+      });
+    }
+    for (const appt of standalone) {
+      groups.push({ kind: 'single', appointments: [appt] });
+    }
+    // Sort groups by their earliest occurrence date (most recent first
+    // makes more sense for cancelled history — what was just killed).
+    groups.sort((a, b) =>
+      new Date(b.appointments[0].date) - new Date(a.appointments[0].date)
+    );
+    return groups;
+  })();
+
+  return (
+    <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-medium text-slate-900">Appointment History</h2>
+        <button
+          onClick={() => navigate(`/book?clientId=${clientId}`)}
+          className="text-[#B07A4E] hover:text-[#8A5D36]"
+        >
+          Schedule New
+        </button>
+      </div>
+
+      {appointments.length === 0 ? (
+        <p className="text-slate-500">No appointments found</p>
+      ) : (
+        <>
+          {/* Active appointments — inline. */}
+          {active.length > 0 ? (
+            <div className="space-y-4">
+              {active.map(appt => (
+                <AppointmentRow key={appt._id} appointment={appt} navigate={navigate} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-500 text-sm">No active appointments</p>
+          )}
+
+          {/* Cancelled accordion. */}
+          {cancelled.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-line">
+              <button
+                onClick={() => setShowCancelled(s => !s)}
+                className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 font-medium"
+              >
+                {showCancelled
+                  ? <ChevronDown className="w-4 h-4" />
+                  : <ChevronRight className="w-4 h-4" />}
+                {cancelled.length} cancelled appointment{cancelled.length === 1 ? '' : 's'}
+                {!showCancelled && cancelledGroups.some(g => g.kind === 'series') && (
+                  <span className="text-xs text-slate-400 ml-1">
+                    (incl. recurring series)
+                  </span>
+                )}
+              </button>
+
+              {showCancelled && (
+                <div className="mt-4 space-y-3 opacity-80">
+                  {cancelledGroups.map((group, idx) => {
+                    if (group.kind === 'series') {
+                      const isExpanded = expandedSeriesIds[group.seriesId];
+                      const first = group.appointments[0];
+                      const last = group.appointments[group.appointments.length - 1];
+                      const fmt = (d) => moment(d).format('MMM D, YYYY');
+                      return (
+                        <div
+                          key={`series-${group.seriesId}`}
+                          className="p-3 rounded-lg border border-line-soft bg-paper-deep"
+                        >
+                          <button
+                            onClick={() => setExpandedSeriesIds(prev => ({
+                              ...prev, [group.seriesId]: !prev[group.seriesId]
+                            }))}
+                            className="w-full flex items-start gap-3 text-left"
+                          >
+                            {isExpanded
+                              ? <ChevronDown className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
+                              : <ChevronRight className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />}
+                            <Repeat className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-slate-700">
+                                Recurring series cancelled — {group.appointments.length} occurrence{group.appointments.length === 1 ? '' : 's'}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {fmt(first.date)} – {fmt(last.date)}
+                                {first.duration && ` · ${first.duration} min`}
+                              </div>
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="mt-3 pl-7 space-y-2">
+                              {group.appointments.map(appt => (
+                                <AppointmentRow
+                                  key={appt._id}
+                                  appointment={appt}
+                                  navigate={navigate}
+                                  compact
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <AppointmentRow
+                        key={group.appointments[0]._id}
+                        appointment={group.appointments[0]}
+                        navigate={navigate}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// Single appointment card. `compact` strips the duration/price/location row
+// so series-expansion lists stay scannable.
+const AppointmentRow = ({ appointment, navigate, compact = false }) => {
+  const statusBadge = (
+    <span className={`px-2 py-1 text-xs rounded-full ${
+      appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
+      appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+      appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+      'bg-slate-100 text-slate-800'
+    }`}>
+      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+    </span>
+  );
+
+  return (
+    <div className={`${compact ? 'p-2' : 'p-4'} hover:bg-paper-deep rounded-lg border border-line-soft`}>
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-start space-x-3">
+          <Calendar className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} text-slate-400 mt-1`} />
+          <div>
+            <div className={`${compact ? 'text-sm' : 'font-medium'} text-slate-900`}>
+              {moment(appointment.date).format('dddd, MMMM D, YYYY')}
+            </div>
+            <div className="text-sm text-slate-500">
+              {moment(appointment.startTime, 'HH:mm').format('h:mm A')} -
+              {moment(appointment.endTime, 'HH:mm').format('h:mm A')}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {statusBadge}
+          <button
+            onClick={() => navigate(`/provider/appointments/${appointment._id}`)}
+            className="text-slate-600 hover:text-slate-900"
+          >
+            <FileText className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+          </button>
+        </div>
+      </div>
+      {!compact && (
+        <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-slate-500">Duration:</span>
+            <span className="ml-2 text-slate-700 font-medium">{appointment.duration} min</span>
+          </div>
+          <div>
+            <span className="text-slate-500">Price:</span>
+            <span className="ml-2 text-slate-700 font-medium">
+              ${appointment.price ? appointment.price.toFixed(2) : ((appointment.duration / 60) * 100).toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500">Location:</span>
+            <span className="ml-2 text-slate-700 font-medium truncate max-w-[150px] inline-block">
+              {appointment.location?.address ? appointment.location.address.split(',')[0] : 'N/A'}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
