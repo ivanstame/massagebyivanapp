@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { Repeat } from 'lucide-react';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
+import NavigateButton from './NavigateButton';
 
 // Tiny shared icon. Inline because it's literally one element used in
 // two adjacent renders.
@@ -298,9 +299,12 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                       <p className="text-sm font-medium text-slate-700">
                         {booking.client.profile?.fullName || booking.client.email}
                       </p>
-                      <p className="text-xs text-slate-500 truncate">
-                        {booking.location.address}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-slate-500 truncate min-w-0 flex-1">
+                          {booking.location.address}
+                        </p>
+                        <NavigateButton location={booking.location} label="" className="px-2 py-0.5" />
+                      </div>
                     </div>
                   </div>
                 </div>

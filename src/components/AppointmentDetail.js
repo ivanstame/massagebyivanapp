@@ -9,6 +9,7 @@ import {
   PlayCircle, CircleCheck, Loader2
 } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
+import NavigateButton from './NavigateButton';
 import { buildVenmoPayUrl } from '../utils/venmo';
 
 const AppointmentDetail = () => {
@@ -279,12 +280,15 @@ const AppointmentDetail = () => {
 
           {/* Location */}
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <MapPin className="w-5 h-5 text-[#B07A4E]" />
-              <div>
-                <p className="text-sm text-slate-500">Location</p>
-                <p className="font-medium text-slate-900">{booking.location?.address || 'No address'}</p>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <MapPin className="w-5 h-5 text-[#B07A4E] flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-500">Location</p>
+                  <p className="font-medium text-slate-900">{booking.location?.address || 'No address'}</p>
+                </div>
               </div>
+              <NavigateButton location={booking.location} />
             </div>
             {booking.location?.lat && booking.location?.lng && (
               <StaticMapPreview
