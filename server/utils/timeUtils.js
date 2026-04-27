@@ -38,8 +38,18 @@ const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, 
   return effectiveBuffer;
 };
 
+// Canonical slot grid step. All start times offered to clients are aligned
+// to this grid (`:00`, `:15`, `:30`, `:45` for the default 15) regardless
+// of the duration mix on the provider's day. Keeping the grid stable lets
+// the Distance-Matrix cache (hour-bucketed) cluster cleanly and prevents
+// off-grid times like 4:27 PM from landing in the picker.
+const SLOT_GRID_MINUTES = 15;
+
 /**
- * Generate time slots in 30-minute increments
+ * Generate candidate slot start times on the canonical 15-min grid within
+ * the [startTime, endTime − maxDuration] window. The first slot is snapped
+ * UP to the next grid step so weird availability starts (e.g. 14:53) don't
+ * leak off-grid candidates.
  */
 function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDuration) {
   let startDT, endDT;
@@ -49,6 +59,19 @@ function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDurat
   } else {
     startDT = DateTime.fromISO(startTime, { zone: DEFAULT_TZ });
     endDT = DateTime.fromISO(endTime, { zone: DEFAULT_TZ });
+  }
+
+  // Snap start UP to the next grid boundary. Idempotent for already-aligned
+  // starts (15:00 stays 15:00; 14:53 becomes 15:00).
+  const startMin = startDT.hour * 60 + startDT.minute;
+  const snappedStartMin = Math.ceil(startMin / SLOT_GRID_MINUTES) * SLOT_GRID_MINUTES;
+  if (snappedStartMin !== startMin) {
+    startDT = startDT.set({
+      hour: Math.floor(snappedStartMin / 60),
+      minute: snappedStartMin % 60,
+      second: 0,
+      millisecond: 0,
+    });
   }
 
   const slots = [];
@@ -393,9 +416,13 @@ async function getAvailableTimeSlots(
     return [];
   }
 
-  // Step 1: Generate all possible 30-min slots
-  const slots = generateTimeSlots(startTime, endTime, 30, appointmentDuration);
-  console.log(`[Slots] Generated ${slots.length} base slots`);
+  // Step 1: Generate candidate slots on the canonical 15-min grid.
+  // Boundary validation (Step 4) filters them down to legal options.
+  // The dense grid means clients see :15/:45 fallbacks when bookings shift
+  // the day off the :00/:30 cadence — Distance-Matrix cost is unchanged
+  // because the cache is hour-bucketed, not minute-bucketed.
+  const slots = generateTimeSlots(startTime, endTime, SLOT_GRID_MINUTES, appointmentDuration);
+  console.log(`[Slots] Generated ${slots.length} base slots (${SLOT_GRID_MINUTES}-min grid)`);
 
   // Step 2: Remove slots occupied by existing bookings
   const slotsAfterOccupied = removeOccupiedSlots(

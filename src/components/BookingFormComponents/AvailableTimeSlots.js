@@ -1,91 +1,117 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset } from 'lucide-react';
+import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../../utils/timeConstants';
 
-const AvailableTimeSlots = ({ 
-  availableSlots, 
-  selectedTime, 
+// Period bins. Times are LA hour-of-day. Boundaries chosen for natural
+// mental cohesion ("morning" ends at noon, "late" starts at 9 PM).
+const PERIODS = [
+  { key: 'Morning',   icon: Sunrise, startHour: 5,  endHour: 12 },
+  { key: 'Afternoon', icon: Sun,     startHour: 12, endHour: 17 },
+  { key: 'Evening',   icon: Sunset,  startHour: 17, endHour: 21 },
+  { key: 'Late',      icon: Moon,    startHour: 21, endHour: 30 }, // up to 6 AM next day
+];
+
+// Adaptive density threshold. When a period has more than this many slots,
+// hide the off-grid (`:15`/`:45`) ones by default and surface them via a
+// "Show all times" toggle. Below the threshold, show everything — there's
+// no clutter risk to manage.
+const DENSITY_THRESHOLD = 5;
+
+// A slot is "on-grid" if its minute is on the canonical :00 or :30 marks.
+// Off-grid (:15, :45) slots only exist when the day's bookings have shifted
+// the available start times off the half-hour cadence.
+const isOnGrid = (slot) => {
+  const m = DateTime.fromISO(slot.iso, { zone: DEFAULT_TZ }).minute;
+  return m === 0 || m === 30;
+};
+
+const AvailableTimeSlots = ({
+  availableSlots,
+  selectedTime,
   onTimeSelected,
   hasValidDuration = false,
-  isComplete = false,
-  selectedDate
+  selectedDate,
 }) => {
-  // Internal function to determine time period (morning, afternoon, evening)
-  const formatPeriod = (isoTime) => {
-    try {
-      const slotDT = DateTime.fromISO(isoTime, { zone: DEFAULT_TZ });
-      if (!slotDT.isValid) return 'unavailable';
-      
-      const hour = slotDT.hour;
-      
-      if (isNaN(hour)) {
-        return 'unavailable';
-      }
-      
-      if (hour >= 6 && hour < 12) return 'Morning';
-      if (hour >= 12 && hour < 17) return 'Afternoon';
-      return 'Evening';
-    } catch (err) {
-      console.error('Error determining time period:', isoTime, err);
-      return 'unavailable';
-    }
-  };
-  
-  // Time period tabs
-  const timeTabs = ['Morning', 'Afternoon', 'Evening'];
-  
-  // Calculate slot counts and determine initial tab
-  const { initialTab, slotsByPeriod } = useMemo(() => {
-    let bestTab = 'Evening';
-    const slotMap = {
-      'Morning': [],
-      'Afternoon': [],
-      'Evening': []
-    };
-    
-    if (availableSlots && availableSlots.length > 0) {
-      // Group slots by period
-      availableSlots.forEach(slot => {
-        const period = formatPeriod(slot.iso);
-        if (period !== 'unavailable' && slotMap[period]) {
-          slotMap[period].push(slot);
-        }
+  // Bin slots into the four period buckets. Unmatched slots (shouldn't
+  // happen with valid availability) get dropped silently.
+  const slotsByPeriod = useMemo(() => {
+    const buckets = Object.fromEntries(PERIODS.map(p => [p.key, []]));
+    if (!availableSlots) return buckets;
+    for (const slot of availableSlots) {
+      const dt = DateTime.fromISO(slot.iso, { zone: DEFAULT_TZ });
+      if (!dt.isValid) continue;
+      const hour = dt.hour;
+      // Late bucket also catches early-morning hours (0–5) since those
+      // are conceptually "still last night's late slots."
+      const period = PERIODS.find(p => {
+        if (p.key === 'Late') return hour >= 21 || hour < 5;
+        return hour >= p.startHour && hour < p.endHour;
       });
-      
-      // Find period with most slots
-      const morningCount = slotMap['Morning'].length;
-      const afternoonCount = slotMap['Afternoon'].length;
-      const eveningCount = slotMap['Evening'].length;
-      
-      if (morningCount >= afternoonCount && morningCount >= eveningCount && morningCount > 0) {
-        bestTab = 'Morning';
-      } else if (afternoonCount >= morningCount && afternoonCount >= eveningCount && afternoonCount > 0) {
-        bestTab = 'Afternoon';
-      } else if (eveningCount > 0) {
-        bestTab = 'Evening';
+      if (period) buckets[period.key].push(slot);
+    }
+    return buckets;
+  }, [availableSlots]);
+
+  // Default to the period with the most slots that day — usually whichever
+  // chunk of the day the provider is most available in.
+  const defaultPeriod = useMemo(() => {
+    let best = null;
+    let bestCount = 0;
+    for (const p of PERIODS) {
+      const count = slotsByPeriod[p.key].length;
+      if (count > bestCount) {
+        best = p.key;
+        bestCount = count;
       }
     }
-    
-    return { initialTab: bestTab, slotsByPeriod: slotMap };
-  }, [availableSlots]);
-  
-  // State for the selected tab
-  const [selectedTimeTab, setSelectedTimeTab] = useState(initialTab);
+    return best || 'Afternoon';
+  }, [slotsByPeriod]);
 
-  // Tab icons
-  const tabIcons = {
-    'Morning': Sunrise,
-    'Afternoon': Sun,
-    'Evening': Sunset
+  const [selectedPeriod, setSelectedPeriod] = useState(defaultPeriod);
+  // Reset to a non-empty period when availability changes (e.g. switching dates).
+  React.useEffect(() => {
+    if (slotsByPeriod[selectedPeriod]?.length === 0) {
+      setSelectedPeriod(defaultPeriod);
+    }
+  }, [defaultPeriod, slotsByPeriod, selectedPeriod]);
+
+  // "Show all times" toggle, per period — densifies the visible grid when
+  // the user wants finer-grained control.
+  const [expandedPeriods, setExpandedPeriods] = useState({});
+  const isExpanded = (period) => !!expandedPeriods[period];
+  const toggleExpanded = (period) =>
+    setExpandedPeriods(prev => ({ ...prev, [period]: !prev[period] }));
+
+  // For the active period, decide which slots to show.
+  // - If total slots ≤ threshold, show everything (no clutter risk).
+  // - If on-grid slots exist and total > threshold, default to on-grid only;
+  //   user can expand to see off-grid via the toggle.
+  // - If no on-grid slots exist (off-grid fallback), show whatever's available
+  //   so the user never gets a false "no times" impression.
+  const visibleSlotsFor = (period) => {
+    const all = slotsByPeriod[period];
+    if (!all || all.length === 0) return { shown: [], hidden: [] };
+    const onGrid = all.filter(isOnGrid);
+    const offGrid = all.filter(s => !isOnGrid(s));
+
+    if (all.length <= DENSITY_THRESHOLD) {
+      return { shown: all, hidden: [] };
+    }
+    if (onGrid.length === 0) {
+      // Pure off-grid fallback: bookings shifted the day, only :15/:45
+      // options exist. Show them — never hide the only options.
+      return { shown: offGrid, hidden: [] };
+    }
+    if (isExpanded(period)) {
+      return { shown: all, hidden: [] };
+    }
+    return { shown: onGrid, hidden: offGrid };
   };
 
-  // Format date for display
   const formatDate = (date) => {
     if (!date) return '';
-    return DateTime.fromJSDate(date)
-      .setZone(DEFAULT_TZ)
-      .toFormat('cccc, MMMM d');
+    return DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('cccc, MMMM d');
   };
 
   if (!hasValidDuration) {
@@ -104,9 +130,16 @@ const AvailableTimeSlots = ({
     );
   }
 
+  const { shown, hidden } = visibleSlotsFor(selectedPeriod);
+
+  // Render the period tabs. Suppress the "Late" tab when there are no late
+  // slots — it would just be dead UI for the typical evening-only provider.
+  const periodsToShow = PERIODS.filter(p =>
+    p.key !== 'Late' || slotsByPeriod['Late'].length > 0
+  );
+
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
-      {/* Header with completion indicator */}
       <div className="flex items-center mb-6">
         <div className="flex items-center space-x-3">
           <div className="bg-teal-100 p-3 rounded-lg">
@@ -121,7 +154,7 @@ const AvailableTimeSlots = ({
         </div>
       </div>
 
-      {availableSlots.length === 0 ? (
+      {(!availableSlots || availableSlots.length === 0) ? (
         <div className="text-center py-12">
           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <p className="text-slate-500 text-lg">No available times for this date</p>
@@ -129,24 +162,21 @@ const AvailableTimeSlots = ({
         </div>
       ) : (
         <>
-          {/* Time period tabs - vertical on mobile, horizontal on desktop */}
           <div className="flex flex-col sm:flex-row gap-1 mb-6 bg-slate-100 p-1 rounded-lg">
-            {timeTabs.map(tab => {
-              const Icon = tabIcons[tab];
-              const slotCount = slotsByPeriod[tab].length;
-              const isActive = selectedTimeTab === tab;
-              
+            {periodsToShow.map(({ key, icon: Icon }) => {
+              const slotCount = slotsByPeriod[key].length;
+              const isActive = selectedPeriod === key;
               return (
                 <button
-                  key={tab}
-                  onClick={() => setSelectedTimeTab(tab)}
+                  key={key}
+                  onClick={() => setSelectedPeriod(key)}
                   disabled={slotCount === 0}
                   className={`
-                    flex-1 flex items-center justify-between sm:justify-center 
+                    flex-1 flex items-center justify-between sm:justify-center
                     space-x-2 py-3 px-4 rounded-lg
                     transition-all duration-200 font-medium text-base
-                    ${isActive 
-                      ? 'bg-paper-elev text-teal-700 shadow-sm' 
+                    ${isActive
+                      ? 'bg-paper-elev text-teal-700 shadow-sm'
                       : slotCount === 0
                         ? 'text-slate-400 cursor-not-allowed'
                         : 'text-slate-600 hover:text-teal-600'
@@ -155,7 +185,7 @@ const AvailableTimeSlots = ({
                 >
                   <div className="flex items-center space-x-2">
                     <Icon className="w-5 h-5" />
-                    <span>{tab}</span>
+                    <span>{key}</span>
                   </div>
                   {slotCount > 0 && (
                     <span className={`
@@ -170,14 +200,13 @@ const AvailableTimeSlots = ({
             })}
           </div>
 
-          {/* Time slots grid */}
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-            {slotsByPeriod[selectedTimeTab].length === 0 ? (
+            {shown.length === 0 ? (
               <div className="col-span-full text-center py-8">
                 <p className="text-slate-500">No available times in this period</p>
               </div>
             ) : (
-              slotsByPeriod[selectedTimeTab].map(slot => (
+              shown.map(slot => (
                 <button
                   key={slot.iso}
                   onClick={() => onTimeSelected(slot)}
@@ -204,7 +233,20 @@ const AvailableTimeSlots = ({
             )}
           </div>
 
-          {/* Selected time confirmation */}
+          {/* Density toggle: only render when there are off-grid slots
+              actually being held back. Quiet otherwise. */}
+          {hidden.length > 0 && (
+            <button
+              type="button"
+              onClick={() => toggleExpanded(selectedPeriod)}
+              className="mt-4 text-sm text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-1"
+            >
+              {isExpanded(selectedPeriod)
+                ? 'Show fewer times'
+                : `Show ${hidden.length} more time${hidden.length === 1 ? '' : 's'}`}
+            </button>
+          )}
+
           {selectedTime && selectedDate && (
             <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
               <div className="flex items-center space-x-2">
