@@ -176,7 +176,7 @@ const ProviderServices = () => {
             Services &amp; <em style={{ color: '#B07A4E' }}>pricing</em>
           </h1>
           <p className="text-sm text-ink-2 mt-1.5">
-            Define the packages you offer and any optional add-ons. Clients see these when booking.
+            Define the offerings you provide and any optional add-ons. Clients see these when booking.
           </p>
         </div>
 
@@ -197,16 +197,18 @@ const ProviderServices = () => {
           </div>
         )}
 
-        {/* Service Packages */}
+        {/* Service Offerings — what a single booking is. The word "package"
+            is intentionally reserved for the multi-session "Package Deals"
+            section below to avoid the two collapsing in clients' minds. */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[#B07A4E]" />
-              <h3 className="font-medium text-slate-900">Service Packages</h3>
+              <h3 className="font-medium text-slate-900">Service Offerings</h3>
             </div>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Each package is what a client picks when booking &mdash; give it a clear name, duration, and price.
+            Each offering is what a client picks when booking &mdash; give it a clear name, duration, and price.
           </p>
 
           <div className="space-y-3">
@@ -214,7 +216,7 @@ const ProviderServices = () => {
               <div key={index} className="flex items-start gap-3 p-3 bg-paper-deep rounded-lg border border-line-soft">
                 <div className="flex-1 space-y-2">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Package name</label>
+                    <label className="block text-xs text-slate-500 mb-1">Offering name</label>
                     <input
                       type="text"
                       value={tier.label || ''}
@@ -263,7 +265,7 @@ const ProviderServices = () => {
             className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Package
+            Add Offering
           </button>
         </div>
 
@@ -276,7 +278,7 @@ const ProviderServices = () => {
             </div>
           </div>
           <p className="text-xs text-slate-500 mb-4">
-            Optional extras clients can tack onto any package. Toggle to hide one without deleting it.
+            Optional extras clients can tack onto any offering. Toggle to hide one without deleting it.
           </p>
 
           {addons.length === 0 && !showAddAddon ? (
@@ -453,7 +455,7 @@ const ProviderServices = () => {
           availableDurations={basePricing.map(p => Number(p.duration)).filter(Boolean)}
         />
 
-        {/* Save button (covers Service Packages + Add-ons, NOT Package Deals) */}
+        {/* Save button (covers Service Offerings + Add-ons, NOT Package Deals) */}
         <div className="flex justify-end mb-8">
           <button
             onClick={handleSave}
