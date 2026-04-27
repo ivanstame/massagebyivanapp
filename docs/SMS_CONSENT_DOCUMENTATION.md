@@ -1,8 +1,11 @@
-# SMS Consent Documentation for Twilio
+# SMS Consent Documentation
 
 ## Proof of Consent Implementation
 
-This document provides proof of SMS consent implementation in our application to comply with Twilio requirements.
+This document describes the SMS consent collection and enforcement
+implementation. The app sends transactional SMS via SMS Gateway (see
+`SMS_GATEWAY_SETUP.md`); the consent model below is a standard TCPA
+pattern any SMS provider would expect.
 
 ### 1. SMS Consent Policy Page
 - **URL:** https://massagebyivan-9420304df681.herokuapp.com/sms-consent-policy.html

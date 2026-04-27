@@ -43,7 +43,6 @@ import ProviderClientDetails from './components/ProviderClientDetails';
 import ProviderLocations from './components/ProviderLocations';
 import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
-import ProviderProfile from './components/ProviderProfile';
 import InvitationHandling from './components/InvitationHandling';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
@@ -352,11 +351,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/provider/:providerId/profile"
-            element={<ProviderProfile />}
-          />
-
           {/* Home/Default Route */}
           <Route
             path="/"

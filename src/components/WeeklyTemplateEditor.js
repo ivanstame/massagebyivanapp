@@ -26,15 +26,6 @@ const generateTimeOptions = () => {
 
 const TIME_OPTIONS = generateTimeOptions();
 
-const FORECAST_OPTIONS = [
-  { value: 1, label: '1 week' },
-  { value: 2, label: '2 weeks' },
-  { value: 4, label: '4 weeks' },
-  { value: 6, label: '6 weeks' },
-  { value: 8, label: '8 weeks' },
-  { value: 12, label: '12 weeks' },
-];
-
 const WeeklyTemplateEditor = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -52,7 +43,6 @@ const WeeklyTemplateEditor = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
-  const [forecastWeeks, setForecastWeeks] = useState(4);
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -158,7 +148,7 @@ const WeeklyTemplateEditor = () => {
     try {
       setSaving(true);
       setError(null);
-      await axios.put('/api/weekly-template', { days, forecastWeeks }, { withCredentials: true });
+      await axios.put('/api/weekly-template', { days }, { withCredentials: true });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -217,32 +207,9 @@ const WeeklyTemplateEditor = () => {
         {saved && (
           <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 text-green-700 flex items-start rounded">
             <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-sm">Template saved. Availability generated {forecastWeeks} weeks out.</p>
+            <p className="text-sm">Template saved. Days generate as you (or a client) view the calendar.</p>
           </div>
         )}
-
-        {/* Forecast duration */}
-        <div className="mb-4 p-4 bg-paper-elev rounded-lg border border-line shadow-sm">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            How far ahead should this schedule be generated?
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {FORECAST_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { setForecastWeeks(opt.value); setSaved(false); }}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-                  forecastWeeks === opt.value
-                    ? 'bg-[#B07A4E] text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Locations link */}
         {savedLocations.length === 0 ? (
@@ -435,7 +402,7 @@ const WeeklyTemplateEditor = () => {
             <div className="text-sm text-teal-800">
               <p className="font-medium mb-1">How this works</p>
               <ul className="list-disc ml-4 space-y-1 text-teal-700">
-                <li>This template generates availability <strong>{forecastWeeks} weeks</strong> into the future</li>
+                <li>This template applies on demand — each day is generated the first time you or a client view that date</li>
                 <li>You can edit or delete individual days from the Availability page</li>
                 <li>Manual changes to a specific day always take priority</li>
                 <li>Every active day requires a <strong>departure location</strong> — this is where you'll start from</li>

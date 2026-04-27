@@ -30,22 +30,26 @@ const ProviderAppointments = () => {
           return String(appointmentProviderId) === String(user._id);
         });
 
+        // Cancelled bookings always belong in history, regardless of date —
+        // a future-dated booking that's been cancelled isn't "upcoming"
+        // anymore (this matches the client-side BookingList semantics).
+        // Without this, a cancelled standing-appointment occurrence still
+        // showed up in the Upcoming tab with a "Cancelled" badge,
+        // looking like the cancellation hadn't taken effect.
+        const isPast = (appointment) => {
+          if (appointment.status === 'cancelled') return true;
+          const appointmentEnd = moment.utc(appointment.date)
+            .set('hour', parseInt(appointment.endTime.split(':')[0]))
+            .set('minute', parseInt(appointment.endTime.split(':')[1]));
+          return appointmentEnd.isSameOrBefore(now);
+        };
+
         const upcoming = providerAppointments
-          .filter(appointment => {
-            const appointmentEnd = moment.utc(appointment.date)
-              .set('hour', parseInt(appointment.endTime.split(':')[0]))
-              .set('minute', parseInt(appointment.endTime.split(':')[1]));
-            return appointmentEnd.isAfter(now);
-          })
+          .filter(appointment => !isPast(appointment))
           .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)));
 
         const past = providerAppointments
-          .filter(appointment => {
-            const appointmentEnd = moment.utc(appointment.date)
-              .set('hour', parseInt(appointment.endTime.split(':')[0]))
-              .set('minute', parseInt(appointment.endTime.split(':')[1]));
-            return appointmentEnd.isSameOrBefore(now);
-          })
+          .filter(isPast)
           .sort((a, b) => moment.utc(b.date).diff(moment.utc(a.date)));
 
         setUpcomingAppointments(upcoming);

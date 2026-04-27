@@ -134,22 +134,27 @@ const SignUp = () => {
   const verifyProviderAccess = async () => {
     setIsVerifyingProviderAccess(true);
     setError('');
-    
-    // Trim the input to handle accidental spaces
+
     const trimmedPassword = providerAccessPassword.trim();
-    
-    // Simulate a quick check (in real scenario, this could be an API call)
-    setTimeout(() => {
-      if (trimmedPassword === 'B@ckstreetsback0222') {
-        setFormData(prev => ({ ...prev, accountType: 'PROVIDER' }));
-        setVerifiedProviderPassword(trimmedPassword); // Store the verified password
-        setStep(3); // Move to actual sign-up form
-      } else {
-        setError('Invalid provider access password');
-      }
+
+    // The literal that used to live here was removed — the server is now
+    // the only source of truth for the provider-signup password. The same
+    // value is re-validated on the /register call, so this fetch is
+    // purely a UX gate (don't make the user fill out the whole form
+    // before learning the access password is wrong).
+    try {
+      await api.post('/api/auth/verify-provider-signup-password', {
+        password: trimmedPassword,
+      });
+      setFormData(prev => ({ ...prev, accountType: 'PROVIDER' }));
+      setVerifiedProviderPassword(trimmedPassword);
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid provider access password');
+    } finally {
       setIsVerifyingProviderAccess(false);
       setProviderAccessPassword('');
-    }, 500);
+    }
   };
 
   const verifyJoinCode = async () => {

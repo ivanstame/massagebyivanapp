@@ -1,12 +1,23 @@
 // MonthCalendar.js
-import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns'; // Because fuck reinventing date formatting
+import React, { useState, useEffect, useContext } from 'react';
+import { format } from 'date-fns';
 import { DateTime } from 'luxon';
+import { AuthContext } from '../AuthContext';
 
 
 const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
+  const { user } = useContext(AuthContext);
   const [availabilityData, setAvailabilityData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Scope the availability fetch by provider — clients have a single
+  // assigned provider, providers see their own. Without this, /month
+  // returns every provider's availability mixed together (worked in
+  // practice today because each client has exactly one provider, but
+  // fragile if that ever changes).
+  const providerId = user?.accountType === 'PROVIDER'
+    ? user._id
+    : user?.providerId || null;
 
   // The eternal dance of time calculation
   const daysInMonth = new Date(
@@ -28,46 +39,37 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  // Fetch the holy grail of availability data
+  // Fetch availability data for the displayed month
   useEffect(() => {
     const fetchMonthAvailability = async () => {
       try {
         setIsLoading(true);
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth() + 1;
-        
-        const response = await fetch(`/api/availability/month/${year}/${month}`);
-        if (!response.ok) throw new Error('The temporal fabric is torn');
-        
+
+        const url = providerId
+          ? `/api/availability/month/${year}/${month}?providerId=${providerId}`
+          : `/api/availability/month/${year}/${month}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to load availability');
+
         const data = await response.json();
-        
-        // Transform our data into a more philosophically pure form
         const sanitizedData = data.map(block => ({
           ...block,
-          // Keep the original date for booking logic
           originalDate: block.date,
-          // Add a clean date for our display logic
           date: new Date(block.date).toISOString().split('T')[0]
         }));
-        
-        console.log('Temporal reality check:', {
-          currentMonth: month,
-          currentYear: year,
-          availabilityCount: sanitizedData.length,
-          firstAvailableDate: sanitizedData[0]?.date,
-          lastAvailableDate: sanitizedData[sanitizedData.length - 1]?.date
-        });
-        
+
         setAvailabilityData(sanitizedData);
       } catch (error) {
-        console.error('Time itself has become uncertain:', error);
+        console.error('Failed to fetch month availability:', error);
       } finally {
         setIsLoading(false);
       }
     };
-  
+
     fetchMonthAvailability();
-  }, [selectedDate]);
+  }, [selectedDate, providerId]);
 
   const handlePrevMonth = () => {
     onDateChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));

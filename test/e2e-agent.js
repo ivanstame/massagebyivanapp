@@ -24,7 +24,11 @@ const { DateTime } = require('luxon');
 // ---------------------------------------------------------------------------
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
-const PROVIDER_SIGNUP_PASSWORD = process.env.PROVIDER_SIGNUP_PASSWORD || 'B@ckstreetsback0222';
+const PROVIDER_SIGNUP_PASSWORD = process.env.PROVIDER_SIGNUP_PASSWORD;
+if (!PROVIDER_SIGNUP_PASSWORD) {
+  console.error('PROVIDER_SIGNUP_PASSWORD env var is required to run this test.');
+  process.exit(1);
+}
 const TEST_CLEANUP = process.env.TEST_CLEANUP !== 'false'; // default true
 
 const timestamp = Date.now();

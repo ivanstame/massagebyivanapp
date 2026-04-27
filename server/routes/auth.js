@@ -1,11 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const passport = require('passport');
 const User = require('../models/User');
 const Invitation = require('../models/Invitation');
 const { ensureAuthenticated, ensureGuest } = require('../middleware/passportMiddleware');
 const { sendPasswordResetEmail } = require('../utils/email');
+
+// Brute-force guard for the provider-signup password gate. The endpoint
+// exists to keep the literal out of the client bundle; without a limiter
+// it'd be trivially guessable since the password is shared. 5/15min/IP
+// is harsh by design — providers paste this once.
+const providerSignupVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many attempts. Please wait 15 minutes and try again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// @route   POST /api/auth/verify-provider-signup-password
+// @desc    Confirm the shared provider-signup password without storing it
+//          in the client bundle. The same password is re-validated on the
+//          actual /register call below; this is purely a UX gate so the
+//          provider sees the error before filling out the rest of the
+//          signup form.
+// @access  Public (rate-limited)
+router.post('/verify-provider-signup-password', providerSignupVerifyLimiter, (req, res) => {
+  const expected = process.env.PROVIDER_SIGNUP_PASSWORD;
+  if (!expected) {
+    console.error('PROVIDER_SIGNUP_PASSWORD env var is not set');
+    return res.status(500).json({ message: 'Provider signup is not configured on this server.' });
+  }
+  const supplied = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+  if (supplied && supplied === expected) {
+    return res.json({ ok: true });
+  }
+  return res.status(400).json({ message: 'Invalid provider access password' });
+});
 
 // @route   POST api/auth/register
 // @desc    Register user and handle invitation if provided

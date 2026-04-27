@@ -2397,3 +2397,7 @@
 {"level":"info","message":"Sent 0 24h reminders and 0 1h reminders","service":"travel-time-service","timestamp":"2026-04-18T15:28:06.117Z"}
 {"level":"info","message":"Running reminder scheduler at 2026-04-18T09:28:05.694-07:00","service":"travel-time-service","timestamp":"2026-04-18T16:28:05.698Z"}
 {"level":"info","message":"Sent 0 24h reminders and 0 1h reminders","service":"travel-time-service","timestamp":"2026-04-18T16:28:05.996Z"}
+{"level":"info","message":"Running reminder scheduler at 2026-04-22T22:03:16.339-07:00","service":"travel-time-service","timestamp":"2026-04-23T05:03:16.340Z"}
+{"level":"info","message":"Sent 0 24h reminders and 0 1h reminders","service":"travel-time-service","timestamp":"2026-04-23T05:03:16.581Z"}
+{"level":"info","message":"Running reminder scheduler at 2026-04-22T23:03:16.342-07:00","service":"travel-time-service","timestamp":"2026-04-23T06:03:16.342Z"}
+{"level":"info","message":"Sent 0 24h reminders and 0 1h reminders","service":"travel-time-service","timestamp":"2026-04-23T06:03:16.513Z"}

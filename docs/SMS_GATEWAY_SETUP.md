@@ -1,252 +1,86 @@
-# Android SMS Gateway Setup Guide
+# SMS Gateway Setup
 
-## Overview
-This application now uses **Android SMS Gateway** (by capcom6) instead of Twilio for sending SMS notifications. The Android device connects to the server via Tailscale VPN for secure, private communication.
+The app sends transactional SMS (booking confirmations, 24h/1h reminders,
+cancellations) through [SMS Gateway for Android](https://sms-gate.app)
+running in **Cloud Server mode**. An Android device with a SIM card is
+the actual sender; the cloud service brokers HTTP requests from our
+backend to the device.
 
-## Migration Summary
-- ✅ **Removed**: Twilio SDK dependency
-- ✅ **Added**: Android SMS Gateway integration using axios HTTP requests
-- ✅ **Preserved**: SMS consent checking logic (TCPA compliance)
-- ✅ **Maintained**: Same API interface (`sendSms` function signature unchanged)
+(An earlier setup ran the gateway over a Tailscale VPN with the device's
+LAN IP — that's no longer the case. The code in `server/services/smsService.js`
+talks to `https://api.sms-gate.app/3rdparty/v1/messages` directly.)
 
-## Prerequisites
+## What you need
 
-### 1. Android Device Setup
-- Android device running Android 5.0 or higher
-- "SMS Gateway for Android" app installed (by capcom6)
-- Active SIM card with SMS capability
-- Device connected to the same Tailscale network as your server
+- An Android phone (5.0+) with an active SIM
+- The "SMS Gateway" app installed (capcom6) and configured for **Cloud
+  Server** mode
+- An account on https://sms-gate.app — gives you the API username/password
+  to authenticate
 
-### 2. Tailscale VPN Setup
-- Both the Android device and your server must be on the same Tailscale network
-- Note the Android device's Tailscale IP address (format: `100.x.y.z`)
+## Configuration
 
-## Configuration Steps
+In the SMS Gateway app on the phone:
 
-### Step 1: Configure Android SMS Gateway App
+1. Open Settings → Server mode → **Cloud server**
+2. Sign in with your sms-gate.app account
+3. Note the **Device ID** the app shows (used to route messages to this
+   specific device when your account has more than one)
+4. Enable "Start on boot" so it survives reboots
 
-1. Open the SMS Gateway app on your Android device
-2. Navigate to **Settings** tab
-3. Select **Cloud server** mode
-4. Configure credentials:
-   - **Username**: Choose a username (e.g., `admin`)
-   - **Password**: Set a strong password
-   - **Device ID**: Note this if you want to specify which device to use (optional)
-5. Enable **Start on boot** (recommended)
-6. Start the service - status should show **ONLINE**
-
-### Step 2: Find Your Tailscale IP
-
-On your Android device:
-1. Open Tailscale app
-2. Note your device's IP address (e.g., `100.64.123.45`)
-3. This will be your `SMS_GATEWAY_URL` host
-
-### Step 3: Update Environment Variables
-
-Edit your `.env` file and add the following variables:
+In your environment (`.env` for local, Heroku config for prod):
 
 ```bash
-# Android SMS Gateway Configuration
-SMS_GATEWAY_URL=http://100.64.123.45:8080
-SMS_GATEWAY_USERNAME=admin
-SMS_GATEWAY_PASSWORD=your_strong_password_here
-
-# Optional: Specify device ID (if you have multiple devices)
-# SMS_GATEWAY_DEVICE_ID=your_device_id
-
-# Optional: Specify which SIM to use (1, 2, or 3)
-# SMS_GATEWAY_SIM_NUMBER=1
+SMS_GATEWAY_USERNAME=your-cloud-account-username
+SMS_GATEWAY_PASSWORD=your-cloud-account-password
+SMS_GATEWAY_DEVICE_ID=device-id-from-app   # required if you have >1 device
+SMS_GATEWAY_SIM_NUMBER=1                   # optional, defaults to SIM 1
 ```
 
-**Important**: Replace the IP address with your actual Tailscale IP!
+That's it — no VPN, no inbound network access to the phone, no
+self-hosted gateway URL.
 
-### Step 4: Install Dependencies
+## How it's used in the app
 
-Since we removed Twilio, run:
+`server/services/smsService.js` exports `sendSms(to, body, user)`. The
+function:
 
-```bash
-npm install
-```
+1. Checks SMS consent (`user.smsConsent`) — skips silently if explicitly
+   `false`. Undefined/null is grandfathered consent for legacy users.
+2. POSTs to `https://api.sms-gate.app/3rdparty/v1/messages` with HTTP
+   Basic auth (username:password from env).
+3. Returns a `{ id, status, gatewayResponse }` object on success, throws
+   on failure. Callers wrap it in try/catch so SMS failure never blocks
+   a booking save.
 
-This will update your `node_modules` to remove the Twilio package.
+Callers:
+- `server/routes/bookings.js` — confirmation + cancellation SMS on
+  POST/DELETE
+- `server/services/reminderScheduler.js` — 24h/1h reminders (hourly
+  scan; see comment in that file for why the time-window check is wider
+  than the cron interval)
+- `server/routes/provider-assignment-requests.js` — notifies provider
+  when a client requests assignment
 
-### Step 5: Test the Connection
+## Consent
 
-You can test the SMS Gateway connection using curl:
-
-```bash
-curl -X POST http://100.64.123.45:8080/3rdparty/v1/messages \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Basic $(echo -n 'username:password' | base64)" \
-  -d '{
-    "phoneNumbers": ["+15551234567"],
-    "textMessage": {
-      "text": "Test message from API"
-    }
-  }'
-```
-
-Replace:
-- `100.64.123.45:8080` with your actual gateway URL
-- `username:password` with your actual credentials
-- `+15551234567` with a test phone number
-
-## API Endpoint Details
-
-### SMS Gateway API Endpoint
-```
-POST http://<TAILSCALE_IP>:8080/3rdparty/v1/messages
-```
-
-### Request Format
-```json
-{
-  "phoneNumbers": ["+1234567890"],
-  "textMessage": {
-    "text": "Your message content here"
-  },
-  "deviceId": "optional_device_id",
-  "simNumber": 1
-}
-```
-
-### Authentication
-- Type: Basic Auth
-- Header: `Authorization: Basic <base64(username:password)>`
-
-### Response Format
-```json
-{
-  "id": "message_id",
-  "state": "Pending",
-  "recipients": [
-    {
-      "phoneNumber": "+1234567890",
-      "state": "Pending"
-    }
-  ]
-}
-```
-
-## Server Implementation Details
-
-### Modified Files
-
-1. **`server/services/smsService.js`**
-   - Removed Twilio client initialization
-   - Added axios-based HTTP POST implementation
-   - Preserved SMS consent checking logic
-   - Added enhanced error logging
-   - Same function signature for backward compatibility
-
-2. **`package.json`**
-   - Removed: `"twilio": "^5.11.1"`
-   - Note: `axios` is already a dependency
-
-3. **`.env.example`**
-   - Added SMS Gateway configuration variables
-   - Removed Twilio-related variables
-
-### SMS Consent Compliance
-
-The implementation maintains TCPA compliance by:
-- Checking user's `smsConsent` flag before sending
-- Looking up user by phone number if not provided
-- Logging skipped messages for audit trail
-- Returning `null` when consent is not given
-
-### Usage in Code
-
-No changes needed in existing code! The `sendSms` function maintains the same interface:
-
-```javascript
-const smsService = require('../services/smsService');
-
-// Usage remains the same
-await smsService.sendSms(phoneNumber, messageBody, userObject);
-```
+See `docs/SMS_CONSENT_DOCUMENTATION.md` for the consent collection +
+opt-out implementation. Consent enforcement happens in `smsService.sendSms`
+itself, so every SMS path in the app gets the check for free.
 
 ## Troubleshooting
 
-### Issue: "Failed to reach Android SMS Gateway"
-**Solutions:**
-- Verify both devices are on the same Tailscale network
-- Check the Tailscale IP address is correct
-- Ensure port 8080 is accessible
-- Verify the Android SMS Gateway app is running and shows ONLINE
+**"Failed to reach SMS Gateway Cloud"** — usually a credentials issue
+or rate limit. Check `SMS_GATEWAY_USERNAME` / `SMS_GATEWAY_PASSWORD` and
+the gateway app's status in the cloud dashboard.
 
-### Issue: "401 Unauthorized"
-**Solutions:**
-- Double-check username and password in `.env`
-- Ensure credentials match what's configured in the Android app
-- Verify the Basic Auth header is being generated correctly
+**Message goes "Pending" and never sends** — the Android device is
+offline (no cell signal, app force-stopped, battery optimization killed
+it). Check the device, and verify "Start on boot" is on.
 
-### Issue: "Gateway returns error"
-**Solutions:**
-- Check Android device has cellular signal
-- Verify SIM card is active and has SMS capability
-- Check Android app logs for detailed error messages
-- Ensure phone number is in E.164 format (e.g., `+1234567890`)
+**401 from the gateway** — the cloud account's credentials don't match
+the env vars. Reset and re-set both.
 
-### Issue: Messages not sending
-**Solutions:**
-- Check that the recipient has given SMS consent in your database
-- Review server logs for consent-related skips
-- Verify the Android device has sufficient SMS balance
-- Check carrier rate limits aren't being hit
-
-## Monitoring and Logs
-
-### Server Logs
-The service logs important events:
-- SMS sent successfully: `SMS sent to <number> via Android Gateway: <id>`
-- Consent skipped: `Skipping SMS to <number>: user has not consented`
-- Gateway errors: `Android SMS Gateway error for <number>: <details>`
-- Connection errors: `Failed to reach Android SMS Gateway for <number>`
-
-### Android App Logs
-Check the SMS Gateway app's Messages tab to see:
-- Pending messages
-- Sent confirmations
-- Delivery reports
-- Error messages
-
-## Production Deployment
-
-### Heroku Configuration
-
-Set environment variables in Heroku:
-
-```bash
-heroku config:set SMS_GATEWAY_URL=http://100.x.y.z:8080
-heroku config:set SMS_GATEWAY_USERNAME=your_username
-heroku config:set SMS_GATEWAY_PASSWORD=your_password
-```
-
-### Security Considerations
-
-1. **VPN Security**: Tailscale provides end-to-end encryption
-2. **Authentication**: Always use strong passwords for gateway credentials
-3. **IP Restriction**: Consider restricting the gateway to only accept connections from your server's Tailscale IP
-4. **HTTPS**: For production, consider setting up HTTPS on the Android device (requires certificate setup)
-
-## Benefits of This Approach
-
-✅ **Cost Savings**: No monthly Twilio fees or per-SMS charges  
-✅ **Privacy**: Messages never leave your private network  
-✅ **Control**: Full control over message delivery  
-✅ **Flexibility**: Easy to add multiple devices for redundancy  
-✅ **Compliance**: Maintains SMS consent checking  
-✅ **Security**: Private Tailscale VPN connection  
-
-## Support and Resources
-
-- **SMS Gateway App Documentation**: https://docs.sms-gate.app/
-- **Tailscale Documentation**: https://tailscale.com/kb/
-- **Application Logs**: Check `logs/combined.log` and `logs/error.log`
-
----
-
-**Last Updated**: January 30, 2026  
-**Version**: 2.0
+**Messages send but reminders don't** — check `logs/combined.log` for
+`Skipping SMS to <number>: user has explicitly opted out`. If consent
+is missing, the SMS is suppressed before the gateway call.

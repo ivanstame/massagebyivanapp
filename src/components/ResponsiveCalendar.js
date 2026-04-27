@@ -1,16 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import MonthCalendar from './MonthCalendar';
 import { Calendar } from 'lucide-react';
 import { DateTime } from "luxon";
+import { AuthContext } from '../AuthContext';
 
 
 
 const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
+  const { user } = useContext(AuthContext);
   const scrollRef = useRef(null);
   const [month, setMonth] = useState(selectedDate.getMonth());
   const [year, setYear] = useState(selectedDate.getFullYear());
   const [availabilityData, setAvailabilityData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Same provider scoping as MonthCalendar — see comment there.
+  const providerId = user?.accountType === 'PROVIDER'
+    ? user._id
+    : user?.providerId || null;
 
   // Temporal reality check - what days exist in our chosen slice of time?
   const getDaysInMonth = (year, month) => {
@@ -31,12 +38,14 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
   const dates = getDaysInMonth(year, month);
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // The great availability hunt
   useEffect(() => {
     const fetchMonthAvailability = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/availability/month/${year}/${month + 1}`);
+        const url = providerId
+          ? `/api/availability/month/${year}/${month + 1}?providerId=${providerId}`
+          : `/api/availability/month/${year}/${month + 1}`;
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch availability');
         const data = await response.json();
         setAvailabilityData(data);
@@ -48,7 +57,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
     };
 
     fetchMonthAvailability();
-  }, [month, year]);
+  }, [month, year, providerId]);
 
   // Auto-scroll to today's temporal coordinates
   useEffect(() => {

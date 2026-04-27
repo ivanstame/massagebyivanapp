@@ -26,22 +26,14 @@ const STATES = [
 
 
 const MyProfile = () => {
+  // All hooks must run on every render — keep them above any conditional
+  // returns. Earlier versions had `if (loading)` / `if (!user)` early-
+  // returns interleaved with the useState calls below, which violates
+  // the Rules of Hooks (React errors when the hook count changes between
+  // renders). The auth-state guards now live below, after every hook.
   const { user, loading } = useContext(AuthContext);
-  const [preferencesLoading, setPreferencesLoading] = useState(true); // New loading state for preferences
-const [provider, setProvider] = useState(null);
-
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  
-  if (!user) {
-    return <div>No user found. Please log in.</div>;
-  }
-  
-
-
-  // We'll try to rely on user from AuthContext first.
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [provider, setProvider] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [editingSections, setEditingSections] = useState({
@@ -55,7 +47,7 @@ const [provider, setProvider] = useState(null);
     contact: true,
     medical: true,
     treatment: true,
-    provider: true  // Add provider section to expanded sections
+    provider: true
   });
   const [formData, setFormData] = useState({
     fullName: '',
@@ -275,7 +267,14 @@ const [provider, setProvider] = useState(null);
       </div>
     );
   }
-  
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-slate-600">No user found. Please log in.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="av-paper pt-16 min-h-screen">
