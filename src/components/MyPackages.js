@@ -33,13 +33,12 @@ const MyPackages = () => {
   // Bucket by status for clearer rendering. Active includes pending purchases
   // even though their credits aren't redeemable yet — surfacing them lets
   // the client see "your card is processing" without confusion.
-  const active = packages.filter(p =>
-    !p.cancelledAt &&
-    p.sessionsRemaining > 0
-  );
-  const fullyRedeemed = packages.filter(p =>
-    !p.cancelledAt && p.sessionsRemaining === 0
-  );
+  const remainingOf = (p) => p.kind === 'minutes'
+    ? (p.minutesRemaining ?? 0)
+    : (p.sessionsRemaining ?? 0);
+
+  const active = packages.filter(p => !p.cancelledAt && remainingOf(p) > 0);
+  const fullyRedeemed = packages.filter(p => !p.cancelledAt && remainingOf(p) === 0);
   const cancelled = packages.filter(p => p.cancelledAt);
 
   const formatDate = (d) => DateTime.fromISO(d).toFormat('MMM d, yyyy');
@@ -130,9 +129,12 @@ const Section = ({ title, children }) => (
 );
 
 const PackageCard = ({ pkg, formatDate, muted = false }) => {
-  const total = pkg.sessionsTotal || 0;
-  const used = pkg.sessionsUsed || 0;
-  const remaining = pkg.sessionsRemaining ?? (total - used);
+  const isMinutes = pkg.kind === 'minutes';
+  const total = isMinutes ? (pkg.minutesTotal || 0) : (pkg.sessionsTotal || 0);
+  const used = isMinutes ? (pkg.minutesUsed || 0) : (pkg.sessionsUsed || 0);
+  const remaining = isMinutes
+    ? (pkg.minutesRemaining ?? (total - used))
+    : (pkg.sessionsRemaining ?? (total - used));
   const percentUsed = total > 0 ? Math.round((used / total) * 100) : 0;
   const providerName = pkg.provider?.providerProfile?.businessName
     || pkg.provider?.profile?.fullName
@@ -140,6 +142,12 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
     || 'Your provider';
 
   const isPending = pkg.paymentStatus === 'pending';
+
+  // Subtitle differs by mode. Sessions-mode shows both sessions AND derived
+  // minutes so clients can think in either unit.
+  const subtitle = isMinutes
+    ? `${total} min pool · book any duration`
+    : `${pkg.sessionsTotal} × ${pkg.sessionDuration}-min sessions`;
 
   return (
     <div className={`bg-paper-elev rounded-lg shadow-sm border border-line p-4 ${muted ? 'opacity-70' : ''}`}>
@@ -151,7 +159,7 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
           <div className="min-w-0 flex-1">
             <p className="font-medium text-slate-900 truncate">{pkg.name}</p>
             <p className="text-xs text-slate-500 truncate">
-              {providerName} &middot; {pkg.sessionDuration} min sessions
+              {providerName} &middot; {subtitle}
             </p>
           </div>
         </div>
@@ -172,13 +180,17 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
         </div>
       </div>
 
-      {/* Progress bar — only meaningful while package is paid + active */}
+      {/* Progress bar — only meaningful while package is paid + active.
+          Minutes-mode shows minutes; sessions-mode shows session count
+          plus a derived minutes line so the user can think in either. */}
       {!pkg.cancelledAt && pkg.paymentStatus === 'paid' && total > 0 && (
         <>
           <div className="flex items-baseline justify-between mb-1.5">
             <p className="text-sm">
               <span className="font-semibold text-slate-900">{remaining}</span>{' '}
-              <span className="text-slate-500">of {total} remaining</span>
+              <span className="text-slate-500">
+                of {total} {isMinutes ? 'min' : ''} remaining
+              </span>
             </p>
             <p className="text-xs text-slate-400">{percentUsed}% used</p>
           </div>
@@ -188,6 +200,11 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
               style={{ width: `${percentUsed}%` }}
             />
           </div>
+          {!isMinutes && pkg.sessionDuration > 0 && (
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              {remaining * pkg.sessionDuration} of {total * pkg.sessionDuration} min remaining
+            </p>
+          )}
         </>
       )}
 
@@ -201,7 +218,9 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
         {used > 0 && (
           <span className="inline-flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {used} session{used !== 1 ? 's' : ''} booked
+            {isMinutes
+              ? `${used} min used`
+              : `${used} session${used !== 1 ? 's' : ''} booked`}
           </span>
         )}
       </div>

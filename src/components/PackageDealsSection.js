@@ -48,8 +48,10 @@ const PackageDealsSection = ({ availableDurations }) => {
     setEditDraft({
       name: '',
       description: '',
+      kind: 'sessions',
       sessionsTotal: 5,
       sessionDuration: defaultDuration,
+      minutesTotal: 300,
       price: 0,
       isActive: true,
     });
@@ -61,8 +63,10 @@ const PackageDealsSection = ({ availableDurations }) => {
     setEditDraft({
       name: tmpl.name,
       description: tmpl.description || '',
-      sessionsTotal: tmpl.sessionsTotal,
-      sessionDuration: tmpl.sessionDuration,
+      kind: tmpl.kind || 'sessions',
+      sessionsTotal: tmpl.sessionsTotal ?? 5,
+      sessionDuration: tmpl.sessionDuration ?? defaultDuration,
+      minutesTotal: tmpl.minutesTotal ?? 300,
       price: tmpl.price,
       isActive: tmpl.isActive,
     });
@@ -88,9 +92,16 @@ const PackageDealsSection = ({ availableDurations }) => {
       setError('Package name is required');
       return;
     }
-    if (!Number.isInteger(Number(editDraft.sessionsTotal)) || editDraft.sessionsTotal < 1) {
-      setError('Sessions must be a whole number of 1 or more');
-      return;
+    if (editDraft.kind === 'minutes') {
+      if (!Number.isInteger(Number(editDraft.minutesTotal)) || editDraft.minutesTotal < 30) {
+        setError('Minutes must be a whole number of 30 or more');
+        return;
+      }
+    } else {
+      if (!Number.isInteger(Number(editDraft.sessionsTotal)) || editDraft.sessionsTotal < 1) {
+        setError('Sessions must be a whole number of 1 or more');
+        return;
+      }
     }
     if (editDraft.price < 0) {
       setError('Price cannot be negative');
@@ -100,8 +111,13 @@ const PackageDealsSection = ({ availableDurations }) => {
     const payload = {
       name: editDraft.name.trim(),
       description: editDraft.description.trim(),
-      sessionsTotal: Number(editDraft.sessionsTotal),
-      sessionDuration: Number(editDraft.sessionDuration),
+      kind: editDraft.kind,
+      ...(editDraft.kind === 'minutes'
+        ? { minutesTotal: Number(editDraft.minutesTotal) }
+        : {
+            sessionsTotal: Number(editDraft.sessionsTotal),
+            sessionDuration: Number(editDraft.sessionDuration),
+          }),
       price: Number(editDraft.price),
       isActive: editDraft.isActive,
     };
@@ -136,8 +152,13 @@ const PackageDealsSection = ({ availableDurations }) => {
       const res = await axios.put(`/api/packages/templates/${tmpl._id}`, {
         name: tmpl.name,
         description: tmpl.description,
-        sessionsTotal: tmpl.sessionsTotal,
-        sessionDuration: tmpl.sessionDuration,
+        kind: tmpl.kind || 'sessions',
+        ...(tmpl.kind === 'minutes'
+          ? { minutesTotal: tmpl.minutesTotal }
+          : {
+              sessionsTotal: tmpl.sessionsTotal,
+              sessionDuration: tmpl.sessionDuration,
+            }),
         price: tmpl.price,
         isActive: !tmpl.isActive,
       }, { withCredentials: true });
@@ -241,12 +262,26 @@ const PackageDealsSection = ({ availableDurations }) => {
                         )}
                       </div>
                       <p className="text-sm text-slate-600">
-                        {tmpl.sessionsTotal} × {tmpl.sessionDuration} min &middot;{' '}
-                        <span className="font-medium text-slate-900">${tmpl.price}</span>
-                        {tmpl.sessionsTotal > 0 && (
-                          <span className="text-xs text-slate-400 ml-1.5">
-                            (${(tmpl.price / tmpl.sessionsTotal).toFixed(2)}/session)
-                          </span>
+                        {tmpl.kind === 'minutes' ? (
+                          <>
+                            {tmpl.minutesTotal} min pool &middot;{' '}
+                            <span className="font-medium text-slate-900">${tmpl.price}</span>
+                            {tmpl.minutesTotal > 0 && tmpl.price > 0 && (
+                              <span className="text-xs text-slate-400 ml-1.5">
+                                (${((tmpl.price / tmpl.minutesTotal) * 60).toFixed(2)}/hr)
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {tmpl.sessionsTotal} × {tmpl.sessionDuration} min &middot;{' '}
+                            <span className="font-medium text-slate-900">${tmpl.price}</span>
+                            {tmpl.sessionsTotal > 0 && tmpl.price > 0 && (
+                              <span className="text-xs text-slate-400 ml-1.5">
+                                (${(tmpl.price / tmpl.sessionsTotal).toFixed(2)}/session)
+                              </span>
+                            )}
+                          </>
                         )}
                       </p>
                       {tmpl.description && (
@@ -325,6 +360,8 @@ const PackageForm = ({ draft, setDraft, availableDurations, onSave, onCancel, sa
     ? availableDurations
     : [30, 45, 60, 75, 90, 105, 120, 150, 180];
 
+  const kind = draft.kind || 'sessions';
+
   return (
     <div className="space-y-3">
       <div>
@@ -333,54 +370,131 @@ const PackageForm = ({ draft, setDraft, availableDurations, onSave, onCancel, sa
           type="text"
           value={draft.name}
           onChange={(e) => update('name', e.target.value)}
-          placeholder="e.g. 5-Pack Relaxation"
+          placeholder={kind === 'minutes' ? 'e.g. 5 Hours Bodywork' : 'e.g. 5-Pack Relaxation'}
           className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
           autoFocus
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Sessions</label>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={draft.sessionsTotal}
-            onChange={(e) => update('sessionsTotal', Number(e.target.value) || 0)}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Per session</label>
-          <select
-            value={draft.sessionDuration}
-            onChange={(e) => update('sessionDuration', Number(e.target.value))}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+      {/* Kind toggle. Sessions = fixed N×D credits, one per booking.
+          Minutes = a pool the client can spend at any duration. */}
+      <div>
+        <label className="block text-xs font-medium text-slate-700 mb-1">Package type</label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => update('kind', 'sessions')}
+            className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-colors ${
+              kind === 'sessions'
+                ? 'bg-[#B07A4E] text-white border-[#B07A4E]'
+                : 'bg-paper-elev text-slate-700 border-line hover:border-slate-300'
+            }`}
           >
-            {durationOptions.map(d => (
-              <option key={d} value={d}>{d} min</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Total price ($)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={draft.price}
-            onChange={(e) => update('price', Number(e.target.value) || 0)}
-            className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-          />
+            Fixed sessions
+            <span className="block text-[10px] font-normal opacity-80 mt-0.5">
+              N × set duration
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => update('kind', 'minutes')}
+            className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-colors ${
+              kind === 'minutes'
+                ? 'bg-[#B07A4E] text-white border-[#B07A4E]'
+                : 'bg-paper-elev text-slate-700 border-line hover:border-slate-300'
+            }`}
+          >
+            Minutes pool
+            <span className="block text-[10px] font-normal opacity-80 mt-0.5">
+              Client picks duration
+            </span>
+          </button>
         </div>
       </div>
 
-      {draft.sessionsTotal > 0 && draft.price > 0 && (
+      {kind === 'minutes' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Total minutes</label>
+            <input
+              type="number"
+              min="30"
+              max="6000"
+              step="15"
+              value={draft.minutesTotal}
+              onChange={(e) => update('minutesTotal', Number(e.target.value) || 0)}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            />
+            {draft.minutesTotal > 0 && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                {(draft.minutesTotal / 60).toFixed(draft.minutesTotal % 60 ? 1 : 0)} hours
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Total price ($)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.price}
+              onChange={(e) => update('price', Number(e.target.value) || 0)}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Sessions</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={draft.sessionsTotal}
+              onChange={(e) => update('sessionsTotal', Number(e.target.value) || 0)}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Per session</label>
+            <select
+              value={draft.sessionDuration}
+              onChange={(e) => update('sessionDuration', Number(e.target.value))}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            >
+              {durationOptions.map(d => (
+                <option key={d} value={d}>{d} min</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Total price ($)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={draft.price}
+              onChange={(e) => update('price', Number(e.target.value) || 0)}
+              className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            />
+          </div>
+        </div>
+      )}
+
+      {kind === 'sessions' && draft.sessionsTotal > 0 && draft.price > 0 && (
         <p className="text-xs text-slate-500">
           Works out to{' '}
           <span className="font-medium text-slate-700">
             ${(draft.price / draft.sessionsTotal).toFixed(2)} per session.
+          </span>
+        </p>
+      )}
+      {kind === 'minutes' && draft.minutesTotal > 0 && draft.price > 0 && (
+        <p className="text-xs text-slate-500">
+          Works out to{' '}
+          <span className="font-medium text-slate-700">
+            ${((draft.price / draft.minutesTotal) * 60).toFixed(2)} per hour.
           </span>
         </p>
       )}

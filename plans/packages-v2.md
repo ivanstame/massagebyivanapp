@@ -79,8 +79,11 @@ Decisions locked for v1:
   expiry).
 - **Add-ons are paid separately.** Package redemption covers the base
   session only; add-ons at redemption time are charged per-booking via
-  the provider's normal payment methods.
-- **Stripe-only purchase flow.** No Venmo/cash for package buys.
+  the provider's normal payment methods. (Add-on `extraTime` does NOT
+  debit a minutes-mode pool either — same principle.)
+- **Stripe online buys, cash offline buys, comped freebies.** Online
+  client purchase still goes through Stripe Connect. Provider can record
+  a cash sale or comp a free package from `/provider/clients/:id`.
 - **Late-cancel consumes the credit.** Client cancels inside the
   provider's cancel window → credit returns. Client cancels late → credit
   is consumed. Provider can manually reinstate a consumed credit from the
@@ -88,9 +91,29 @@ Decisions locked for v1:
 - **Refunds are manual.** Provider refunds via Stripe dashboard; in
   Avayble they mark the package cancelled (which freezes its remaining
   credits) and any already-redeemed sessions stay booked.
-- **Providers can comp packages.** Button on `/provider/clients/:id` that
-  creates a fully-paid package for a client at $0 cost (for loyalty,
-  makeup for a bad session, etc.).
+
+## v1.1 (shipped 2026-04-26): minutes-mode + cash + backfill
+
+- **Two package shapes.** `kind:'sessions'` (N × fixed-duration credits,
+  the original v1 behavior) and `kind:'minutes'` (a pre-paid pool of
+  minutes the client can spend at any duration the provider offers).
+  Discriminator field on both PackageTemplate and PackagePurchase. Each
+  redemption against a minutes-mode package weighs `minutesConsumed`
+  rather than 1 credit.
+- **Cash payment method.** PackagePurchase.paymentMethod enum extended
+  to `stripe | cash | comped`. Provider records cash sales via the same
+  "Add a package" form on `/provider/clients/:id`.
+- **Pre-consumed backfill.** PackagePurchase has `preConsumedSessions` /
+  `preConsumedMinutes` (+ optional note) so the provider can record
+  history that happened before the package landed in Avayble. Counted
+  against remaining alongside live redemptions, but with no per-event
+  redemption row (no fake bookings created).
+- **Atomic reservation logic centralized.** `services/packageReservation.js`
+  is the single source of truth used by single-booking creation, chain
+  bookings, and recurring-series materialization. The helper picks
+  sessions-vs-minutes math based on the purchase's `kind` and uses an
+  aggregation-pipeline conditional in the same `findOneAndUpdate` so two
+  concurrent redeem attempts can't both succeed.
 
 ---
 
@@ -242,25 +265,17 @@ session, for instance). Worth punting until v1 use reveals demand.
 
 ---
 
-### 6. Variable-duration and "any service" packages
+### 6. Variable-duration and "any service" packages — SHIPPED in v1.1 (2026-04-26)
 
-**What.** A package can cover multiple durations (e.g., "5 sessions, any
-duration — use credits toward 60-min or 90-min") or any service from the
-provider. Pricing could be value-based (`$500 of services` rather than
-`5 sessions`).
+Done as `kind:'minutes'` packages. Client can spend the pool at any
+duration the provider offers. Pricing is per-pool ($X for N minutes), not
+per-session. Add-on `extraTime` does NOT debit the pool — add-ons stay
+paid per visit, matching the v1 add-on principle.
 
-**Why deferred.** Most packages sold in practice are fixed-duration
-(e.g., "5-pack of 60-min massages"). Variable-duration introduces
-bookkeeping (what's 1 credit worth if durations vary?) and pricing
-questions. v1's fixed-duration model covers >80% of real use.
-
-**Design notes.**
-- Add `durationOptions: [Number]` to template (array of allowed
-  durations). Empty array or null = any duration from the provider's
-  basePricing.
-- Credits stay session-based, not dollar-based, for MVP of this feature.
-- Later: dollar-value packages where each booking consumes value equal
-  to the session's list price.
+Still deferred from this item:
+- Dollar-value packages ($500 of services consumed at each session's
+  list price). Less ergonomically interesting than minutes-mode and
+  introduces price-change-mid-pack complexity. Defer until requested.
 
 ---
 

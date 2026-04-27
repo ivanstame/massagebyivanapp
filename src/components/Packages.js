@@ -116,16 +116,22 @@ const Packages = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-slate-900">{tmpl.name}</h3>
                     <p className="text-sm text-slate-600">
-                      {tmpl.sessionsTotal} × {tmpl.sessionDuration}-min sessions
+                      {tmpl.kind === 'minutes'
+                        ? `${tmpl.minutesTotal} min pool — book any duration`
+                        : `${tmpl.sessionsTotal} × ${tmpl.sessionDuration}-min sessions`}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-2xl font-bold text-slate-900">${tmpl.price}</p>
-                    {tmpl.sessionsTotal > 0 && tmpl.price > 0 && (
+                    {tmpl.kind === 'minutes' && tmpl.minutesTotal > 0 && tmpl.price > 0 ? (
+                      <p className="text-[11px] text-slate-400">
+                        ${((tmpl.price / tmpl.minutesTotal) * 60).toFixed(2)}/hr
+                      </p>
+                    ) : tmpl.sessionsTotal > 0 && tmpl.price > 0 ? (
                       <p className="text-[11px] text-slate-400">
                         ${(tmpl.price / tmpl.sessionsTotal).toFixed(2)}/session
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

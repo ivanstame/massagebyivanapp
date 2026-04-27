@@ -244,10 +244,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
       try {
         const res = await api.get('/api/packages/mine');
         if (cancelled) return;
-        // Only show packages that are paid, not cancelled, and have credits left.
-        const eligible = (res.data || []).filter(p =>
-          p.paymentStatus === 'paid' && !p.cancelledAt && (p.sessionsRemaining || 0) > 0
-        );
+        // Only show packages that are paid, not cancelled, and have any
+        // remaining capacity (sessions OR minutes depending on kind).
+        const eligible = (res.data || []).filter(p => {
+          if (p.paymentStatus !== 'paid' || p.cancelledAt) return false;
+          return p.kind === 'minutes'
+            ? (p.minutesRemaining || 0) > 0
+            : (p.sessionsRemaining || 0) > 0;
+        });
         setRedeemablePackages(eligible);
       } catch (err) {
         // Non-fatal — booking still works without packages.
@@ -257,13 +261,18 @@ const BookingForm = ({ googleMapsLoaded }) => {
     return () => { cancelled = true; };
   }, [user, isProviderBooking]);
 
-  // Filter redeemable packages to those matching the currently-selected
-  // duration. If the client switches duration after picking a package,
-  // we clear the selection so they don't accidentally submit a mismatch
-  // (the server would reject it anyway, but front-end clarity matters).
-  const matchingPackages = redeemablePackages.filter(
-    p => p.sessionDuration === selectedDuration
-  );
+  // Filter redeemable packages to those that fit the currently-selected
+  // duration. Sessions-mode requires an exact duration match; minutes-mode
+  // only needs enough remaining minutes in the pool. If the client switches
+  // duration after picking a package, we clear the selection so they don't
+  // accidentally submit a mismatch (the server would reject it anyway, but
+  // front-end clarity matters).
+  const matchingPackages = redeemablePackages.filter(p => {
+    if (p.kind === 'minutes') {
+      return (p.minutesRemaining || 0) >= selectedDuration;
+    }
+    return p.sessionDuration === selectedDuration;
+  });
   useEffect(() => {
     if (selectedPackageId) {
       const stillValid = matchingPackages.some(p => p._id === selectedPackageId);

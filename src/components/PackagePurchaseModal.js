@@ -136,19 +136,29 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
               <p className="text-lg font-medium text-slate-900">Payment received!</p>
               <p className="text-sm text-slate-500 mt-1">
-                Your {template.sessionsTotal} credits are ready to use.
+                {template.kind === 'minutes'
+                  ? `Your ${template.minutesTotal} minutes are ready to use.`
+                  : `Your ${template.sessionsTotal} credits are ready to use.`}
               </p>
             </div>
           ) : (
             <>
               <div className="text-center mb-5">
-                <p className="text-sm text-slate-500">{template.sessionsTotal} × {template.sessionDuration}-min sessions</p>
+                <p className="text-sm text-slate-500">
+                  {template.kind === 'minutes'
+                    ? `${template.minutesTotal} min pool — book any duration`
+                    : `${template.sessionsTotal} × ${template.sessionDuration}-min sessions`}
+                </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">${template.price.toFixed(2)}</p>
-                {template.sessionsTotal > 0 && template.price > 0 && (
+                {template.kind === 'minutes' && template.minutesTotal > 0 && template.price > 0 ? (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    ${((template.price / template.minutesTotal) * 60).toFixed(2)} per hour
+                  </p>
+                ) : template.sessionsTotal > 0 && template.price > 0 ? (
                   <p className="text-xs text-slate-400 mt-0.5">
                     ${(template.price / template.sessionsTotal).toFixed(2)} per session
                   </p>
-                )}
+                ) : null}
               </div>
 
               <div className="mb-4">

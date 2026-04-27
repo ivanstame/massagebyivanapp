@@ -33,7 +33,7 @@ const Availability = require('../models/Availability');
 const BlockedTime = require('../models/BlockedTime');
 const SavedLocation = require('../models/SavedLocation');
 const User = require('../models/User');
-const PackagePurchase = require('../models/PackagePurchase');
+const { reservePackageCredit, returnReservedCredit } = require('./packageReservation');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 
 const SETTLE_BUFFER = 15;
@@ -63,44 +63,6 @@ class ChainDoesntFitError extends Error {
     this.chainDurationMin = chainDurationMin;
     this.alternatives = alternatives;
   }
-}
-
-// Atomically reserve a credit on a PackagePurchase. Same pattern as the
-// single-booking flow; lifted here so the service is self-contained.
-async function reservePackageCredit({ packageId, clientId, providerId, duration, bookingId }) {
-  return PackagePurchase.findOneAndUpdate(
-    {
-      _id: packageId,
-      client: clientId,
-      provider: providerId,
-      sessionDuration: duration,
-      paymentStatus: 'paid',
-      cancelledAt: null,
-      $expr: {
-        $gt: [
-          '$sessionsTotal',
-          {
-            $size: {
-              $filter: {
-                input: '$redemptions',
-                as: 'r',
-                cond: { $eq: ['$$r.returnedAt', null] },
-              },
-            },
-          },
-        ],
-      },
-    },
-    { $push: { redemptions: { booking: bookingId, redeemedAt: new Date() } } },
-    { new: true }
-  );
-}
-
-async function returnReservedCredit({ packageId, bookingId }) {
-  await PackagePurchase.updateOne(
-    { _id: packageId },
-    { $pull: { redemptions: { booking: bookingId } } }
-  );
 }
 
 /**

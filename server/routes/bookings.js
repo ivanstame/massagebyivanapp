@@ -11,6 +11,11 @@ const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
 const { createChainBookings } = require('../services/chainBookingService');
+const {
+  reservePackageCredit,
+  returnReservedCredit,
+  markRedemptionReturned,
+} = require('../services/packageReservation');
 const { DateTime } = require('luxon');
 const smsService = require('../services/smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
@@ -27,55 +32,10 @@ const calculatePrice = (duration) => {
   return Math.ceil((duration / 60) * BASE_RATE);
 };
 
-// Atomically reserve a credit on a PackagePurchase by pushing a redemption
-// entry referencing the future booking ID. The conditional on the update
-// guarantees we only succeed if the package is paid, not cancelled, owned
-// by this client, scoped to this provider, and has remaining credits — so
-// concurrent attempts can't both win.
-//
-// Returns the redemption sub-doc on success, null on failure (no credit
-// available or package not redeemable). If success, the caller MUST
-// either complete the booking or call returnReservedCredit() to roll back.
-async function reservePackageCredit({ packageId, clientId, providerId, duration, bookingId }) {
-  const updated = await PackagePurchase.findOneAndUpdate(
-    {
-      _id: packageId,
-      client: clientId,
-      provider: providerId,
-      sessionDuration: duration,
-      paymentStatus: 'paid',
-      cancelledAt: null,
-      $expr: {
-        $gt: [
-          '$sessionsTotal',
-          {
-            $size: {
-              $filter: {
-                input: '$redemptions',
-                as: 'r',
-                cond: { $eq: ['$$r.returnedAt', null] },
-              },
-            },
-          },
-        ],
-      },
-    },
-    {
-      $push: { redemptions: { booking: bookingId, redeemedAt: new Date() } },
-    },
-    { new: true }
-  );
-  return updated;
-}
-
-// Roll back a reserved credit (used when booking save fails after we
-// already pushed a redemption). Pulls the entry out by booking ID.
-async function returnReservedCredit({ packageId, bookingId }) {
-  await PackagePurchase.updateOne(
-    { _id: packageId },
-    { $pull: { redemptions: { booking: bookingId } } }
-  );
-}
+// Reservation logic lives in services/packageReservation.js — same helper
+// used by chainBookingService and recurring-series materialization, so
+// sessions-mode and minutes-mode behavior stays consistent across all
+// three booking entry points.
 
 // POST / (Create a new booking)
 router.post('/', ensureAuthenticated, async (req, res) => {
@@ -983,14 +943,10 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
 
       if (!isLateClientCancel) {
         try {
-          await PackagePurchase.updateOne(
-            {
-              _id: booking.packageRedemption.packagePurchase,
-              'redemptions.booking': booking._id,
-              'redemptions.returnedAt': null,
-            },
-            { $set: { 'redemptions.$.returnedAt': new Date() } }
-          );
+          await markRedemptionReturned({
+            packageId: booking.packageRedemption.packagePurchase,
+            bookingId: booking._id,
+          });
           console.log(`✅ Returned package credit to ${booking.packageRedemption.packagePurchase}`);
         } catch (creditErr) {
           console.error('Failed to return package credit on cancel:', creditErr.message);
@@ -1074,14 +1030,10 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
           sib.cancelledBy = req.user.accountType;
           await sib.save();
           if (sib.packageRedemption?.packagePurchase) {
-            await PackagePurchase.updateOne(
-              {
-                _id: sib.packageRedemption.packagePurchase,
-                'redemptions.booking': sib._id,
-                'redemptions.returnedAt': null,
-              },
-              { $set: { 'redemptions.$.returnedAt': new Date() } }
-            );
+            await markRedemptionReturned({
+              packageId: sib.packageRedemption.packagePurchase,
+              bookingId: sib._id,
+            });
           }
           chainSiblingsCancelled += 1;
         }
@@ -1130,14 +1082,10 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
             await sib.save();
             // Return any package credit reserved by the sibling.
             if (sib.packageRedemption?.packagePurchase) {
-              await PackagePurchase.updateOne(
-                {
-                  _id: sib.packageRedemption.packagePurchase,
-                  'redemptions.booking': sib._id,
-                  'redemptions.returnedAt': null,
-                },
-                { $set: { 'redemptions.$.returnedAt': new Date() } }
-              );
+              await markRedemptionReturned({
+                packageId: sib.packageRedemption.packagePurchase,
+                bookingId: sib._id,
+              });
             }
             siblingsCancelled += 1;
           }

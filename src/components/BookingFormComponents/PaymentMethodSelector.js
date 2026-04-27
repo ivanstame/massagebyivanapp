@@ -40,11 +40,17 @@ const PaymentMethodSelector = ({
 
       {/* Package credit options — surfaced first when available since they're
           essentially "already paid." Selecting one switches selectedMethod to
-          'package' and records which specific package the credit comes from. */}
+          'package' and records which specific package the credit comes from.
+          Sessions-mode packages show "X of Y remaining" in sessions; minutes-
+          mode packages show minutes-remaining since each booking debits a
+          variable amount. */}
       {redeemablePackages.length > 0 && (
         <div className="mb-3 space-y-2">
           {redeemablePackages.map(pkg => {
             const isSelected = selectedMethod === 'package' && selectedPackageId === pkg._id;
+            const detail = pkg.kind === 'minutes'
+              ? `${pkg.minutesRemaining} of ${pkg.minutesTotal} min remaining`
+              : `${pkg.sessionsRemaining} of ${pkg.sessionsTotal} remaining`;
             return (
               <button
                 key={pkg._id}
@@ -69,7 +75,7 @@ const PaymentMethodSelector = ({
                     Use package credit
                   </p>
                   <p className="text-xs text-slate-500 truncate">
-                    {pkg.name} · {pkg.sessionsRemaining} of {pkg.sessionsTotal} remaining
+                    {pkg.name} · {detail}
                   </p>
                 </div>
               </button>

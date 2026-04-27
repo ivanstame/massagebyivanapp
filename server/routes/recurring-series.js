@@ -5,10 +5,14 @@ const mongoose = require('mongoose');
 const RecurringSeries = require('../models/RecurringSeries');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
-const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
 const { createChainBookings } = require('../services/chainBookingService');
+const {
+  reservePackageCredit,
+  returnReservedCredit,
+  markRedemptionReturned,
+} = require('../services/packageReservation');
 
 // Rolling-window length. Each series materializes occurrences out this
 // far from "now" at creation time; the lazy-extend path (called by the
@@ -170,32 +174,13 @@ async function materializeSeries(series, options = {}) {
 
     if (series.paymentMethod === 'package' && series.packagePurchase) {
       const bookingId = new mongoose.Types.ObjectId();
-      const reserved = await PackagePurchase.findOneAndUpdate(
-        {
-          _id: series.packagePurchase,
-          client: series.client,
-          provider: series.provider,
-          sessionDuration: series.duration,
-          paymentStatus: 'paid',
-          cancelledAt: null,
-          $expr: {
-            $gt: [
-              '$sessionsTotal',
-              {
-                $size: {
-                  $filter: {
-                    input: '$redemptions',
-                    as: 'r',
-                    cond: { $eq: ['$$r.returnedAt', null] },
-                  },
-                },
-              },
-            ],
-          },
-        },
-        { $push: { redemptions: { booking: bookingId, redeemedAt: new Date() } } },
-        { new: true }
-      );
+      const reserved = await reservePackageCredit({
+        packageId: series.packagePurchase,
+        clientId: series.client,
+        providerId: series.provider,
+        duration: series.duration,
+        bookingId,
+      });
 
       if (reserved) {
         bookingPaymentStatus = 'paid';
@@ -232,10 +217,7 @@ async function materializeSeries(series, options = {}) {
           created.push(booking);
         } catch (saveErr) {
           // Roll back the credit reservation on save failure.
-          await PackagePurchase.updateOne(
-            { _id: reserved._id },
-            { $pull: { redemptions: { booking: bookingId } } }
-          );
+          await returnReservedCredit({ packageId: reserved._id, bookingId });
           conflicts.push({ date: dateStr, reason: 'save_failed', error: saveErr.message });
         }
         continue;
@@ -448,7 +430,10 @@ router.get('/', ensureAuthenticated, async (req, res) => {
           status: { $ne: 'cancelled' },
           localDate: { $gte: todayStr },
         }).sort({ localDate: 1, startTime: 1 }).select('localDate startTime'),
-        Booking.countDocuments({ series: s._id }),
+        // Active occurrences only — cancelled bookings remain in the
+        // collection as history but shouldn't inflate the "X on the
+        // books" summary the UI shows next to each series.
+        Booking.countDocuments({ series: s._id, status: { $ne: 'cancelled' } }),
       ]);
       return {
         ...s.toObject(),
@@ -531,14 +516,10 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
         await b.save();
         // Return any package credits this occurrence had reserved.
         if (b.packageRedemption?.packagePurchase) {
-          await PackagePurchase.updateOne(
-            {
-              _id: b.packageRedemption.packagePurchase,
-              'redemptions.booking': b._id,
-              'redemptions.returnedAt': null,
-            },
-            { $set: { 'redemptions.$.returnedAt': new Date() } }
-          );
+          await markRedemptionReturned({
+            packageId: b.packageRedemption.packagePurchase,
+            bookingId: b._id,
+          });
         }
         cancelledOccurrences += 1;
       }

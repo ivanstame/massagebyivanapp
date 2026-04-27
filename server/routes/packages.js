@@ -28,15 +28,47 @@ router.get('/templates', ensureAuthenticated, async (req, res) => {
 });
 
 // Validate + normalize template payload shared by create/update.
-// Enforces that sessionDuration matches one of the provider's basePricing
-// entries so clients never buy a package that can't be redeemed.
+//
+// Sessions-mode requires sessionsTotal + sessionDuration, and the duration
+// must match one of the provider's basePricing entries (so clients never
+// buy a package that can't be redeemed).
+//
+// Minutes-mode requires minutesTotal. Duration constraint doesn't apply —
+// minutes can be spent at any duration the provider offers.
 async function validateTemplatePayload(req) {
-  const { name, description, sessionsTotal, sessionDuration, price, isActive } = req.body;
+  const { name, description, kind, sessionsTotal, sessionDuration, minutesTotal, price, isActive } = req.body;
 
   if (!name || !String(name).trim()) {
     return { error: 'Package name is required' };
   }
 
+  const packageKind = kind === 'minutes' ? 'minutes' : 'sessions';
+
+  const priceNum = Number(price);
+  if (!Number.isFinite(priceNum) || priceNum < 0) {
+    return { error: 'Price must be a non-negative number' };
+  }
+
+  if (packageKind === 'minutes') {
+    const minutes = Number(minutesTotal);
+    if (!Number.isInteger(minutes) || minutes < 30 || minutes > 6000) {
+      return { error: 'Minutes total must be a whole number between 30 and 6000' };
+    }
+    return {
+      data: {
+        name: String(name).trim(),
+        description: description ? String(description).trim() : '',
+        kind: 'minutes',
+        minutesTotal: minutes,
+        sessionsTotal: undefined,
+        sessionDuration: undefined,
+        price: priceNum,
+        ...(typeof isActive === 'boolean' ? { isActive } : {}),
+      },
+    };
+  }
+
+  // sessions-mode
   const total = Number(sessionsTotal);
   if (!Number.isInteger(total) || total < 1 || total > 100) {
     return { error: 'Sessions total must be a whole number between 1 and 100' };
@@ -45,11 +77,6 @@ async function validateTemplatePayload(req) {
   const duration = Number(sessionDuration);
   if (!Number.isInteger(duration) || duration < 30 || duration > 180) {
     return { error: 'Session duration must be a whole number between 30 and 180 minutes' };
-  }
-
-  const priceNum = Number(price);
-  if (!Number.isFinite(priceNum) || priceNum < 0) {
-    return { error: 'Price must be a non-negative number' };
   }
 
   // Enforce that the provider actually offers a session of this duration.
@@ -65,8 +92,10 @@ async function validateTemplatePayload(req) {
     data: {
       name: String(name).trim(),
       description: description ? String(description).trim() : '',
+      kind: 'sessions',
       sessionsTotal: total,
       sessionDuration: duration,
+      minutesTotal: undefined,
       price: priceNum,
       ...(typeof isActive === 'boolean' ? { isActive } : {}),
     },
@@ -118,7 +147,14 @@ router.put('/templates/:id', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: validated.error });
     }
 
-    Object.assign(template, validated.data);
+    // Use set+unset so switching kinds clears the unused fields cleanly.
+    template.set(validated.data);
+    if (validated.data.kind === 'minutes') {
+      template.sessionsTotal = undefined;
+      template.sessionDuration = undefined;
+    } else {
+      template.minutesTotal = undefined;
+    }
     await template.save();
 
     res.json(template);
@@ -253,8 +289,10 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
       provider: template.provider,
       client: req.user._id,
       name: template.name,
-      sessionsTotal: template.sessionsTotal,
-      sessionDuration: template.sessionDuration,
+      kind: template.kind,
+      sessionsTotal: template.kind === 'sessions' ? template.sessionsTotal : undefined,
+      sessionDuration: template.kind === 'sessions' ? template.sessionDuration : undefined,
+      minutesTotal: template.kind === 'minutes' ? template.minutesTotal : undefined,
       price: template.price,
       paymentMethod: 'stripe',
       paymentStatus: template.price > 0 ? 'pending' : 'paid',
@@ -328,17 +366,36 @@ router.get('/client/:clientId', ensureAuthenticated, async (req, res) => {
   }
 });
 
-// Provider comps a free package directly to one of their clients (loyalty
-// reward, makeup for a bad session, etc.). No template required — the
-// provider can grant arbitrary session count + duration. paymentStatus
-// flips to 'paid' immediately so credits are usable right away.
+// Provider grants a package to one of their clients. Three modes:
+//
+//   - Comped (price: 0)            — loyalty/makeup gift, no money owed.
+//   - Cash recorded (price > 0)    — provider already accepted cash in person
+//                                    and wants Avayble to track redemption.
+//   - From a template (templateId) — convenience: pre-fills name/sessions
+//                                    /minutes/duration but the provider can
+//                                    still override price / mark as cash.
+//
+// preConsumedSessions / preConsumedMinutes let the provider record usage
+// that happened before the package landed in Avayble (the canonical
+// backfill case — Sherri Gropper paid cash for 4×75min weeks ago and has
+// already used one of them).
 router.post('/comp', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Provider access required' });
     }
 
-    const { clientId, name, sessionsTotal, sessionDuration, templateId } = req.body;
+    const {
+      clientId, templateId,
+      name, kind,
+      sessionsTotal, sessionDuration,
+      minutesTotal,
+      price,
+      paymentMethod,
+      preConsumedSessions, preConsumedMinutes, preConsumedNote,
+      purchasedAt,
+    } = req.body;
+
     if (!clientId) return res.status(400).json({ message: 'clientId is required' });
 
     // Verify the target client belongs to this provider.
@@ -347,31 +404,82 @@ router.post('/comp', ensureAuthenticated, async (req, res) => {
       return res.status(404).json({ message: 'Client not found' });
     }
 
-    // Either comp from a template or specify the fields directly.
-    let pkgName, pkgSessions, pkgDuration, templateRef = null;
+    // Resolve fields — template provides defaults, request body overrides.
+    let pkgName, pkgKind, pkgSessions, pkgDuration, pkgMinutes, templateRef = null;
     if (templateId) {
       const template = await PackageTemplate.findOne({ _id: templateId, provider: req.user._id });
       if (!template) return res.status(404).json({ message: 'Template not found' });
       pkgName = name || template.name;
-      pkgSessions = sessionsTotal || template.sessionsTotal;
-      pkgDuration = sessionDuration || template.sessionDuration;
+      pkgKind = kind || template.kind;
+      pkgSessions = sessionsTotal ?? template.sessionsTotal;
+      pkgDuration = sessionDuration ?? template.sessionDuration;
+      pkgMinutes = minutesTotal ?? template.minutesTotal;
       templateRef = template._id;
     } else {
-      if (!name || !sessionsTotal || !sessionDuration) {
-        return res.status(400).json({
-          message: 'name, sessionsTotal, and sessionDuration are required when comping without a template',
-        });
-      }
-      pkgName = String(name).trim();
-      pkgSessions = Number(sessionsTotal);
-      pkgDuration = Number(sessionDuration);
+      pkgName = name ? String(name).trim() : null;
+      pkgKind = kind === 'minutes' ? 'minutes' : 'sessions';
+      pkgSessions = sessionsTotal != null ? Number(sessionsTotal) : null;
+      pkgDuration = sessionDuration != null ? Number(sessionDuration) : null;
+      pkgMinutes = minutesTotal != null ? Number(minutesTotal) : null;
     }
 
-    if (!Number.isInteger(pkgSessions) || pkgSessions < 1 || pkgSessions > 100) {
-      return res.status(400).json({ message: 'Sessions must be 1–100' });
+    if (!pkgName) {
+      return res.status(400).json({ message: 'name is required when not using a template' });
     }
-    if (!Number.isInteger(pkgDuration) || pkgDuration < 30 || pkgDuration > 180) {
-      return res.status(400).json({ message: 'Duration must be 30–180 minutes' });
+
+    if (pkgKind === 'minutes') {
+      if (!Number.isInteger(pkgMinutes) || pkgMinutes < 30 || pkgMinutes > 6000) {
+        return res.status(400).json({ message: 'Minutes must be 30–6000' });
+      }
+    } else {
+      if (!Number.isInteger(pkgSessions) || pkgSessions < 1 || pkgSessions > 100) {
+        return res.status(400).json({ message: 'Sessions must be 1–100' });
+      }
+      if (!Number.isInteger(pkgDuration) || pkgDuration < 30 || pkgDuration > 180) {
+        return res.status(400).json({ message: 'Duration must be 30–180 minutes' });
+      }
+    }
+
+    const pkgPrice = price != null ? Number(price) : 0;
+    if (!Number.isFinite(pkgPrice) || pkgPrice < 0) {
+      return res.status(400).json({ message: 'Price must be a non-negative number' });
+    }
+
+    // paymentMethod: explicit override > inferred from price.
+    // Default: comped if free, cash otherwise (provider-recorded sales
+    // outside the app are almost always cash; they can override).
+    let pkgPaymentMethod;
+    if (paymentMethod && ['comped', 'cash', 'stripe'].includes(paymentMethod)) {
+      pkgPaymentMethod = paymentMethod;
+    } else {
+      pkgPaymentMethod = pkgPrice > 0 ? 'cash' : 'comped';
+    }
+
+    // Pre-consumed counts. Validate they don't exceed the package itself.
+    const preSessions = pkgKind === 'sessions' && preConsumedSessions != null
+      ? Number(preConsumedSessions) : 0;
+    const preMinutes = pkgKind === 'minutes' && preConsumedMinutes != null
+      ? Number(preConsumedMinutes) : 0;
+
+    if (pkgKind === 'sessions') {
+      if (!Number.isInteger(preSessions) || preSessions < 0 || preSessions > pkgSessions) {
+        return res.status(400).json({
+          message: `Pre-consumed sessions must be 0–${pkgSessions}`,
+        });
+      }
+    } else {
+      if (!Number.isFinite(preMinutes) || preMinutes < 0 || preMinutes > pkgMinutes) {
+        return res.status(400).json({
+          message: `Pre-consumed minutes must be 0–${pkgMinutes}`,
+        });
+      }
+    }
+
+    // Optional explicit purchasedAt for backfill (provider knows when the
+    // cash changed hands). Falls back to now.
+    const resolvedPurchasedAt = purchasedAt ? new Date(purchasedAt) : new Date();
+    if (purchasedAt && Number.isNaN(resolvedPurchasedAt.getTime())) {
+      return res.status(400).json({ message: 'Invalid purchasedAt date' });
     }
 
     const purchase = await PackagePurchase.create({
@@ -379,12 +487,17 @@ router.post('/comp', ensureAuthenticated, async (req, res) => {
       provider: req.user._id,
       client: clientId,
       name: pkgName,
-      sessionsTotal: pkgSessions,
-      sessionDuration: pkgDuration,
-      price: 0,
-      paymentMethod: 'comped',
+      kind: pkgKind,
+      sessionsTotal: pkgKind === 'sessions' ? pkgSessions : undefined,
+      sessionDuration: pkgKind === 'sessions' ? pkgDuration : undefined,
+      minutesTotal: pkgKind === 'minutes' ? pkgMinutes : undefined,
+      price: pkgPrice,
+      paymentMethod: pkgPaymentMethod,
       paymentStatus: 'paid',
-      purchasedAt: new Date(),
+      purchasedAt: resolvedPurchasedAt,
+      preConsumedSessions: pkgKind === 'sessions' ? preSessions : 0,
+      preConsumedMinutes: pkgKind === 'minutes' ? preMinutes : 0,
+      preConsumedNote: preConsumedNote ? String(preConsumedNote).trim() : '',
     });
 
     res.status(201).json(purchase);
