@@ -115,9 +115,20 @@ const WeeklyTemplateEditor = () => {
   };
 
   const handleTimeChange = (dayIndex, field, value) => {
-    setDays(prev => prev.map(d =>
-      d.dayOfWeek === dayIndex ? { ...d, [field]: value } : d
-    ));
+    // The anchor's own time window is no longer surfaced to the user — it
+    // implicitly tracks the day's working hours. We still write it to the
+    // server so the backend data shape stays consistent (the multi-anchor
+    // power-user case remains representable in the model even though
+    // there's no UI for it).
+    setDays(prev => prev.map(d => {
+      if (d.dayOfWeek !== dayIndex) return d;
+      const updated = { ...d, [field]: value };
+      const mirrorField = field === 'startTime' || field === 'endTime' ? field : null;
+      if (mirrorField) {
+        updated.anchor = { ...d.anchor, [mirrorField]: value };
+      }
+      return updated;
+    }));
     setSaved(false);
   };
 
@@ -310,12 +321,20 @@ const WeeklyTemplateEditor = () => {
                 )}
               </div>
 
-              {/* Anchor location assignment */}
+              {/* Drive-estimate origin. The provider is mobile, so they're
+                  never actually "at" this location during work hours —
+                  it's just the geographic point we use to estimate the
+                  drive to their first appointment. The UI now reflects
+                  that explicitly and drops the misleading "At location"
+                  time range (the data still tracks the day's hours
+                  behind the scenes for backend consistency). */}
               {day.isActive && (
                 <div className="mt-3 ml-[76px] p-2.5 bg-paper-deep rounded-lg border border-line-soft">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
-                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">Starting from:</span>
+                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">
+                      Drive estimates start from:
+                    </span>
                     {savedLocations.length > 0 ? (
                       <select
                         value={day.anchor.locationId || ''}
@@ -341,32 +360,6 @@ const WeeklyTemplateEditor = () => {
                     <p className="mt-1 ml-5 text-xs text-red-500">
                       Required — drive time is calculated from this location
                     </p>
-                  )}
-
-                  {/* Anchor time range */}
-                  {day.anchor.locationId && (
-                    <div className="mt-2 flex items-center gap-2 ml-5">
-                      <span className="text-xs text-slate-500 flex-shrink-0">At location:</span>
-                      <select
-                        value={day.anchor.startTime}
-                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'startTime', e.target.value)}
-                        className="border border-line rounded px-1.5 py-0.5 text-xs bg-paper-elev flex-1 min-w-0 focus:ring-[#B07A4E]"
-                      >
-                        {TIME_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <span className="text-xs text-slate-400">to</span>
-                      <select
-                        value={day.anchor.endTime}
-                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'endTime', e.target.value)}
-                        className="border border-line rounded px-1.5 py-0.5 text-xs bg-paper-elev flex-1 min-w-0 focus:ring-[#B07A4E]"
-                      >
-                        {TIME_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
                   )}
                 </div>
               )}
