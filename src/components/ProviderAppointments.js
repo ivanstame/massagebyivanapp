@@ -1,368 +1,396 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
-import { Calendar, MapPin, Clock, Phone, MessageSquare, AlertTriangle, Trash2, User as UserIcon, DollarSign, CheckCircle } from 'lucide-react';
-import StaticMapPreview from './StaticMapPreview';
+import {
+  AlertTriangle, ArrowRight, Search, Repeat, Users,
+  CircleDollarSign, CheckCircle, ChevronDown, ChevronRight,
+} from 'lucide-react';
+
+// Provider's appointments page. Calm-glance list that matches the
+// dashboard's "today's rhythm" rhythm: each appointment is a single tappable
+// row that hands off to /appointments/:id for actions (confirm, complete,
+// pay, cancel, navigate). The detail page is the single source of truth
+// for per-appointment actions; this view is purely navigational +
+// browseable.
+//
+// Layout:
+//   [search box]
+//   [filter chips: All · Pending · Confirmed · Unpaid]
+//
+//   Today
+//     ┌ row · row · row
+//   Tomorrow
+//     ┌ row · row
+//   This Week
+//   Next Week
+//   Later
+//
+//   Show N past appointments
+//     Last week
+//     This month
+//     Earlier
 
 const ProviderAppointments = () => {
-  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
-  const [pastAppointments, setPastAppointments] = useState([]);
-  const [showPastAppointments, setShowPastAppointments] = useState(false);
+  const [appointments, setAppointments] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPast, setShowPast] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const { user } = useContext(AuthContext);
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
+  useEffect(() => { fetchAppointments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchAppointments = async () => {
     try {
       setIsLoading(true);
       const response = await axios.get('/api/bookings', { withCredentials: true });
-
-      if (Array.isArray(response.data)) {
-        const now = moment().utc();
-
-        const providerAppointments = response.data.filter(appointment => {
-          const appointmentProviderId = appointment.provider?._id || appointment.provider;
-          return String(appointmentProviderId) === String(user._id);
-        });
-
-        // Cancelled bookings always belong in history, regardless of date —
-        // a future-dated booking that's been cancelled isn't "upcoming"
-        // anymore (this matches the client-side BookingList semantics).
-        // Without this, a cancelled standing-appointment occurrence still
-        // showed up in the Upcoming tab with a "Cancelled" badge,
-        // looking like the cancellation hadn't taken effect.
-        const isPast = (appointment) => {
-          if (appointment.status === 'cancelled') return true;
-          const appointmentEnd = moment.utc(appointment.date)
-            .set('hour', parseInt(appointment.endTime.split(':')[0]))
-            .set('minute', parseInt(appointment.endTime.split(':')[1]));
-          return appointmentEnd.isSameOrBefore(now);
-        };
-
-        const upcoming = providerAppointments
-          .filter(appointment => !isPast(appointment))
-          .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)));
-
-        const past = providerAppointments
-          .filter(isPast)
-          .sort((a, b) => moment.utc(b.date).diff(moment.utc(a.date)));
-
-        setUpcomingAppointments(upcoming);
-        setPastAppointments(past);
-      } else {
+      if (!Array.isArray(response.data)) {
         setError('Invalid data format received from server');
+        return;
       }
-    } catch (error) {
-      if (error.response) {
-        setError(`Server error: ${error.response.status} - ${error.response.data?.message || error.message}`);
-      } else if (error.request) {
+      // Defensive filter — provider should only see their own.
+      const mine = response.data.filter(a =>
+        String(a.provider?._id || a.provider) === String(user._id)
+      );
+      setAppointments(mine);
+    } catch (err) {
+      if (err.response) {
+        setError(`Server error: ${err.response.status} - ${err.response.data?.message || err.message}`);
+      } else if (err.request) {
         setError('No response from server');
       } else {
-        setError(`Error: ${error.message}`);
+        setError(`Error: ${err.message}`);
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCancelAppointment = async (appointmentId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
-      return;
+  // Cancelled bookings always belong in past, regardless of date — matches
+  // BookingList semantics so a future-dated cancelled occurrence doesn't
+  // reappear here looking unprocessed.
+  const isPast = (a) => {
+    if (a.status === 'cancelled') return true;
+    const end = moment.utc(a.date)
+      .set('hour', parseInt(a.endTime.split(':')[0]))
+      .set('minute', parseInt(a.endTime.split(':')[1]));
+    return end.isSameOrBefore(moment.utc());
+  };
+
+  const getRecipientName = (a) => {
+    if (a.recipientType === 'other' && a.recipientInfo?.name) return a.recipientInfo.name;
+    return a.client?.profile?.fullName || a.client?.email || 'Unknown Client';
+  };
+
+  // Apply filters + search. Search hits recipient name and address.
+  const matchesFilters = (a) => {
+    if (filter === 'pending' && a.status !== 'pending') return false;
+    if (filter === 'confirmed' && a.status !== 'confirmed') return false;
+    if (filter === 'unpaid' && a.paymentStatus === 'paid') return false;
+    if (search.trim()) {
+      const needle = search.trim().toLowerCase();
+      const haystack = [
+        getRecipientName(a),
+        a.location?.address || '',
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  };
+
+  const { upcomingGroups, pastGroups, upcomingCount, pastCount, pendingCount, unpaidUpcomingCount } = useMemo(() => {
+    const filtered = appointments.filter(matchesFilters);
+    const upcoming = filtered.filter(a => !isPast(a))
+      .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)) ||
+                      a.startTime.localeCompare(b.startTime));
+    const past = filtered.filter(isPast)
+      .sort((a, b) => moment.utc(b.date).diff(moment.utc(a.date)) ||
+                      b.startTime.localeCompare(a.startTime));
+
+    // Group upcoming by relative date.
+    const today = moment.tz('America/Los_Angeles').startOf('day');
+    const tomorrow = today.clone().add(1, 'day');
+    const endOfThisWeek = today.clone().endOf('week'); // Saturday-end
+    const endOfNextWeek = endOfThisWeek.clone().add(7, 'days');
+
+    const upcomingBuckets = {
+      Today: [],
+      Tomorrow: [],
+      'This Week': [],
+      'Next Week': [],
+      Later: [],
+    };
+    for (const a of upcoming) {
+      const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
+      if (d.isSame(today, 'day')) upcomingBuckets['Today'].push(a);
+      else if (d.isSame(tomorrow, 'day')) upcomingBuckets['Tomorrow'].push(a);
+      else if (d.isSameOrBefore(endOfThisWeek)) upcomingBuckets['This Week'].push(a);
+      else if (d.isSameOrBefore(endOfNextWeek)) upcomingBuckets['Next Week'].push(a);
+      else upcomingBuckets['Later'].push(a);
     }
 
-    try {
-      await axios.delete(`/api/bookings/${appointmentId}`, { withCredentials: true });
-      await fetchAppointments();
-    } catch (error) {
-      if (error.response) {
-        alert(`Failed to cancel appointment: ${error.response.data?.message || 'Unknown error'}`);
-      } else {
-        alert('Failed to cancel appointment. Please try again.');
-      }
+    // Past buckets are simpler — provider scans for "last few" in practice.
+    const startOfThisMonth = today.clone().startOf('month');
+    const startOfLastWeek = today.clone().subtract(7, 'days');
+
+    const pastBuckets = {
+      'Last week': [],
+      'This month': [],
+      'Earlier': [],
+    };
+    for (const a of past) {
+      const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
+      if (d.isSameOrAfter(startOfLastWeek)) pastBuckets['Last week'].push(a);
+      else if (d.isSameOrAfter(startOfThisMonth)) pastBuckets['This month'].push(a);
+      else pastBuckets['Earlier'].push(a);
     }
-  };
 
-  const handleStatusUpdate = async (appointmentId, newStatus) => {
-    try {
-      await axios.patch(`/api/bookings/${appointmentId}/status`,
-        { status: newStatus },
-        { withCredentials: true }
-      );
-      await fetchAppointments();
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to update status');
-    }
-  };
+    // Filter-aware counters for the chip badges (computed off the
+    // unfiltered set so the badges show "what's pending in the world,"
+    // not "what's pending after I narrowed the view").
+    const allUpcoming = appointments.filter(a => !isPast(a));
+    const pending = allUpcoming.filter(a => a.status === 'pending').length;
+    const unpaidUpcoming = allUpcoming.filter(a =>
+      a.paymentStatus !== 'paid' && (a.pricing?.totalPrice || 0) > 0
+    ).length;
 
-  const handleTogglePayment = async (appointmentId, currentStatus) => {
-    try {
-      const newStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
-      await axios.patch(`/api/bookings/${appointmentId}/payment-status`,
-        { paymentStatus: newStatus },
-        { withCredentials: true }
-      );
-      await fetchAppointments();
-    } catch (error) {
-      alert('Failed to update payment status. Please try again.');
-    }
-  };
-
-  const paymentMethodLabel = (method) => {
-    const labels = { cash: 'Cash', zelle: 'Zelle', venmo: 'Venmo', card: 'Card' };
-    return labels[method] || method || 'Cash';
-  };
-
-  // Get the display name for who's actually receiving the massage
-  const getRecipientName = (appointment) => {
-    if (appointment.recipientType === 'other' && appointment.recipientInfo?.name) {
-      return appointment.recipientInfo.name;
-    }
-    return appointment.client?.profile?.fullName || appointment.client?.email || 'Unknown Client';
-  };
-
-  // Get the booker name (the account holder)
-  const getBookerName = (appointment) => {
-    // Use bookedBy if available (new bookings), fall back to client profile (old bookings)
-    return appointment.bookedBy?.name || appointment.client?.profile?.fullName || appointment.client?.email || '';
-  };
-
-  const isBookedForOther = (appointment) => {
-    return appointment.recipientType === 'other' && appointment.recipientInfo?.name;
-  };
-
-  const renderAppointment = (appointment) => (
-    <div
-      key={appointment._id}
-      className="bg-paper-elev rounded-xl shadow-sm border border-line overflow-hidden
-        transition-shadow duration-200 ease-in-out hover:shadow-md mb-4"
-    >
-      <div className="p-4 sm:p-5">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex-1">
-            {/* Recipient name */}
-            <div className="flex items-center gap-2 mb-1">
-              <UserIcon className="w-4 h-4 text-[#B07A4E]" />
-              <span className="text-sm text-slate-500">Massage Recipient</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-medium text-slate-900">
-                {getRecipientName(appointment)}
-              </h3>
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                appointment.status === 'confirmed' ? 'bg-blue-50 text-blue-700' :
-                appointment.status === 'completed' ? 'bg-green-50 text-green-700' :
-                appointment.status === 'cancelled' ? 'bg-red-50 text-red-700' :
-                appointment.status === 'in-progress' ? 'bg-amber-50 text-amber-700' :
-                'bg-slate-100 text-slate-600'
-              }`}>
-                {appointment.status === 'in-progress' ? 'In Progress' :
-                 appointment.status?.charAt(0).toUpperCase() + appointment.status?.slice(1)}
-              </span>
-            </div>
-
-            {/* Booked by (only shown when booked for someone else) */}
-            {isBookedForOther(appointment) && (
-              <p className="text-sm text-slate-500 mb-2">
-                Booked by: <span className="text-slate-700">{getBookerName(appointment)}</span>
-              </p>
-            )}
-
-            <div className="mt-2 space-y-2">
-              <div className="flex items-center text-slate-600">
-                <Calendar className="w-4 h-4 mr-2" />
-                <span>{moment(appointment.date).format('dddd, MMMM D, YYYY')}</span>
-              </div>
-              <div className="flex items-center text-slate-600">
-                <Clock className="w-4 h-4 mr-2" />
-                <span>
-                  {moment(appointment.startTime, 'HH:mm').format('h:mm A')} -
-                  {moment(appointment.endTime, 'HH:mm').format('h:mm A')}
-                </span>
-              </div>
-              <div className="flex items-center text-slate-600">
-                <MapPin className="w-4 h-4 mr-2" />
-                <span>{appointment.location?.address || 'No address provided'}</span>
-              </div>
-              {appointment.location?.lat && appointment.location?.lng && (
-                <StaticMapPreview
-                  lat={appointment.location.lat}
-                  lng={appointment.location.lng}
-                  width={280}
-                  height={120}
-                  className="mt-2"
-                />
-              )}
-
-              {/* Payment info */}
-              {appointment.pricing?.totalPrice > 0 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <DollarSign className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-600">
-                    ${appointment.pricing.totalPrice.toFixed(2)} — {paymentMethodLabel(appointment.paymentMethod)}
-                  </span>
-                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
-                    appointment.paymentStatus === 'paid'
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {appointment.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="ml-4 flex flex-col gap-2">
-            {/* Status action buttons */}
-            {appointment.status === 'pending' && (
-              <button
-                onClick={() => handleStatusUpdate(appointment._id, 'confirmed')}
-                className="inline-flex items-center px-3 py-2 bg-[#B07A4E] text-white text-sm font-medium rounded-xl hover:bg-[#8A5D36] transition-all duration-200"
-              >
-                <CheckCircle className="w-4 h-4 mr-1.5" />
-                Confirm
-              </button>
-            )}
-            {(appointment.status === 'confirmed' || appointment.status === 'in-progress') && (
-              <button
-                onClick={() => handleStatusUpdate(appointment._id, 'completed')}
-                className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 transition-all duration-200"
-              >
-                <CheckCircle className="w-4 h-4 mr-1.5" />
-                Complete
-              </button>
-            )}
-            {/* Payment toggle */}
-            <button
-              onClick={() => handleTogglePayment(appointment._id, appointment.paymentStatus)}
-              className={`inline-flex items-center px-3 py-2 border text-sm font-medium rounded-xl transition-all duration-200 ${
-                appointment.paymentStatus === 'paid'
-                  ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                  : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-              }`}
-              title={appointment.paymentStatus === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
-            >
-              <CheckCircle className="w-4 h-4 mr-1.5" />
-              {appointment.paymentStatus === 'paid' ? 'Paid' : 'Mark Paid'}
-            </button>
-            {/* Cancel — only if not already completed/cancelled */}
-            {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
-              <button
-                onClick={() => handleCancelAppointment(appointment._id)}
-                className="inline-flex items-center px-3 py-2 bg-red-50 border border-red-200
-                  text-sm font-medium rounded-xl text-red-700 hover:bg-red-100 hover:border-red-300
-                  transition-all duration-200"
-                title="Cancel appointment"
-              >
-                <Trash2 className="w-4 h-4 mr-1.5" />
-                Cancel
-              </button>
-            )}
-          </div>
-        </div>
-
-        {appointment.client?.profile?.phoneNumber && (
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-line">
-            <button
-              className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-slate-300
-                text-sm font-medium rounded-xl text-slate-700 hover:bg-paper-deep transition-all duration-200"
-              onClick={() => window.location.href = `tel:${appointment.client.profile.phoneNumber}`}
-            >
-              <Phone className="w-4 h-4 mr-1.5" />
-              Call Client
-            </button>
-
-            <button
-              className="inline-flex items-center px-3 py-1.5 bg-paper-elev border border-slate-300
-                text-sm font-medium rounded-xl text-slate-700 hover:bg-paper-deep transition-all duration-200"
-              onClick={() => window.location.href = `sms:${appointment.client.profile.phoneNumber}`}
-            >
-              <MessageSquare className="w-4 h-4 mr-1.5" />
-              Text Client
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    return {
+      upcomingGroups: upcomingBuckets,
+      pastGroups: pastBuckets,
+      upcomingCount: upcoming.length,
+      pastCount: past.length,
+      pendingCount: pending,
+      unpaidUpcomingCount: unpaidUpcoming,
+    };
+  }, [appointments, filter, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-5xl mx-auto px-5 py-8">
+      <div className="max-w-3xl mx-auto px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Your hours</div>
           <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Appointments
           </h1>
         </div>
-        <div className="bg-paper-elev shadow-atelier-sm border border-line rounded-card overflow-hidden">
-          <div className="p-6">
 
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-400">
-                <div className="flex items-start">
-                  <AlertTriangle className="w-5 h-5 text-red-600 mr-2 mt-0.5" />
-                  <div>
-                    <p className="text-red-700 font-medium">Error Loading Appointments</p>
-                    <p className="text-red-600 text-sm mt-1">{error}</p>
-                    <button
-                      onClick={fetchAppointments}
-                      className="mt-2 text-sm text-red-700 underline hover:text-red-800"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isLoading ? (
-              <div className="text-center py-8">
-                <p className="text-slate-600">Loading appointments...</p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {upcomingAppointments.length > 0 ? (
-                    upcomingAppointments.map(renderAppointment)
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-slate-600">No upcoming appointments</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-8">
-                  <button
-                    onClick={() => setShowPastAppointments(!showPastAppointments)}
-                    className="text-[#B07A4E] hover:text-[#8A5D36] font-medium"
-                  >
-                    {showPastAppointments ? 'Hide' : 'Show'} Past Appointments ({pastAppointments.length})
-                  </button>
-
-                  {showPastAppointments && (
-                    <div className="mt-4 space-y-4">
-                      {pastAppointments.length > 0 ? (
-                        pastAppointments.map(renderAppointment)
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-slate-600">No past appointments</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-700 font-medium">Error loading appointments</p>
+              <p className="text-red-600 text-sm mt-1">{error}</p>
+              <button onClick={fetchAppointments} className="mt-2 text-sm text-red-700 underline hover:text-red-800">
+                Try again
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Search */}
+        <div className="mb-3 relative">
+          <Search className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by client name or address"
+            className="w-full pl-9 pr-3 py-2.5 text-sm bg-paper-elev border border-line rounded-card
+              focus:outline-none focus:ring-2 focus:ring-[#B07A4E]/30 focus:border-[#B07A4E]"
+          />
         </div>
+
+        {/* Filter chips */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          <FilterChip active={filter === 'all'}      onClick={() => setFilter('all')}      label="All" />
+          <FilterChip active={filter === 'pending'}  onClick={() => setFilter('pending')}  label="Pending" badge={pendingCount} accent="amber" />
+          <FilterChip active={filter === 'confirmed'} onClick={() => setFilter('confirmed')} label="Confirmed" />
+          <FilterChip active={filter === 'unpaid'}   onClick={() => setFilter('unpaid')}   label="Unpaid" badge={unpaidUpcomingCount} accent="amber" />
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-ink-2 text-center py-12">Loading…</p>
+        ) : upcomingCount === 0 && pastCount === 0 ? (
+          <EmptyState filter={filter} search={search} />
+        ) : (
+          <>
+            {/* Upcoming groups */}
+            {upcomingCount === 0 ? (
+              <p className="text-sm text-ink-2 text-center py-8">
+                {filter === 'all' && !search.trim()
+                  ? 'No upcoming appointments.'
+                  : 'Nothing matches that filter.'}
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(upcomingGroups).map(([label, list]) =>
+                  list.length === 0 ? null : (
+                    <DateGroup key={label} label={label} count={list.length}>
+                      {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
+                    </DateGroup>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* Past — collapsed accordion */}
+            {pastCount > 0 && (
+              <div className="mt-10 pt-6 border-t border-line">
+                <button
+                  onClick={() => setShowPast(s => !s)}
+                  className="flex items-center gap-2 text-sm text-ink-2 hover:text-ink font-medium"
+                >
+                  {showPast ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  {pastCount} past appointment{pastCount === 1 ? '' : 's'}
+                </button>
+                {showPast && (
+                  <div className="mt-4 space-y-6">
+                    {Object.entries(pastGroups).map(([label, list]) =>
+                      list.length === 0 ? null : (
+                        <DateGroup key={label} label={label} count={list.length}>
+                          {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
+                        </DateGroup>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 };
+
+// Filter chip pill. Optional `badge` count rendered next to label;
+// `accent` controls the badge color (amber for "needs attention").
+const FilterChip = ({ active, onClick, label, badge, accent }) => {
+  const accentClasses = accent === 'amber'
+    ? 'bg-amber-100 text-amber-800'
+    : 'bg-paper-deep text-ink-2';
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+        ${active
+          ? 'bg-[#B07A4E] text-white'
+          : 'bg-paper-elev border border-line text-ink-2 hover:border-[#B07A4E]/40 hover:text-ink'
+        }`}
+    >
+      {label}
+      {!!badge && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${active ? 'bg-white/20 text-white' : accentClasses}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+};
+
+// Date-bucket header + its rows.
+const DateGroup = ({ label, count, children }) => (
+  <div>
+    <div className="flex items-baseline gap-2.5 mb-2.5">
+      <span className="av-eyebrow text-ink-2">{label}</span>
+      <span className="text-[11px] text-ink-3">{count}</span>
+      <span className="flex-1 h-px" style={{ background: 'var(--line)' }} />
+    </div>
+    <div className="space-y-2">{children}</div>
+  </div>
+);
+
+// Single appointment row — the only renderer in this view. Tap → detail.
+// Mirrors the dashboard's TimelineRow visual rhythm so the two views feel
+// like one product instead of two competing pages.
+const AppointmentRow = ({ booking }) => {
+  const formatTime = (hhmm) => moment(hhmm, 'HH:mm').format('h:mm A');
+  const recipient = booking.recipientType === 'other' && booking.recipientInfo?.name
+    ? booking.recipientInfo.name
+    : (booking.client?.profile?.fullName || booking.client?.email || 'Client');
+
+  const neighborhood = booking.location?.address?.split(',')[0] || '';
+  const isCancelled = booking.status === 'cancelled';
+  const isCompleted = booking.status === 'completed';
+  const isPending = booking.status === 'pending';
+  const hasPrice = (booking.pricing?.totalPrice || 0) > 0;
+  const isUnpaid = hasPrice && booking.paymentStatus !== 'paid';
+  const isChain = !!booking.groupId;
+
+  return (
+    <Link
+      to={`/appointments/${booking._id}`}
+      className={`flex items-center gap-3.5 py-3 px-3.5 rounded-card bg-paper-elev border border-line
+        hover:shadow-atelier-sm transition ${isCancelled ? 'opacity-60' : ''}`}
+      style={!isCancelled && !isCompleted ? { borderLeft: '3px solid #B07A4E' } : undefined}
+    >
+      {/* Time column */}
+      <div className="flex flex-col items-start" style={{ width: 64 }}>
+        <span className={`av-meta ${isCancelled || isCompleted ? 'text-ink-3' : 'text-accent'}`}>
+          {formatTime(booking.startTime)}
+        </span>
+        <span className="text-[10px] text-ink-3 mt-0.5">{booking.duration}m</span>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`font-display truncate ${isCancelled ? 'line-through text-ink-3' : 'text-ink'}`}
+            style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 500 }}
+          >
+            {recipient}
+          </span>
+          {booking.series && (
+            <span title="Recurring"><Repeat className="w-3 h-3 text-ink-3 flex-shrink-0" /></span>
+          )}
+          {isChain && (
+            <span title="Back-to-back chain"><Users className="w-3 h-3 text-ink-3 flex-shrink-0" /></span>
+          )}
+        </div>
+        {neighborhood && (
+          <div className="text-xs text-ink-2 truncate mt-0.5">{neighborhood}</div>
+        )}
+      </div>
+
+      {/* Status indicators column */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {isPending && (
+          <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+            Pending
+          </span>
+        )}
+        {isCompleted && (
+          <CheckCircle className="w-4 h-4 text-green-600" title="Completed" />
+        )}
+        {isCancelled && (
+          <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+            Cancelled
+          </span>
+        )}
+        {isUnpaid && !isCancelled && (
+          <CircleDollarSign className="w-4 h-4 text-amber-600" title="Unpaid" />
+        )}
+      </div>
+
+      <ArrowRight className="w-3.5 h-3.5 text-ink-3 flex-shrink-0" />
+    </Link>
+  );
+};
+
+const EmptyState = ({ filter, search }) => (
+  <div className="text-center py-16 bg-paper-elev rounded-card border border-dashed border-line">
+    <p className="text-ink-2 text-sm">
+      {search.trim()
+        ? `No appointments match "${search.trim()}".`
+        : filter !== 'all'
+          ? 'No appointments match that filter.'
+          : 'No appointments yet. Once clients book, they\'ll show up here.'}
+    </p>
+  </div>
+);
 
 export default ProviderAppointments;
