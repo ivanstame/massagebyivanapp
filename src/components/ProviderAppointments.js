@@ -41,7 +41,7 @@ const ProviderAppointments = () => {
   const [search, setSearch] = useState('');
   const { user } = useContext(AuthContext);
 
-  useEffect(() => { fetchAppointments(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchAppointments(); }, []);
 
   const fetchAppointments = async () => {
     try {
@@ -165,7 +165,7 @@ const ProviderAppointments = () => {
       pendingCount: pending,
       unpaidUpcomingCount: unpaidUpcoming,
     };
-  }, [appointments, filter, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appointments, filter, search]);
 
   return (
     <div className="av-paper pt-16 min-h-screen">
