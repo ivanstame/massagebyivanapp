@@ -33,10 +33,10 @@ const ProviderClientDetails = () => {
   const [showEditNotes, setShowEditNotes] = useState(false);
   const [clientNotes, setClientNotes] = useState('');
   const [stats, setStats] = useState({
-    totalAppointments: 0,
+    sessionsDelivered: 0,
     upcomingAppointments: 0,
-    completedAppointments: 0,
-    totalRevenue: 0
+    revenueEarned: 0,
+    lastSeen: null,
   });
 
   // Claim-link generation state. Kept minimal — the provider generates a
@@ -82,30 +82,36 @@ const ProviderClientDetails = () => {
       });
       setAppointments(response.data);
       
-      // Calculate statistics
+      // Stats principle: report what's TRUE, not what's HOPED FOR. Counts
+      // and totals key off `status` so cancelled bookings + forecasted
+      // standing appointments stop inflating the lifetime view.
       if (response.data && response.data.length > 0) {
         const now = new Date();
-        const upcoming = response.data.filter(apt => new Date(apt.date) > now && apt.status !== 'cancelled');
+
         const completed = response.data.filter(apt => apt.status === 'completed');
-        
-        // Calculate total revenue (assuming each appointment has a price field)
-        // If price is not available, we'll use a default value based on duration
-        const revenue = response.data.reduce((total, apt) => {
-          if (apt.price) {
-            return total + apt.price;
-          } else if (apt.duration) {
-            // Estimate price based on duration if actual price not available
-            const hourlyRate = 100; // Default hourly rate
-            return total + (apt.duration / 60) * hourlyRate;
-          }
-          return total;
-        }, 0);
-        
+        const upcoming = response.data.filter(apt =>
+          new Date(apt.date) > now &&
+          !['cancelled', 'completed'].includes(apt.status)
+        );
+
+        // Revenue = money actually received (completed AND paid). Future
+        // bookings don't count, cancelled bookings don't count, completed-
+        // but-unpaid sessions don't count. No fake-hourly-rate fallback.
+        const revenueEarned = completed
+          .filter(apt => apt.paymentStatus === 'paid')
+          .reduce((sum, apt) =>
+            sum + (apt.pricing?.totalPrice ?? apt.price ?? 0), 0);
+
+        // Last delivered session — relationship recency.
+        const lastCompleted = completed.length > 0
+          ? [...completed].sort((a, b) => new Date(b.date) - new Date(a.date))[0]
+          : null;
+
         setStats({
-          totalAppointments: response.data.length,
+          sessionsDelivered: completed.length,
           upcomingAppointments: upcoming.length,
-          completedAppointments: completed.length,
-          totalRevenue: revenue
+          revenueEarned,
+          lastSeen: lastCompleted ? new Date(lastCompleted.date) : null,
         });
       }
     } catch (error) {
@@ -431,26 +437,21 @@ const ProviderClientDetails = () => {
           </div>
         )}
 
-        {/* Client Stats Section */}
+        {/* Client Stats Section
+            Each stat is gated on status so cancelled bookings + materialized-
+            but-not-yet-delivered standing appointments don't inflate the
+            lifetime view. Revenue specifically counts only completed+paid. */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <h2 className="text-lg font-medium text-slate-900 mb-4">Client Statistics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[#B07A4E]/10 p-4 rounded-lg">
-              <div className="flex items-center mb-2">
-                <Calendar className="w-5 h-5 text-[#B07A4E] mr-2" />
-                <h3 className="text-sm font-medium text-[#8A5D36]">Total Sessions</h3>
-              </div>
-              <p className="text-2xl font-bold text-[#8A5D36]">{stats.totalAppointments}</p>
-            </div>
-            
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="flex items-center mb-2">
                 <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <h3 className="text-sm font-medium text-green-700">Completed</h3>
+                <h3 className="text-sm font-medium text-green-700">Sessions delivered</h3>
               </div>
-              <p className="text-2xl font-bold text-green-900">{stats.completedAppointments}</p>
+              <p className="text-2xl font-bold text-green-900">{stats.sessionsDelivered}</p>
             </div>
-            
+
             <div className="bg-teal-50 p-4 rounded-lg">
               <div className="flex items-center mb-2">
                 <Clock8 className="w-5 h-5 text-teal-500 mr-2" />
@@ -458,13 +459,30 @@ const ProviderClientDetails = () => {
               </div>
               <p className="text-2xl font-bold text-teal-900">{stats.upcomingAppointments}</p>
             </div>
-            
+
             <div className="bg-amber-50 p-4 rounded-lg">
               <div className="flex items-center mb-2">
                 <DollarSign className="w-5 h-5 text-amber-500 mr-2" />
-                <h3 className="text-sm font-medium text-amber-700">Revenue</h3>
+                <h3 className="text-sm font-medium text-amber-700">Revenue earned</h3>
               </div>
-              <p className="text-2xl font-bold text-amber-900">${stats.totalRevenue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-amber-900">${stats.revenueEarned.toFixed(2)}</p>
+            </div>
+
+            <div className="bg-[#B07A4E]/10 p-4 rounded-lg">
+              <div className="flex items-center mb-2">
+                <Calendar className="w-5 h-5 text-[#B07A4E] mr-2" />
+                <h3 className="text-sm font-medium text-[#8A5D36]">Last seen</h3>
+              </div>
+              <p className="text-2xl font-bold text-[#8A5D36]">
+                {stats.lastSeen
+                  ? moment(stats.lastSeen).format('MMM D, YYYY')
+                  : '—'}
+              </p>
+              {stats.lastSeen && (
+                <p className="text-[11px] text-[#8A5D36]/70 mt-0.5">
+                  {moment(stats.lastSeen).fromNow()}
+                </p>
+              )}
             </div>
           </div>
         </div>
