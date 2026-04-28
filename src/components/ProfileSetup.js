@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import AddressForm from './AddressForm';
 import api from '../services/api';
-import { AlertCircle, User, Phone, Briefcase, MapPin, AlertTriangle, Link as LinkIcon, Check, X } from 'lucide-react';
+import { AlertCircle, User, Phone, Briefcase, MapPin, Link as LinkIcon, Check, X } from 'lucide-react';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 import { TRADES, TRADE_KEYS } from '../shared/trades';
 
@@ -74,12 +74,7 @@ const ProfileSetup = () => {
     zip: '',
     businessName: '',
     trade: 'other',
-    joinCode: '',
-    // Only include health fields for clients
-    ...(user?.accountType === 'CLIENT' && {
-      allergies: '',
-      medicalConditions: ''
-    })
+    joinCode: ''
   });
   const [joinCodeStatus, setJoinCodeStatus] = useState(null); // null, 'checking', 'available', 'taken', 'invalid'
 
@@ -166,8 +161,6 @@ const ProfileSetup = () => {
           state: formData.state.trim(),
           zip: formData.zip.trim()
         },
-        allergies: formData.allergies?.trim() || '',
-        medicalConditions: formData.medicalConditions?.trim() || '',
         registrationStep: user?.accountType === 'PROVIDER' ? 3 : 2
       };
 
@@ -408,52 +401,6 @@ const ProfileSetup = () => {
                 }))}
               />
             </div>
-
-            {/* Health Information Section - Only for Clients */}
-            {user?.accountType === 'CLIENT' && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium text-slate-800 flex items-center">
-                  <AlertTriangle className="w-5 h-5 mr-2 text-[#B07A4E]" />
-                  Health Information
-                </h3>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Allergies (Optional)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      name="allergies"
-                      value={formData.allergies}
-                      onChange={handleChange}
-                      className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
-                      placeholder="e.g., Latex, essential oils, nuts"
-                    />
-                    <AlertTriangle className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    List any allergies your provider should be aware of
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Medical Conditions (Optional)
-                  </label>
-                  <textarea
-                    name="medicalConditions"
-                    value={formData.medicalConditions}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition h-24 resize-none"
-                    placeholder="List any medical conditions or concerns that may affect your treatment (e.g., pregnancy, injuries, chronic conditions)"
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    This information helps your provider deliver safe, appropriate service
-                  </p>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-between space-x-4">
               <button

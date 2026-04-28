@@ -545,24 +545,74 @@ const ProviderClientDetails = () => {
           </div>
         </div>
 
-        {/* Medical Info Section */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <h2 className="text-lg font-medium text-slate-900 mb-4">Medical Information</h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium text-slate-700">Allergies</h3>
-              <p className="mt-1 text-slate-600">
-                {client?.profile?.allergies || 'None reported'}
-              </p>
+        {/* Treatment Preferences Section */}
+        {(() => {
+          const tp = client?.profile?.treatmentPreferences || {};
+          const hasFocus = (tp.focusAreas || []).length > 0;
+          const hasAvoid = (tp.avoidAreas || []).length > 0;
+          const hasOils = !!tp.oilSensitivities;
+          const hasNotes = !!tp.notes;
+          const hasAny = tp.pressure || hasFocus || hasAvoid || hasOils || hasNotes;
+          if (!hasAny) return null;
+          return (
+            <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+              <h2 className="text-lg font-medium text-slate-900 mb-4">Client Preferences</h2>
+
+              {/* Callouts first — these affect what the provider physically does */}
+              {hasNotes && (
+                <div className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded">
+                  <div className="text-xs uppercase tracking-wide text-amber-800 font-medium mb-1">
+                    Notes from client
+                  </div>
+                  <div className="text-sm text-slate-900 whitespace-pre-wrap">{tp.notes}</div>
+                </div>
+              )}
+              {hasOils && (
+                <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                  <div className="text-xs uppercase tracking-wide text-red-800 font-medium mb-1">
+                    Oil / scent sensitivities
+                  </div>
+                  <div className="text-sm text-slate-900">{tp.oilSensitivities}</div>
+                </div>
+              )}
+
+              <div className="space-y-3 text-sm">
+                {tp.pressure && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 w-28">Pressure:</span>
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-[#B07A4E]/10 text-[#B07A4E] capitalize">
+                      {tp.pressure}
+                    </span>
+                  </div>
+                )}
+                {hasFocus && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 w-28 flex-shrink-0 mt-0.5">Focus on:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tp.focusAreas.map(a => (
+                        <span key={a} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-[#B07A4E]/10 text-[#B07A4E]">
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {hasAvoid && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-500 w-28 flex-shrink-0 mt-0.5">Avoid:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tp.avoidAreas.map(a => (
+                        <span key={a} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 border border-red-200">
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-slate-700">Medical Conditions</h3>
-              <p className="mt-1 text-slate-600">
-                {client?.profile?.medicalConditions || 'None reported'}
-              </p>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Appointments Section */}
         <AppointmentHistorySection

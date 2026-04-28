@@ -612,7 +612,8 @@ const ProviderClients = () => {
                   {filteredClients.map(client => {
                     const address = formatClientAddress(client.profile?.address);
                     const stats = client.bookingStats;
-                    const hasHealthInfo = client.profile?.allergies || client.profile?.medicalConditions;
+                    const tp = client.profile?.treatmentPreferences;
+                    const hasClientNotes = !!(tp?.notes || tp?.oilSensitivities);
 
                     return (
                       <div
@@ -635,8 +636,8 @@ const ProviderClients = () => {
                                   Managed
                                 </span>
                               )}
-                              {hasHealthInfo && (
-                                <span title="Has health info on file">
+                              {hasClientNotes && (
+                                <span title="Client has preferences or notes on file">
                                   <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                                 </span>
                               )}

@@ -73,10 +73,6 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
         };
       }
 
-      // Handle allergies/medical from root level (ProfileSetup)
-      if (updateData.allergies !== undefined) user.profile.allergies = updateData.allergies;
-      if (updateData.medicalConditions !== undefined) user.profile.medicalConditions = updateData.medicalConditions;
-
       // Handle join code from ProfileSetup
       if (updateData.joinCode) {
         const code = updateData.joinCode.toLowerCase().trim();
@@ -106,9 +102,7 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
           state: updateData.state || updateData.address?.state || user.profile.address?.state || '',
           zip: updateData.zip || updateData.address?.zip || user.profile.address?.zip || '',
           formatted: updateData.formatted || updateData.address?.formatted || user.profile.address?.formatted || ''
-        },
-        allergies: updateData.allergies || user.profile.allergies,
-        medicalConditions: updateData.medicalConditions || user.profile.medicalConditions
+        }
       };
     }
 
@@ -852,16 +846,26 @@ router.get('/', ensureAdmin, async (req, res) => {
 
 router.put('/treatment-preferences', ensureAuthenticated, async (req, res) => {
   try {
-    console.log('Treatment preferences update request received:', req.body);
+    const incoming = req.body.preferences || {};
+    const allowedPressure = ['light', 'medium', 'firm', 'deep'];
+    const sanitized = {
+      pressure: allowedPressure.includes(incoming.pressure) ? incoming.pressure : 'medium',
+      focusAreas: Array.isArray(incoming.focusAreas) ? incoming.focusAreas.filter(a => typeof a === 'string') : [],
+      avoidAreas: Array.isArray(incoming.avoidAreas) ? incoming.avoidAreas.filter(a => typeof a === 'string') : [],
+      oilSensitivities: typeof incoming.oilSensitivities === 'string' ? incoming.oilSensitivities.trim().slice(0, 500) : '',
+      notes: typeof incoming.notes === 'string' ? incoming.notes.trim().slice(0, 2000) : ''
+    };
+
+    const update = {
+      'profile.treatmentPreferences': sanitized
+    };
+    if (req.body.registrationStep) {
+      update.registrationStep = req.body.registrationStep;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      {
-        $set: {
-          'profile.treatmentPreferences': req.body.preferences,
-          registrationStep: 3  // Update to final step
-        }
-      },
+      { $set: update },
       { new: true }
     );
 
@@ -869,7 +873,7 @@ router.put('/treatment-preferences', ensureAuthenticated, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ 
+    res.json({
       message: 'Treatment preferences updated successfully',
       user: updatedUser.getPublicProfile()
     });

@@ -39,13 +39,11 @@ const MyProfile = () => {
   const [editingSections, setEditingSections] = useState({
     basic: false,
     contact: false,
-    medical: false,
     treatment: false
   });
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     contact: true,
-    medical: true,
     treatment: true,
     provider: true
   });
@@ -64,10 +62,12 @@ const MyProfile = () => {
       name: '',
       phone: ''
     },
-    allergies: '',
-    medicalConditions: '',
     treatmentPreferences: {
-      bodyAreas: {}
+      pressure: 'medium',
+      focusAreas: [],
+      avoidAreas: [],
+      oilSensitivities: '',
+      notes: ''
     }
   });
 
@@ -104,10 +104,12 @@ const MyProfile = () => {
             name: userData.profile?.emergencyContact?.name || '',
             phone: userData.profile?.emergencyContact?.phone || ''
           },
-          allergies: userData.profile?.allergies || '',
-          medicalConditions: userData.profile?.medicalConditions || '',
           treatmentPreferences: {
-            bodyAreas: userData.profile?.treatmentPreferences?.bodyAreas || {}
+            pressure: userData.profile?.treatmentPreferences?.pressure || 'medium',
+            focusAreas: userData.profile?.treatmentPreferences?.focusAreas || [],
+            avoidAreas: userData.profile?.treatmentPreferences?.avoidAreas || [],
+            oilSensitivities: userData.profile?.treatmentPreferences?.oilSensitivities || '',
+            notes: userData.profile?.treatmentPreferences?.notes || ''
           }
         }));
    
@@ -192,12 +194,6 @@ const MyProfile = () => {
             address: formData.address
           };
           break;
-        case 'medical':
-          updateData = {
-            allergies: formData.allergies,
-            medicalConditions: formData.medicalConditions
-          };
-          break;
         case 'treatment':
           updateData = data ? {
             treatmentPreferences: data
@@ -246,10 +242,12 @@ const MyProfile = () => {
             name: '',
             phone: ''
           },
-          allergies: u.profile?.allergies || '',
-          medicalConditions: u.profile?.medicalConditions || '',
           treatmentPreferences: u.profile?.treatmentPreferences || {
-            bodyAreas: {}
+            pressure: 'medium',
+            focusAreas: [],
+            avoidAreas: [],
+            oilSensitivities: '',
+            notes: ''
           }
         });
       } else {
@@ -529,108 +527,65 @@ const MyProfile = () => {
         </div>
       </ProfileSection>
 
-      {/* Medical Information Section */}
-      <ProfileSection
-        title="Medical Information"
-        isEditing={editingSections.medical}
-        isExpanded={expandedSections.medical}
-        onEdit={() => handleSectionEdit('medical')}
-        onToggle={() => handleSectionToggle('medical')}
-      >
-        <EditModeTransition
-          isEditing={editingSections.medical}
-          viewComponent={
-            <div className="space-y-4">
-              <div className="py-2 border-b border-line-soft">
-                <div className="text-slate-500 mb-1">Allergies</div>
-                <div className="text-slate-900">{formData.allergies || 'None reported'}</div>
-              </div>
-              <div className="py-2 border-b border-line-soft">
-                <div className="text-slate-500 mb-1">Medical Conditions</div>
-                <div className="text-slate-900">{formData.medicalConditions || 'None reported'}</div>
-              </div>
-            </div>
-          }
-          editComponent={
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              handleSectionUpdate('medical');
-            }} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Allergies
-                </label>
-                <input
-                  type="text"
-                  name="allergies"
-                  value={formData.allergies}
-                  onChange={(e) => handleInputChange(e, 'medical')}
-                  placeholder="List any allergies"
-                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-2">
-                  Medical Conditions
-                </label>
-                <textarea
-                  name="medicalConditions"
-                  value={formData.medicalConditions}
-                  onChange={(e) => handleInputChange(e, 'medical')}
-                  placeholder="List any medical conditions or concerns"
-                  rows={4}
-                  className="w-full px-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E]"
-                />
-              </div>
-              <div className="flex justify-end space-x-4 pt-4">
-                <button
-                  type="button"
-                  onClick={() => handleSectionEdit('medical')}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36]"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          }
-        />
-      </ProfileSection>
-
       {/* Treatment Preferences Section */}
       <div className="mt-8">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Treatment Preferences</h2>
-        {formData.treatmentPreferences?.bodyAreas?.general ? (
-          <div className="border p-4 rounded mb-4">
-            <h4 className="font-medium text-slate-900 mb-3">General Preferences</h4>
-            <div className="space-y-2">
-              <p className="text-sm text-slate-500">
-                <span className="font-medium">Primary Area of Concern:</span>
-                {formData.treatmentPreferences.bodyAreas.general.conditions && formData.treatmentPreferences.bodyAreas.general.conditions.length > 0 ?
-                  formData.treatmentPreferences.bodyAreas.general.conditions.join(', ').replace(/_/g, ' ') :
-                  'Not specified'}
-              </p>
-              <p className="text-sm text-slate-500">
-                <span className="font-medium">Pressure Level:</span>
-                {formData.treatmentPreferences.bodyAreas.general.pressure === 30 ? 'Gentle' :
-                 formData.treatmentPreferences.bodyAreas.general.pressure === 50 ? 'Medium' :
-                 formData.treatmentPreferences.bodyAreas.general.pressure === 70 ? 'Firm' :
-                 'Not specified'}
-              </p>
-              <p className="text-sm text-slate-500">
-                <span className="font-medium">Additional Notes:</span>
-                {formData.treatmentPreferences.bodyAreas.general.note || 'No additional notes provided'}
-              </p>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-slate-900">Treatment Preferences</h2>
+          <a
+            href="/treatment-preferences"
+            className="text-sm text-[#B07A4E] hover:text-[#8A5D36] font-medium"
+          >
+            Edit
+          </a>
+        </div>
+        <div className="bg-paper-elev border border-line rounded-lg p-5 space-y-4">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Pressure</div>
+            <div className="text-slate-900 capitalize">
+              {formData.treatmentPreferences?.pressure || 'Not set'}
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-slate-500 italic">No treatment preferences found.</p>
-        )}
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Focus areas</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(formData.treatmentPreferences?.focusAreas || []).length > 0 ? (
+                formData.treatmentPreferences.focusAreas.map(area => (
+                  <span key={area} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-[#B07A4E]/10 text-[#B07A4E]">
+                    {area}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-slate-400">None specified</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Avoid areas</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(formData.treatmentPreferences?.avoidAreas || []).length > 0 ? (
+                formData.treatmentPreferences.avoidAreas.map(area => (
+                  <span key={area} className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 border border-red-200">
+                    {area}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-slate-400">None specified</span>
+              )}
+            </div>
+          </div>
+          {formData.treatmentPreferences?.oilSensitivities && (
+            <div>
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Oil / scent sensitivities</div>
+              <div className="text-sm text-slate-900">{formData.treatmentPreferences.oilSensitivities}</div>
+            </div>
+          )}
+          {formData.treatmentPreferences?.notes && (
+            <div>
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Notes for your therapist</div>
+              <div className="text-sm text-slate-900 whitespace-pre-wrap">{formData.treatmentPreferences.notes}</div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Account Management Section */}

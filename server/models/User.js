@@ -195,23 +195,16 @@ const UserSchema = new mongoose.Schema({
       name: String,
       phone: String
     },
-    allergies: String,
-    medicalConditions: String,
     treatmentPreferences: {
-      bodyAreas: {
-        type: Map,
-        of: {
-          pressure: {
-            type: Number,
-            min: 1,
-            max: 100
-          },
-          conditions: [String],
-          patterns: [String],
-          note: String
-        },
-        default: new Map()
-      }
+      pressure: {
+        type: String,
+        enum: ['light', 'medium', 'firm', 'deep'],
+        default: 'medium'
+      },
+      focusAreas: { type: [String], default: [] },
+      avoidAreas: { type: [String], default: [] },
+      oilSensitivities: { type: String, default: '' },
+      notes: { type: String, default: '' }
     }
   }
 }, {
@@ -387,10 +380,14 @@ UserSchema.methods.updateProfile = async function(profileData) {
       name: profileData.emergencyContactName || '',
       phone: profileData.emergencyContactPhone || ''
     },
-    allergies: profileData.allergies || '',
-    medicalConditions: profileData.medicalConditions || '',
     // Preserve existing treatment preferences
-    treatmentPreferences: this.profile?.treatmentPreferences || { bodyAreas: new Map() }
+    treatmentPreferences: this.profile?.treatmentPreferences || {
+      pressure: 'medium',
+      focusAreas: [],
+      avoidAreas: [],
+      oilSensitivities: '',
+      notes: ''
+    }
   };
 
   // Update registration step if provided
