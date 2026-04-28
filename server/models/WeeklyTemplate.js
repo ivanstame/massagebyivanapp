@@ -24,6 +24,18 @@ const WeeklyTemplateSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Mode: mirrors Availability.kind. When 'static', materialized
+  // availability rows for this template inherit kind+staticLocation.
+  kind: {
+    type: String,
+    enum: ['mobile', 'static'],
+    default: 'mobile'
+  },
+  staticLocation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StaticLocation',
+    default: null
+  },
   // Fixed location anchor for this day (e.g., "Tuesday at Peters Chiropractic 9-5")
   anchor: {
     locationId: {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, AlertCircle, MapPin, ChevronDown, ChevronUp, Navigation } from 'lucide-react';
+import { Clock, AlertCircle, MapPin, ChevronDown, ChevronUp, Navigation, Home, Building2 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import api from '../services/api';
@@ -10,7 +10,13 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
   const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState(null);
 
-  // Departure location state
+  // Mobile vs static (in-studio). Default mobile — that's the historical
+  // behavior and what most providers do most days.
+  const [kind, setKind] = useState('mobile');
+  const [staticLocations, setStaticLocations] = useState([]);
+  const [selectedStaticLocationId, setSelectedStaticLocationId] = useState('');
+
+  // Departure location state (only relevant when kind === 'mobile')
   const [savedLocations, setSavedLocations] = useState([]);
   const [homeBase, setHomeBase] = useState(null);
   const [locationsLoading, setLocationsLoading] = useState(true);
@@ -22,13 +28,17 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const res = await api.get('/api/saved-locations');
-        const locs = res.data || [];
+        const [savedRes, staticRes] = await Promise.all([
+          api.get('/api/saved-locations'),
+          api.get('/api/static-locations').catch(() => ({ data: [] })),
+        ]);
+        const locs = savedRes.data || [];
         setSavedLocations(locs);
         const home = locs.find(l => l.isHomeBase);
         setHomeBase(home || null);
+        setStaticLocations(staticRes.data || []);
       } catch (err) {
-        console.error('Failed to fetch saved locations:', err);
+        console.error('Failed to fetch locations:', err);
       } finally {
         setLocationsLoading(false);
       }
@@ -89,21 +99,32 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
       return;
     }
 
-    if (departureMode === 'pin' && !pinLocation) {
-      setError('Please drop a pin on the map to set your departure location');
-      return;
-    }
-
-    if (departureMode === 'saved' && !selectedLocationId) {
-      setError('Please select a saved location');
-      return;
+    if (kind === 'static') {
+      if (!selectedStaticLocationId) {
+        setError('Please pick the in-studio location for this window');
+        return;
+      }
+    } else {
+      if (departureMode === 'pin' && !pinLocation) {
+        setError('Please drop a pin on the map to set your departure location');
+        return;
+      }
+      if (departureMode === 'saved' && !selectedLocationId) {
+        setError('Please select a saved location');
+        return;
+      }
     }
 
     const availability = {
       date: dateLA.toFormat('yyyy-MM-dd'),
       start: startTime,
       end: endTime,
-      anchor: getSelectedAnchor(),
+      kind,
+      // Static availability is anchored to its location, not a separate
+      // departure point — skip the anchor field entirely.
+      ...(kind === 'static'
+        ? { staticLocation: selectedStaticLocationId }
+        : { anchor: getSelectedAnchor() }),
     };
 
     onAdd(availability);
@@ -163,7 +184,86 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </div>
           </div>
 
-          {/* Departure Location */}
+          {/* Mobile vs Static toggle. Static disables the departure picker
+              entirely — those bookings happen at one fixed location. */}
+          <div className="border-t border-line pt-4">
+            <p className="text-sm font-medium text-slate-700 mb-2">What kind of availability is this?</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setKind('mobile')}
+                className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                  kind === 'mobile'
+                    ? 'border-[#B07A4E] bg-[#B07A4E]/5'
+                    : 'border-line hover:border-line-soft'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Navigation className={`w-4 h-4 ${kind === 'mobile' ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
+                  <span className="text-sm font-medium text-slate-900">Mobile</span>
+                </div>
+                <span className="text-xs text-slate-500">You travel to clients</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setKind('static')}
+                disabled={staticLocations.length === 0}
+                className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                  kind === 'static'
+                    ? 'border-[#B07A4E] bg-[#B07A4E]/5'
+                    : 'border-line hover:border-line-soft'
+                } ${staticLocations.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={staticLocations.length === 0 ? 'Add an in-studio location first' : ''}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Building2 className={`w-4 h-4 ${kind === 'static' ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
+                  <span className="text-sm font-medium text-slate-900">In-studio</span>
+                </div>
+                <span className="text-xs text-slate-500">
+                  {staticLocations.length === 0 ? 'No locations yet' : 'Clients come to you'}
+                </span>
+              </button>
+            </div>
+            {staticLocations.length === 0 && (
+              <p className="text-xs text-slate-400 mt-2">
+                <a href="/provider/static-locations" className="text-[#B07A4E] underline">
+                  Add an in-studio location
+                </a>{' '}
+                to enable in-studio availability.
+              </p>
+            )}
+          </div>
+
+          {/* Static-location picker (only when kind === 'static') */}
+          {kind === 'static' && staticLocations.length > 0 && (
+            <div>
+              <label htmlFor="staticLocation" className="block text-sm font-medium text-slate-700 mb-1">
+                In-studio location
+              </label>
+              <div className="relative">
+                <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <select
+                  id="staticLocation"
+                  value={selectedStaticLocationId}
+                  onChange={(e) => setSelectedStaticLocationId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg pl-9 pr-2 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                >
+                  <option value="">Pick a location…</option>
+                  {staticLocations.map(loc => (
+                    <option key={loc._id} value={loc._id}>
+                      {loc.name} — {loc.address}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Bookings within this window will be at this location. Turnover buffer comes from the location settings.
+              </p>
+            </div>
+          )}
+
+          {/* Departure Location (only when kind === 'mobile') */}
+          {kind === 'mobile' && (
           <div className="border-t border-line pt-4">
             <button
               type="button"
@@ -285,6 +385,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               </div>
             )}
           </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-line">

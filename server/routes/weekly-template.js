@@ -13,6 +13,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 
     const templates = await WeeklyTemplate.find({ provider: req.user._id })
       .populate('anchor.locationId', 'name address lat lng')
+      .populate('staticLocation', 'name address lat lng bufferMinutes')
       .sort({ dayOfWeek: 1 });
 
     res.json(templates);
@@ -72,6 +73,16 @@ router.put('/', ensureAuthenticated, async (req, res) => {
       } else {
         update.anchor = { locationId: null, startTime: null, endTime: null };
       }
+
+      // Static-mode wiring. When kind=static, the day's whole window is
+      // a fixed-location commitment; staticLocation must reference a
+      // valid StaticLocation owned by the provider (the booking flow
+      // populates it when computing slots).
+      const incomingKind = day.kind === 'static' ? 'static' : 'mobile';
+      update.kind = incomingKind;
+      update.staticLocation = incomingKind === 'static' && day.staticLocation
+        ? day.staticLocation
+        : null;
 
       return {
         updateOne: {

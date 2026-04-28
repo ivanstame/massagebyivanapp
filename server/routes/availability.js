@@ -61,7 +61,9 @@ async function generateFromTemplate(providerId, laDate) {
     localDate: localDateStr,
     start: startLA.toUTC().toJSDate(),
     end: endLA.toUTC().toJSDate(),
-    source: 'template'
+    source: 'template',
+    kind: template.kind || 'mobile',
+    staticLocation: template.kind === 'static' ? template.staticLocation : null
   };
 
   // Propagate anchor info if the template has one
@@ -155,7 +157,9 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
         localDate: localDateStr,
         start: startLA.toUTC().toJSDate(),
         end: endLA.toUTC().toJSDate(),
-        source: 'template'
+        source: 'template',
+        kind: template.kind || 'mobile',
+        staticLocation: template.kind === 'static' ? template.staticLocation : null
       };
 
       // Propagate anchor info
@@ -221,7 +225,7 @@ router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
     const blocks = await Availability.find({
       provider: providerId,
       localDate: laDate.toFormat(TIME_FORMATS.ISO_DATE)
-    });
+    }).populate('staticLocation', 'name address lat lng bufferMinutes useMobilePricing pricing');
 
     res.json(blocks);
   } catch (error) {
@@ -664,13 +668,21 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
 
     console.log('POST /api/availability - Creating new availability object');
+    const incomingKind = availabilityData.kind === 'static' ? 'static' : 'mobile';
     const newAvailability = new Availability({
       provider: req.user._id,
       date: laDate.toJSDate(),
       start: startLA.toJSDate(),
       end: endLA.toJSDate(),
       localDate: laDate.toFormat('yyyy-MM-dd'),
-      source: 'manual'
+      source: 'manual',
+      kind: incomingKind,
+      // Caller is responsible for sending a valid StaticLocation _id when
+      // kind=static. We don't fail the request if the id is bogus — the
+      // ref will just dangle and the booking flow can warn.
+      staticLocation: incomingKind === 'static' && availabilityData.staticLocation
+        ? availabilityData.staticLocation
+        : null
     });
 
     // Set departure location (anchor) if provided

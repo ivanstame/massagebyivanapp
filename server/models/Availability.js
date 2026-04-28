@@ -20,6 +20,21 @@ const AvailabilitySchema = new mongoose.Schema({
     enum: ['manual', 'template'],
     default: 'manual'
   },
+  // Mode: 'mobile' = provider travels to client (default, all legacy
+  // rows). 'static' = provider takes bookings at a fixed in-studio
+  // location for this entire window — no per-booking drive-time math
+  // inside the window, static buffer for turnover instead, surrounding
+  // mobile bookings travel from staticLocation.address.
+  kind: {
+    type: String,
+    enum: ['mobile', 'static'],
+    default: 'mobile'
+  },
+  staticLocation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'StaticLocation',
+    default: null
+  },
   // Fixed location anchor info for this day (populated from template)
   anchor: {
     locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'SavedLocation', default: null },

@@ -83,16 +83,27 @@ const AvailabilityList = ({
           <div className="p-4">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-wrap">
                   <span className="text-base font-medium text-slate-900">
                     {formatTime(block.start)} - {formatTime(block.end)}
                   </span>
-                  <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    Available
-                  </span>
+                  {block.kind === 'static' ? (
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      In-studio
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                      Available
+                    </span>
+                  )}
                   {block.source === 'template' && (
                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-600">
                       From template
+                    </span>
+                  )}
+                  {block.kind === 'static' && block.staticLocation?.name && (
+                    <span className="text-xs text-blue-700">
+                      at {block.staticLocation.name}
                     </span>
                   )}
                 </div>

@@ -116,18 +116,27 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
 
           {/* Content area */}
           <div className="absolute left-16 right-0 top-0 bottom-0">
-            {/* Availability blocks */}
+            {/* Availability blocks. Mobile = green; In-studio (static) =
+                blue, with the location name surfaced inline so the
+                provider knows where they're committed. */}
             {availabilityBlocks.map((block, index) => {
               // Convert block times to LA timezone for display
               const blockStart = timeToPixels(block.start);
               const blockEnd = timeToPixels(block.end);
+              const isStatic = block.kind === 'static';
+              const containerColors = isStatic
+                ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                : 'bg-green-50 border-green-200 hover:bg-green-100';
+              const badgeColors = isStatic
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-green-100 text-green-800';
 
               return (
                 <div
                   key={`availability-${index}`}
                   onClick={() => onModify && onModify(block)}
-                  className="group absolute left-0 right-0 bg-green-50 border-green-200
-                    border rounded-lg transition-all duration-200 hover:shadow-md cursor-pointer hover:bg-green-100"
+                  className={`group absolute left-0 right-0 ${containerColors}
+                    border rounded-lg transition-all duration-200 hover:shadow-md cursor-pointer`}
                   style={{
                     top: `${blockStart}px`,
                     height: `${blockEnd - blockStart}px`,
@@ -135,12 +144,19 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 >
                   <div className="p-2 flex flex-col h-full justify-between">
                     <div className="flex justify-between items-start">
-                      <span className="text-sm font-medium text-slate-700">
-                        {`${formatTime(block.start)} - ${formatTime(block.end)}`}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
-                          Available
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-slate-700">
+                          {`${formatTime(block.start)} - ${formatTime(block.end)}`}
+                        </span>
+                        {isStatic && block.staticLocation?.name && (
+                          <p className="text-xs text-blue-700 truncate mt-0.5">
+                            at {block.staticLocation.name}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className={`text-xs px-2 py-1 rounded-full ${badgeColors}`}>
+                          {isStatic ? 'In-studio' : 'Available'}
                         </span>
                         {onDelete && (
                           <button

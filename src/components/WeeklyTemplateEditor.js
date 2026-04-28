@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink } from 'lucide-react';
+import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink, Building2, Navigation } from 'lucide-react';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -35,10 +35,13 @@ const WeeklyTemplateEditor = () => {
       startTime: DEFAULT_START,
       endTime: DEFAULT_END,
       isActive: false,
+      kind: 'mobile',
+      staticLocation: null,
       anchor: { locationId: null, startTime: DEFAULT_START, endTime: DEFAULT_END }
     }))
   );
   const [savedLocations, setSavedLocations] = useState([]);
+  const [staticLocations, setStaticLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -47,13 +50,15 @@ const WeeklyTemplateEditor = () => {
   const fetchTemplate = useCallback(async () => {
     try {
       setLoading(true);
-      const [templateRes, locationsRes] = await Promise.all([
+      const [templateRes, locationsRes, staticRes] = await Promise.all([
         axios.get('/api/weekly-template', { withCredentials: true }),
-        axios.get('/api/saved-locations', { withCredentials: true })
+        axios.get('/api/saved-locations', { withCredentials: true }),
+        axios.get('/api/static-locations', { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
 
       const locs = locationsRes.data;
       setSavedLocations(locs);
+      setStaticLocations(staticRes.data || []);
       const homeLoc = locs.find(l => l.isHomeBase);
 
       if (templateRes.data.length > 0) {
@@ -61,11 +66,14 @@ const WeeklyTemplateEditor = () => {
           const serverDay = templateRes.data.find(d => d.dayOfWeek === i);
           if (serverDay) {
             const anchorLocId = serverDay.anchor?.locationId?._id || serverDay.anchor?.locationId || null;
+            const staticLocId = serverDay.staticLocation?._id || serverDay.staticLocation || null;
             return {
               dayOfWeek: i,
               startTime: serverDay.startTime,
               endTime: serverDay.endTime,
               isActive: serverDay.isActive,
+              kind: serverDay.kind || 'mobile',
+              staticLocation: staticLocId,
               anchor: {
                 locationId: anchorLocId || (serverDay.isActive && homeLoc ? homeLoc._id : null),
                 startTime: serverDay.anchor?.startTime || serverDay.startTime,
@@ -78,6 +86,8 @@ const WeeklyTemplateEditor = () => {
             startTime: DEFAULT_START,
             endTime: DEFAULT_END,
             isActive: false,
+            kind: 'mobile',
+            staticLocation: null,
             anchor: { locationId: homeLoc?._id || null, startTime: DEFAULT_START, endTime: DEFAULT_END }
           };
         });
@@ -143,6 +153,27 @@ const WeeklyTemplateEditor = () => {
     setSaved(false);
   };
 
+  const handleKindChange = (dayIndex, newKind) => {
+    setDays(prev => prev.map(d => {
+      if (d.dayOfWeek !== dayIndex) return d;
+      return {
+        ...d,
+        kind: newKind,
+        // Clear cross-mode state to prevent stale data leaking through.
+        ...(newKind === 'static' ? {} : { staticLocation: null }),
+      };
+    }));
+    setSaved(false);
+  };
+
+  const handleStaticLocationChange = (dayIndex, locationId) => {
+    setDays(prev => prev.map(d => {
+      if (d.dayOfWeek !== dayIndex) return d;
+      return { ...d, staticLocation: locationId || null };
+    }));
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     for (const day of days) {
       if (!day.isActive) continue;
@@ -150,7 +181,12 @@ const WeeklyTemplateEditor = () => {
         setError(`${DAY_NAMES[day.dayOfWeek]}: End time must be after start time`);
         return;
       }
-      if (!day.anchor.locationId) {
+      if (day.kind === 'static') {
+        if (!day.staticLocation) {
+          setError(`${DAY_NAMES[day.dayOfWeek]}: Pick an in-studio location for this day.`);
+          return;
+        }
+      } else if (!day.anchor.locationId) {
         setError(`${DAY_NAMES[day.dayOfWeek]}: A departure location is required. Select where you'll be starting from.`);
         return;
       }
@@ -321,45 +357,106 @@ const WeeklyTemplateEditor = () => {
                 )}
               </div>
 
-              {/* Drive-estimate origin. The provider is mobile, so they're
-                  never actually "at" this location during work hours —
-                  it's just the geographic point we use to estimate the
-                  drive to their first appointment. The UI now reflects
-                  that explicitly and drops the misleading "At location"
-                  time range (the data still tracks the day's hours
-                  behind the scenes for backend consistency). */}
               {day.isActive && (
-                <div className="mt-3 ml-[76px] p-2.5 bg-paper-deep rounded-lg border border-line-soft">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
-                    <span className="text-xs font-medium text-slate-600 flex-shrink-0">
-                      Drive estimates start from:
-                    </span>
-                    {savedLocations.length > 0 ? (
-                      <select
-                        value={day.anchor.locationId || ''}
-                        onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
-                        className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-paper-elev focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
-                          !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-line'
-                        }`}
-                      >
-                        <option value="">— Select a location —</option>
-                        {savedLocations.map(loc => (
-                          <option key={loc._id} value={loc._id}>
-                            {loc.name}{loc.isHomeBase ? ' (Home Base)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-amber-600">
-                        <Link to="/provider/locations" className="underline">Add a location</Link> first
-                      </span>
-                    )}
+                <div className="mt-3 ml-[76px] space-y-2">
+                  {/* Mobile vs In-studio mode toggle */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium text-slate-600 mr-1">Mode:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleKindChange(day.dayOfWeek, 'mobile')}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        day.kind === 'mobile'
+                          ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E] font-medium'
+                          : 'border-line text-slate-600 hover:bg-paper-deep'
+                      }`}
+                    >
+                      <Navigation className="w-3 h-3" /> Mobile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleKindChange(day.dayOfWeek, 'static')}
+                      disabled={staticLocations.length === 0}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        day.kind === 'static'
+                          ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E] font-medium'
+                          : 'border-line text-slate-600 hover:bg-paper-deep'
+                      } ${staticLocations.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={staticLocations.length === 0 ? 'Add an in-studio location first' : ''}
+                    >
+                      <Building2 className="w-3 h-3" /> In-studio
+                    </button>
                   </div>
-                  {!day.anchor.locationId && (
-                    <p className="mt-1 ml-5 text-xs text-red-500">
-                      Required — drive time is calculated from this location
-                    </p>
+
+                  {/* Mode-specific config row */}
+                  {day.kind === 'static' ? (
+                    <div className="p-2.5 bg-paper-deep rounded-lg border border-line-soft">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
+                        <span className="text-xs font-medium text-slate-600 flex-shrink-0">
+                          In-studio at:
+                        </span>
+                        {staticLocations.length > 0 ? (
+                          <select
+                            value={day.staticLocation || ''}
+                            onChange={(e) => handleStaticLocationChange(day.dayOfWeek, e.target.value)}
+                            className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-paper-elev focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
+                              !day.staticLocation ? 'border-red-300 bg-red-50' : 'border-line'
+                            }`}
+                          >
+                            <option value="">— Pick a location —</option>
+                            {staticLocations.map(loc => (
+                              <option key={loc._id} value={loc._id}>{loc.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-amber-600">
+                            <Link to="/provider/static-locations" className="underline">
+                              Add an in-studio location
+                            </Link> first
+                          </span>
+                        )}
+                      </div>
+                      {!day.staticLocation && staticLocations.length > 0 && (
+                        <p className="mt-1 ml-5 text-xs text-red-500">
+                          Required — bookings happen at this location
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-paper-deep rounded-lg border border-line-soft">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
+                        <span className="text-xs font-medium text-slate-600 flex-shrink-0">
+                          Drive estimates start from:
+                        </span>
+                        {savedLocations.length > 0 ? (
+                          <select
+                            value={day.anchor.locationId || ''}
+                            onChange={(e) => handleAnchorChange(day.dayOfWeek, 'locationId', e.target.value || null)}
+                            className={`border rounded px-2 py-1 text-xs flex-1 min-w-0 bg-paper-elev focus:ring-[#B07A4E] focus:border-[#B07A4E] ${
+                              !day.anchor.locationId ? 'border-red-300 bg-red-50' : 'border-line'
+                            }`}
+                          >
+                            <option value="">— Select a location —</option>
+                            {savedLocations.map(loc => (
+                              <option key={loc._id} value={loc._id}>
+                                {loc.name}{loc.isHomeBase ? ' (Home Base)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-amber-600">
+                            <Link to="/provider/locations" className="underline">Add a location</Link> first
+                          </span>
+                        )}
+                      </div>
+                      {!day.anchor.locationId && (
+                        <p className="mt-1 ml-5 text-xs text-red-500">
+                          Required — drive time is calculated from this location
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
