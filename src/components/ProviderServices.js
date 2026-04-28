@@ -4,7 +4,7 @@ import axios from 'axios';
 import { AuthContext } from '../AuthContext';
 import {
   DollarSign, Plus, Trash2, Clock, AlertCircle, CheckCircle,
-  Save, GripVertical, ToggleLeft, ToggleRight
+  Save, ChevronUp, ChevronDown, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { getTrade } from '../shared/trades';
 import PackageDealsSection from './PackageDealsSection';
@@ -21,11 +21,6 @@ const ProviderServices = () => {
   const [error, setError] = useState(null);
   const [showAddAddon, setShowAddAddon] = useState(false);
   const [newAddon, setNewAddon] = useState({ name: '', price: '', description: '', extraTime: 0 });
-  // Drag-and-drop state for reordering offerings. dragIndex = the row
-  // currently being dragged; overIndex = the row it's hovering over (for
-  // the drop indicator line).
-  const [dragIndex, setDragIndex] = useState(null);
-  const [overIndex, setOverIndex] = useState(null);
 
   const tradePreset = getTrade(trade);
 
@@ -86,14 +81,15 @@ const ProviderServices = () => {
     setSaved(false);
   };
 
-  // Reorder via drag-and-drop. We don't persist intermediate moves —
-  // the new order rides along with the next Save like every other edit.
-  const movePricingTier = (from, to) => {
-    if (from === to || from < 0 || to < 0) return;
+  // Move a tier one position up or down. Up/down chevron buttons are
+  // the most reliable cross-browser sortable affordance — native HTML5
+  // drag-and-drop is unpredictable and dead on touch devices.
+  const movePricingTier = (from, direction) => {
+    const to = from + direction;
+    if (to < 0 || to >= basePricing.length) return;
     setBasePricing(prev => {
       const next = [...prev];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
+      [next[from], next[to]] = [next[to], next[from]];
       return next;
     });
     setSaved(false);
@@ -231,50 +227,33 @@ const ProviderServices = () => {
           <p className="text-xs text-slate-500 mb-4">
             Each offering is what a client picks when booking &mdash; give it a clear name, duration, and price.
             {basePricing.length > 1 && (
-              <> Drag the <GripVertical className="inline w-3 h-3 -mt-0.5" /> handle to reorder how clients see them.</>
+              <> Use the up/down arrows to control the order clients see them in.</>
             )}
           </p>
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
-              <div
-                key={index}
-                draggable={basePricing.length > 1}
-                onDragStart={(e) => {
-                  setDragIndex(index);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (dragIndex !== null && dragIndex !== index) {
-                    setOverIndex(index);
-                  }
-                }}
-                onDragLeave={() => {
-                  if (overIndex === index) setOverIndex(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (dragIndex !== null && dragIndex !== index) {
-                    movePricingTier(dragIndex, index);
-                  }
-                  setDragIndex(null);
-                  setOverIndex(null);
-                }}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setOverIndex(null);
-                }}
-                className={`flex items-start gap-2 p-3 bg-paper-deep rounded-lg border transition-colors
-                  ${overIndex === index ? 'border-[#B07A4E] border-2' : 'border-line-soft'}
-                  ${dragIndex === index ? 'opacity-50' : ''}`}
-              >
+              <div key={index} className="flex items-start gap-2 p-3 bg-paper-deep rounded-lg border border-line-soft">
                 {basePricing.length > 1 && (
-                  <div
-                    className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0 mt-6 touch-none"
-                    title="Drag to reorder"
-                  >
-                    <GripVertical className="w-4 h-4" />
+                  <div className="flex flex-col gap-0.5 flex-shrink-0 mt-5">
+                    <button
+                      type="button"
+                      onClick={() => movePricingTier(index, -1)}
+                      disabled={index === 0}
+                      title="Move up"
+                      className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-elev disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePricingTier(index, 1)}
+                      disabled={index === basePricing.length - 1}
+                      title="Move down"
+                      className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-elev disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
                   </div>
                 )}
                 <div className="flex-1 space-y-2">
