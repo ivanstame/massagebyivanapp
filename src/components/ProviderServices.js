@@ -13,6 +13,7 @@ const ProviderServices = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [basePricing, setBasePricing] = useState([]);
+  const [pricingTiers, setPricingTiers] = useState([]); // alternate tiers (Discount, etc.)
   const [addons, setAddons] = useState([]);
   const [trade, setTrade] = useState('other');
   const [loading, setLoading] = useState(true);
@@ -89,6 +90,16 @@ const ProviderServices = () => {
         setBasePricing(withUid(getTrade(providerTrade).starterPackages.map(p => ({ ...p }))));
       }
 
+      // Hydrate alternate pricing tiers. Each tier carries its own _id
+      // (from the server) so client-tag references survive renames.
+      const savedTiers = providerProfile.pricingTiers || [];
+      setPricingTiers(savedTiers.map(t => ({
+        _id: t._id,
+        _uid: `tier-${t._id || Math.random().toString(36).slice(2, 8)}`,
+        name: t.name,
+        pricing: withUid(t.pricing || [])
+      })));
+
       setAddons(providerProfile.addons || []);
     } catch (err) {
       console.error('Error fetching services:', err);
@@ -111,6 +122,78 @@ const ProviderServices = () => {
       ...prev,
       { duration: 60, price: 0, label: '', _uid: `t-${Math.random().toString(36).slice(2, 10)}` }
     ]);
+    setSaved(false);
+  };
+
+  // ── Alternate pricing tiers (Discount / Concierge / Grandfathered / etc.) ──
+  const addAlternateTier = () => {
+    // Seed new tier from the standard's structure so the provider just
+    // tweaks prices instead of rebuilding the duration list.
+    const seed = basePricing.map(p => ({
+      duration: p.duration,
+      price: p.price,
+      label: p.label || `${p.duration} Minutes`,
+      _uid: `t-${Math.random().toString(36).slice(2, 10)}`
+    }));
+    setPricingTiers(prev => [
+      ...prev,
+      {
+        _uid: `tier-${Math.random().toString(36).slice(2, 10)}`,
+        name: '',
+        pricing: seed
+      }
+    ]);
+    setSaved(false);
+  };
+
+  const renameTier = (uid, name) => {
+    setPricingTiers(prev => prev.map(t => t._uid === uid ? { ...t, name } : t));
+    setSaved(false);
+  };
+
+  const removeTier = (uid) => {
+    if (!window.confirm(
+      'Remove this pricing tier? Clients tagged with it will fall back to your Standard pricing.'
+    )) return;
+    setPricingTiers(prev => prev.filter(t => t._uid !== uid));
+    setSaved(false);
+  };
+
+  const updateTierTier = (tierUid, rowIdx, field, value) => {
+    setPricingTiers(prev => prev.map(t => {
+      if (t._uid !== tierUid) return t;
+      return {
+        ...t,
+        pricing: t.pricing.map((p, i) =>
+          i === rowIdx
+            ? { ...p, [field]: field === 'price' ? Number(value) || 0 : value }
+            : p
+        )
+      };
+    }));
+    setSaved(false);
+  };
+
+  const addTierRow = (tierUid) => {
+    setPricingTiers(prev => prev.map(t => {
+      if (t._uid !== tierUid) return t;
+      return {
+        ...t,
+        pricing: [
+          ...t.pricing,
+          { duration: 60, price: 0, label: '', _uid: `t-${Math.random().toString(36).slice(2, 10)}` }
+        ]
+      };
+    }));
+    setSaved(false);
+  };
+
+  const removeTierRow = (tierUid, rowIdx) => {
+    setPricingTiers(prev => prev.map(t => {
+      if (t._uid !== tierUid) return t;
+      if (t.pricing.length <= 1) return t; // keep at least one
+      return { ...t, pricing: t.pricing.filter((_, i) => i !== rowIdx) };
+    }));
     setSaved(false);
   };
 
@@ -182,7 +265,7 @@ const ProviderServices = () => {
   };
 
   const handleSave = async () => {
-    // Validate
+    // Validate base pricing
     for (const p of basePricing) {
       if (!p.duration || p.duration < 30) {
         setError('Duration must be at least 30 minutes');
@@ -191,6 +274,35 @@ const ProviderServices = () => {
       if (p.price < 0) {
         setError('Prices cannot be negative');
         return;
+      }
+    }
+
+    // Validate alternate tiers
+    const seenTierNames = new Set();
+    for (const tier of pricingTiers) {
+      const trimmed = (tier.name || '').trim();
+      if (!trimmed) {
+        setError('Each pricing tier needs a name');
+        return;
+      }
+      if (seenTierNames.has(trimmed.toLowerCase())) {
+        setError(`Duplicate tier name: "${trimmed}"`);
+        return;
+      }
+      seenTierNames.add(trimmed.toLowerCase());
+      if (!tier.pricing || tier.pricing.length === 0) {
+        setError(`Tier "${trimmed}" needs at least one price entry`);
+        return;
+      }
+      for (const p of tier.pricing) {
+        if (!p.duration || p.duration < 30) {
+          setError(`Tier "${trimmed}": each row needs a duration ≥ 30 min`);
+          return;
+        }
+        if (p.price < 0) {
+          setError(`Tier "${trimmed}": prices cannot be negative`);
+          return;
+        }
       }
     }
 
@@ -211,8 +323,24 @@ const ProviderServices = () => {
         };
       });
 
+      // Strip client-only _uid from tier pricing entries before saving;
+      // keep tier _id when present so client refs survive the round trip.
+      const tiersForSave = pricingTiers.map(t => ({
+        ...(t._id && { _id: t._id }),
+        name: t.name.trim(),
+        pricing: t.pricing.map((p, idx) => {
+          const { _uid, ...rest } = p;
+          return {
+            ...rest,
+            label: rest.label || `${rest.duration} Minutes`,
+            displayOrder: idx
+          };
+        })
+      }));
+
       await axios.put('/api/users/provider/services', {
         basePricing: pricingWithLabels,
+        pricingTiers: tiersForSave,
         addons
       }, { withCredentials: true });
 
@@ -364,6 +492,127 @@ const ProviderServices = () => {
           >
             <Plus className="w-4 h-4" />
             Add Offering
+          </button>
+        </div>
+
+        {/* Pricing tiers — alternate price lists for grandfathered /
+            discount / concierge clients. Tag a client with a tier from
+            their detail page; their bookings then resolve through that
+            tier instead of the Standard rates above. */}
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-[#B07A4E]" />
+              <h3 className="font-medium text-slate-900">Pricing tiers</h3>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Define alternate price lists for specific clients (grandfathered, member, concierge,
+            family, etc.). Your <strong>Standard</strong> rates above are the default for new clients.
+            Tag individual clients with a tier from their client-detail page.
+          </p>
+
+          {pricingTiers.length === 0 ? (
+            <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
+              <p className="text-sm text-slate-500">No alternate tiers yet</p>
+              <p className="text-xs text-slate-400 mt-1">
+                All clients use your Standard pricing.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pricingTiers.map((tier) => (
+                <div
+                  key={tier._uid}
+                  className="p-4 bg-paper-deep rounded-lg border border-line space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tier.name}
+                      onChange={(e) => renameTier(tier._uid, e.target.value)}
+                      placeholder="Tier name (e.g. Discount, Concierge)"
+                      maxLength={60}
+                      className="flex-1 border border-slate-300 rounded px-3 py-2 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeTier(tier._uid)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Remove tier"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {tier.pricing.map((row, rowIdx) => (
+                      <div key={row._uid || rowIdx} className="flex items-end gap-2 p-2 bg-paper-elev rounded border border-line-soft">
+                        <div className="flex-1">
+                          <label className="block text-xs text-slate-500 mb-0.5">Label</label>
+                          <input
+                            type="text"
+                            value={row.label || ''}
+                            onChange={(e) => updateTierTier(tier._uid, rowIdx, 'label', e.target.value)}
+                            placeholder={`${row.duration} Minutes`}
+                            className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <div className="w-20">
+                          <label className="block text-xs text-slate-500 mb-0.5">Min</label>
+                          <select
+                            value={row.duration}
+                            onChange={(e) => updateTierTier(tier._uid, rowIdx, 'duration', Number(e.target.value))}
+                            className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                          >
+                            {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="w-20">
+                          <label className="block text-xs text-slate-500 mb-0.5">$</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.price}
+                            onChange={(e) => updateTierTier(tier._uid, rowIdx, 'price', e.target.value)}
+                            className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeTierRow(tier._uid, rowIdx)}
+                          disabled={tier.pricing.length <= 1}
+                          className="p-1 text-slate-400 hover:text-red-500 mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Remove row"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addTierRow(tier._uid)}
+                      className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs border border-dashed border-slate-300 text-slate-500 rounded hover:border-[#B07A4E] hover:text-[#B07A4E]"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add a row
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={addAlternateTier}
+            disabled={basePricing.length === 0}
+            className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={basePricing.length === 0 ? 'Add a Standard tier first' : 'New tier seeded from your Standard pricing'}
+          >
+            <Plus className="w-4 h-4" />
+            Add a pricing tier
           </button>
         </div>
 

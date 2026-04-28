@@ -151,6 +151,33 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   }, [user]);
 
+  // When a provider books on behalf of a target client, the client's
+  // pricing tier may differ from Standard. Re-resolve pricing through
+  // the services endpoint with ?clientId= so the form's durationOptions
+  // reflect the right tier. The endpoint server-side already handles
+  // self-booking clients via req.user — this branch is just for the
+  // provider-on-behalf path.
+  useEffect(() => {
+    if (!provider?._id || !isProviderBooking || !targetClient?._id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(
+          `/api/users/provider/${provider._id}/services`,
+          { params: { clientId: targetClient._id } }
+        );
+        if (cancelled) return;
+        const tieredPricing = res.data?.basePricing;
+        if (Array.isArray(tieredPricing) && tieredPricing.length > 0) {
+          setDurationOptions(tieredPricing);
+        }
+      } catch (err) {
+        console.error('Failed to resolve client tier pricing:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [provider?._id, isProviderBooking, targetClient?._id]);
+
   // Load the target client whenever ?clientId= changes (provider booking path).
   // For CLIENT-self bookings this effect is a no-op.
   useEffect(() => {

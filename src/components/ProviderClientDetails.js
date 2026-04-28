@@ -32,6 +32,10 @@ const ProviderClientDetails = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditNotes, setShowEditNotes] = useState(false);
   const [clientNotes, setClientNotes] = useState('');
+  // Pricing tier — alternate price list to apply to this client's
+  // bookings. null = Standard.
+  const [availableTiers, setAvailableTiers] = useState([]);
+  const [savingTier, setSavingTier] = useState(false);
   const [stats, setStats] = useState({
     sessionsDelivered: 0,
     upcomingAppointments: 0,
@@ -57,7 +61,39 @@ const ProviderClientDetails = () => {
     
     fetchClientDetails();
     fetchClientAppointments();
+    fetchAvailableTiers();
   }, [clientId, user]);
+
+  const fetchAvailableTiers = async () => {
+    try {
+      const res = await axios.get('/api/users/profile', { withCredentials: true });
+      setAvailableTiers(res.data?.providerProfile?.pricingTiers || []);
+    } catch (err) {
+      console.error('Failed to load pricing tiers:', err);
+    }
+  };
+
+  const handleTierChange = async (tierId) => {
+    setSavingTier(true);
+    try {
+      await axios.patch(
+        `/api/users/provider/clients/${clientId}/pricing-tier`,
+        { pricingTierId: tierId || null },
+        { withCredentials: true }
+      );
+      setClient(prev => ({
+        ...prev,
+        clientProfile: {
+          ...(prev?.clientProfile || {}),
+          pricingTierId: tierId || null,
+        },
+      }));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update pricing tier');
+    } finally {
+      setSavingTier(false);
+    }
+  };
 
   const fetchClientDetails = async () => {
     try {
@@ -522,6 +558,32 @@ const ProviderClientDetails = () => {
           client={client}
           clientId={clientId}
         />
+
+        {/* Pricing Tier — quiet by default; only shown when alternate
+            tiers exist on the provider's profile. Clears to Standard. */}
+        {availableTiers.length > 0 && (
+          <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+            <div className="flex items-center justify-between mb-2 gap-3">
+              <div>
+                <h2 className="text-lg font-medium text-slate-900">Pricing tier</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Which price list applies to this client's bookings.
+                </p>
+              </div>
+            </div>
+            <select
+              value={client?.clientProfile?.pricingTierId || ''}
+              onChange={(e) => handleTierChange(e.target.value)}
+              disabled={savingTier}
+              className="w-full sm:w-auto border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            >
+              <option value="">Standard</option>
+              {availableTiers.map(t => (
+                <option key={t._id} value={t._id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Client Notes Section */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">

@@ -245,6 +245,49 @@ router.post('/provider/invite', ensureAuthenticated, async (req, res) => {
 });
 
 // Update client notes
+// Tag a client with a pricing tier (or clear it). Empty/null clears
+// back to the standard tier. Validates the tier _id belongs to this
+// provider so a malformed/spoofed body can't hijack pricing.
+router.patch('/provider/clients/:clientId/pricing-tier', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const { pricingTierId } = req.body; // null/'' = clear
+
+    const provider = await User.findById(req.user._id).select('providerProfile.pricingTiers');
+    if (!provider) return res.status(404).json({ message: 'Provider not found' });
+
+    if (pricingTierId) {
+      const tierExists = (provider.providerProfile?.pricingTiers || [])
+        .some(t => t._id?.toString() === String(pricingTierId));
+      if (!tierExists) {
+        return res.status(400).json({ message: 'Unknown pricing tier' });
+      }
+    }
+
+    const client = await User.findOne({
+      _id: req.params.clientId,
+      providerId: req.user._id,
+      accountType: 'CLIENT'
+    });
+    if (!client) return res.status(404).json({ message: 'Client not found' });
+
+    if (!client.clientProfile) client.clientProfile = {};
+    client.clientProfile.pricingTierId = pricingTierId || null;
+
+    await client.save();
+    res.json({
+      message: 'Pricing tier updated',
+      pricingTierId: client.clientProfile.pricingTierId
+    });
+  } catch (error) {
+    console.error('Error updating client pricing tier:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.patch('/provider/clients/:clientId/notes', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
@@ -695,7 +738,7 @@ router.get('/provider/:providerId/services', async (req, res) => {
     // for time-based services (massage, sessions, lessons). When a provider
     // sets an explicit displayOrder we honor it; otherwise we fall back to
     // duration ascending.
-    const sortedPricing = [...(provider.providerProfile?.basePricing || [])].sort((a, b) => {
+    const sortPricing = arr => [...(arr || [])].sort((a, b) => {
       const aOrder = typeof a.displayOrder === 'number' ? a.displayOrder : null;
       const bOrder = typeof b.displayOrder === 'number' ? b.displayOrder : null;
       if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
@@ -704,8 +747,45 @@ router.get('/provider/:providerId/services', async (req, res) => {
       return (Number(a.duration) || 0) - (Number(b.duration) || 0);
     });
 
+    // Resolve which client we're pricing for (if anyone). Two paths:
+    //   1) Authenticated client booking themselves → req.user._id
+    //   2) Provider booking on behalf of a managed client → ?clientId=
+    // Public/unauthenticated request → no resolution, return standard.
+    let pricingClientId = null;
+    if (req.user) {
+      if (req.user.accountType === 'CLIENT') {
+        pricingClientId = req.user._id;
+      } else if (req.user.accountType === 'PROVIDER' && req.query.clientId) {
+        pricingClientId = req.query.clientId;
+      }
+    }
+
+    let resolvedPricing = sortPricing(provider.providerProfile?.basePricing);
+    let resolvedTierName = null;
+    if (pricingClientId) {
+      try {
+        const client = await User.findOne({
+          _id: pricingClientId,
+          accountType: 'CLIENT',
+          providerId: provider._id
+        }).select('clientProfile.pricingTierId');
+        const tierId = client?.clientProfile?.pricingTierId;
+        if (tierId) {
+          const tier = (provider.providerProfile?.pricingTiers || [])
+            .find(t => t._id?.equals?.(tierId));
+          if (tier && Array.isArray(tier.pricing) && tier.pricing.length > 0) {
+            resolvedPricing = sortPricing(tier.pricing);
+            resolvedTierName = tier.name;
+          }
+        }
+      } catch (lookupErr) {
+        console.warn('Pricing-tier lookup failed; falling back to standard:', lookupErr.message);
+      }
+    }
+
     res.json({
-      basePricing: sortedPricing,
+      basePricing: resolvedPricing,
+      pricingTierName: resolvedTierName, // null = Standard / no tier applied
       addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
       acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash'],
       venmoHandle: provider.providerProfile?.venmoHandle || null
@@ -724,19 +804,52 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    const { basePricing, addons, acceptedPaymentMethods } = req.body;
+    const { basePricing, addons, acceptedPaymentMethods, pricingTiers } = req.body;
 
-    if (basePricing) {
-      // Validate pricing entries
-      for (const entry of basePricing) {
+    const validatePricingArray = (arr, ctx) => {
+      for (const entry of arr) {
         if (!entry.duration || entry.duration < 30 || entry.duration > 180) {
-          return res.status(400).json({ message: `Invalid duration: ${entry.duration}. Must be 30-180 minutes.` });
+          return `Invalid duration in ${ctx}: ${entry.duration}. Must be 30-180 minutes.`;
         }
         if (entry.price == null || entry.price < 0) {
-          return res.status(400).json({ message: 'Price must be a positive number' });
+          return `Price in ${ctx} must be a positive number`;
         }
       }
+      return null;
+    };
+
+    if (basePricing) {
+      const err = validatePricingArray(basePricing, 'basePricing');
+      if (err) return res.status(400).json({ message: err });
       user.providerProfile.basePricing = basePricing;
+    }
+
+    if (Array.isArray(pricingTiers)) {
+      // Each tier needs a name and a valid pricing array. Tier names
+      // must be unique within the provider — they're how the UI labels
+      // tiers in the client-tagging dropdown.
+      const seenNames = new Set();
+      for (const tier of pricingTiers) {
+        const name = (tier.name || '').trim();
+        if (!name) return res.status(400).json({ message: 'Each pricing tier needs a name' });
+        if (seenNames.has(name.toLowerCase())) {
+          return res.status(400).json({ message: `Duplicate pricing tier name: "${name}"` });
+        }
+        seenNames.add(name.toLowerCase());
+        if (!Array.isArray(tier.pricing) || tier.pricing.length === 0) {
+          return res.status(400).json({ message: `Tier "${name}" needs at least one pricing entry` });
+        }
+        const err = validatePricingArray(tier.pricing, `tier "${name}"`);
+        if (err) return res.status(400).json({ message: err });
+      }
+      // Preserve _id when the tier is being updated (so client refs
+      // don't break). Mongoose handles this automatically when we send
+      // the same _id in the array; new tiers get fresh _ids.
+      user.providerProfile.pricingTiers = pricingTiers.map(t => ({
+        ...(t._id && { _id: t._id }),
+        name: t.name.trim(),
+        pricing: t.pricing
+      }));
     }
 
     if (addons) {
@@ -765,6 +878,7 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
     res.json({
       message: 'Services updated',
       basePricing: user.providerProfile.basePricing,
+      pricingTiers: user.providerProfile.pricingTiers,
       addons: user.providerProfile.addons,
       acceptedPaymentMethods: user.providerProfile.acceptedPaymentMethods
     });

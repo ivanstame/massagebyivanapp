@@ -97,11 +97,28 @@ const UserSchema = new mongoose.Schema({
     // Provider-configured pricing by duration. displayOrder lets the
     // provider override the default duration-ascending sort with a
     // hand-curated order (drag-to-reorder in ProviderServices).
+    // basePricing is the implicit "Standard" tier — the rates new
+    // clients see by default. Alternate tiers (Discount, Concierge,
+    // grandfathered, etc.) live in pricingTiers below and are tagged
+    // onto specific clients via clientProfile.pricingTierId.
     basePricing: [{
       duration: { type: Number, required: true },  // minutes: 60, 90, 120
       price: { type: Number, required: true },
       label: String,  // e.g. "60 Minutes"
       displayOrder: { type: Number, default: null }
+    }],
+    // Named alternate pricing tiers. Each tier has its own pricing
+    // array (same shape as basePricing) and a stable _id that clients
+    // reference via clientProfile.pricingTierId. The Standard tier is
+    // basePricing above — tiers here are the alternates only.
+    pricingTiers: [{
+      name: { type: String, required: true, trim: true, maxlength: 60 },
+      pricing: [{
+        duration: { type: Number, required: true },
+        price: { type: Number, required: true },
+        label: String,
+        displayOrder: { type: Number, default: null }
+      }]
     }],
     // Stripe Connect
     stripeAccountId: { type: String, default: null },
@@ -155,6 +172,11 @@ const UserSchema = new mongoose.Schema({
   clientProfile: {
     notes: String,  // For storing client notes, preferences, special instructions
     preferences: mongoose.Schema.Types.Mixed,  // Flexible field for client-specific options
+    // Optional reference to one of the provider's pricingTiers subdocs
+    // (providerProfile.pricingTiers[]._id). When set, booking flows
+    // resolve this client's prices from that tier instead of the
+    // provider's basePricing. Null/missing = Standard (basePricing).
+    pricingTierId: { type: mongoose.Schema.Types.ObjectId, default: null },
     stats: {
       totalAppointments: { type: Number, default: 0 },
       upcomingAppointments: { type: Number, default: 0 },
