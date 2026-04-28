@@ -461,11 +461,42 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         })
       : [];
 
+    // Build synthetic travel boundaries from any static-availability
+    // windows on this day. The slot generator already treats blocked-
+    // times-with-location as travel boundaries; static windows have
+    // the exact same effect on adjacent mobile slots — a mobile
+    // booking right before/after the static window must include drive
+    // time to/from the studio's address, not the provider's home base.
+    // We feed these into the mobile slot generator so the math falls
+    // out naturally.
+    const staticBoundaries = availabilityBlocks
+      .filter(a => a.kind === 'static' && a.staticLocation && a.staticLocation.lat != null && a.staticLocation.lng != null)
+      .map(a => ({
+        start: a.start,
+        end: a.end,
+        overridden: false,
+        location: {
+          address: a.staticLocation.address,
+          lat: a.staticLocation.lat,
+          lng: a.staticLocation.lng,
+        },
+        _isStaticWindow: true, // tag for debugging only
+      }));
+
     // Generate slots from ALL availability blocks and merge. Each slot
     // carries kind + (when static) location + pricing override info, so
     // the booking form can adapt UI per-slot without a second round trip.
     let enrichedSlots = []; // [{ time: Date, kind, location?, pricing?, useMobilePricing? }]
     for (const availability of availabilityBlocks) {
+      const isStaticWindow = availability.kind === 'static';
+      // Mobile windows include OTHER static windows as boundaries.
+      // Static windows skip travel validation entirely (handled inside
+      // getAvailableTimeSlots) so the extras would be unused — keep
+      // the list empty there to avoid unnecessary slot filtering.
+      const extraBoundaries = isStaticWindow
+        ? []
+        : staticBoundaries.filter(b => b.start.getTime() !== availability.start.getTime());
+
       const slots = await getAvailableTimeSlots(
         availability,
         bookings,
@@ -477,7 +508,7 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         providerId,
         [],   // addons
         homeBase,
-        blockedTimes
+        [...blockedTimes, ...extraBoundaries]
       );
 
       const isStatic = availability.kind === 'static' && availability.staticLocation;
