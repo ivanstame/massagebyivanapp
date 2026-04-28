@@ -325,20 +325,34 @@ const BookingForm = ({ googleMapsLoaded }) => {
           lng: location?.lng
         }
       });
-      // Transform ISO strings and filter out slots without enough lead time
-      // Need at least 60 minutes from now to realistically book
+      // Slot endpoint now returns objects: { time, kind, location?, ... }.
+      // Filter out slots without enough lead time (60 min from now), then
+      // shape into the form state's expected slot model — keeping the
+      // mobile/static metadata so downstream rendering can distinguish.
       const cutoff = DateTime.now().setZone(DEFAULT_TZ).plus({ minutes: 60 });
       const slots = (response.data || [])
-        .filter(iso => {
-          const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+        .map(s => {
+          // Backwards-compat: tolerate the old shape where the endpoint
+          // returned bare ISO strings, just in case any caller still
+          // hits it that way during a transition.
+          if (typeof s === 'string') return { time: s, kind: 'mobile' };
+          return s;
+        })
+        .filter(s => {
+          const dt = DateTime.fromISO(s.time, { zone: DEFAULT_TZ });
           return dt > cutoff;
         })
-        .map(iso => {
-          const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+        .map(s => {
+          const dt = DateTime.fromISO(s.time, { zone: DEFAULT_TZ });
           return {
-            iso,
+            iso: s.time,
             display: dt.toFormat('h:mm a'),
-            local: dt.toFormat('HH:mm')
+            local: dt.toFormat('HH:mm'),
+            kind: s.kind || 'mobile',
+            location: s.location || null,
+            useMobilePricing: s.useMobilePricing,
+            pricing: s.pricing || null,
+            bufferMinutes: s.bufferMinutes,
           };
         });
       setAvailableSlots(slots);
@@ -406,8 +420,19 @@ const BookingForm = ({ googleMapsLoaded }) => {
         throw new Error('Failed to format time correctly');
       }
 
-      // Calculate pricing from provider data
-      const pricingTier = durationOptions.find(p => p.duration === selectedDuration);
+      // For static slots the booking happens at the provider's studio,
+      // not the client's address — pricing may also come from the
+      // location's override instead of the provider's mobile tiers.
+      const isStaticSlot = selectedTime.kind === 'static';
+      const staticOverridePricing = isStaticSlot && !selectedTime.useMobilePricing && Array.isArray(selectedTime.pricing)
+        ? selectedTime.pricing
+        : null;
+
+      // Calculate pricing from provider data — preferring the static
+      // location's override when applicable.
+      const pricingTier = staticOverridePricing
+        ? staticOverridePricing.find(p => p.duration === selectedDuration)
+        : durationOptions.find(p => p.duration === selectedDuration);
       const basePrice = pricingTier?.price || 0;
       const packageName = (pricingTier?.label && pricingTier.label.trim())
         || `${selectedDuration} min service`;
@@ -432,11 +457,17 @@ const BookingForm = ({ googleMapsLoaded }) => {
         date: bookingDateStr,
         time: formattedTime,
         duration: selectedDuration + extraTime,
-        location: {
-          address: fullAddress,
-          lat: location.lat,
-          lng: location.lng
-        },
+        location: isStaticSlot && selectedTime.location
+          ? {
+              address: selectedTime.location.address,
+              lat: selectedTime.location.lat,
+              lng: selectedTime.location.lng,
+            }
+          : {
+              address: fullAddress,
+              lat: location.lat,
+              lng: location.lng,
+            },
         serviceType: {
           id: selectedServiceType,
           name: packageName
@@ -752,12 +783,18 @@ const BookingForm = ({ googleMapsLoaded }) => {
             onPackageSelect={setSelectedPackageId}
           />
 
-          {/* 7. Booking Summary */}
+          {/* 7. Booking Summary. When the picked slot is in-studio, the
+              location is the studio — surface that explicitly so the
+              client doesn't think they're getting an in-home visit. */}
           <BookingSummaryCard
             selectedDuration={selectedDuration}
             selectedDate={selectedDate}
             selectedTime={selectedTime}
-            fullAddress={location?.fullAddress || fullAddress}
+            fullAddress={
+              selectedTime?.kind === 'static' && selectedTime?.location?.address
+                ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
+                : (location?.fullAddress || fullAddress)
+            }
             selectedAddons={selectedAddons}
             recipientType={recipientType}
             recipientInfo={recipientInfo}
@@ -958,7 +995,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
             return {
               selectedTime,
               selectedDate,
-              fullAddress,
+              fullAddress: selectedTime?.kind === 'static' && selectedTime?.location?.address
+                ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
+                : fullAddress,
               numSessions: 1,
               bookingId: newBookingId,
               selectedDuration,

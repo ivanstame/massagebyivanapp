@@ -389,8 +389,12 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       await generateFromTemplate(templateProviderId, laDate);
     }
 
-    // Find ALL availability blocks for the day (manual + template may coexist)
-    const availabilityBlocks = await Availability.find(availQuery).sort({ start: 1 });
+    // Find ALL availability blocks for the day (manual + template may
+    // coexist). Populate the static-location ref so the slot generator
+    // can read its buffer + the API response can carry pricing/address.
+    const availabilityBlocks = await Availability.find(availQuery)
+      .populate('staticLocation', 'name address lat lng staticConfig isStaticLocation')
+      .sort({ start: 1 });
 
     if (availabilityBlocks.length === 0) {
       console.log(`No availability blocks found for date: ${laDate.toFormat(TIME_FORMATS.ISO_DATE)}`);
@@ -457,8 +461,10 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         })
       : [];
 
-    // Generate slots from ALL availability blocks and merge
-    let allSlots = [];
+    // Generate slots from ALL availability blocks and merge. Each slot
+    // carries kind + (when static) location + pricing override info, so
+    // the booking form can adapt UI per-slot without a second round trip.
+    let enrichedSlots = []; // [{ time: Date, kind, location?, pricing?, useMobilePricing? }]
     for (const availability of availabilityBlocks) {
       const slots = await getAvailableTimeSlots(
         availability,
@@ -473,31 +479,66 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         homeBase,
         blockedTimes
       );
-      allSlots = allSlots.concat(slots);
+
+      const isStatic = availability.kind === 'static' && availability.staticLocation;
+      for (const time of slots) {
+        if (isStatic) {
+          const sl = availability.staticLocation;
+          const cfg = sl.staticConfig || {};
+          enrichedSlots.push({
+            time,
+            kind: 'static',
+            location: {
+              id: sl._id,
+              name: sl.name,
+              address: sl.address,
+              lat: sl.lat,
+              lng: sl.lng,
+            },
+            useMobilePricing: cfg.useMobilePricing !== false,
+            pricing: cfg.useMobilePricing === false && Array.isArray(cfg.pricing)
+              ? cfg.pricing
+              : null,
+            bufferMinutes: Number.isFinite(cfg.bufferMinutes) ? cfg.bufferMinutes : 15,
+          });
+        } else {
+          enrichedSlots.push({ time, kind: 'mobile' });
+        }
+      }
     }
 
-    // Deduplicate by ISO string (in case blocks overlap)
+    // Deduplicate by ISO time. When two windows produce the same slot
+    // time (rare — overlapping windows), keep the first occurrence; the
+    // sort by start above means earlier-windowed slots win.
     const seenTimes = new Set();
-    const availableSlots = allSlots.filter(slot => {
-      const key = slot.toISOString();
+    const availableSlots = enrichedSlots.filter(s => {
+      const key = s.time.toISOString();
       if (seenTimes.has(key)) return false;
       seenTimes.add(key);
       return true;
-    }).sort((a, b) => a - b);
-    
+    }).sort((a, b) => a.time - b.time);
+
     console.log(`Available slots: ${availableSlots.length} with shared validation logic`);
-    
+
     if (availableSlots.length === 0) {
       console.log('No available slots after validation - returning empty array');
       return res.json([]);
     }
-    
-    // Format slots for client display
-    const formattedSlots = availableSlots.map(slot => {
-      return DateTime.fromJSDate(slot, { zone: 'UTC' })
+
+    // Format slots for client display. Each slot is an object so the
+    // client can render in-studio vs mobile slots distinctly.
+    const formattedSlots = availableSlots.map(s => ({
+      time: DateTime.fromJSDate(s.time, { zone: 'UTC' })
         .setZone(DEFAULT_TZ)
-        .toISO({ suppressMilliseconds: true });
-    });
+        .toISO({ suppressMilliseconds: true }),
+      kind: s.kind,
+      ...(s.kind === 'static' && {
+        location: s.location,
+        useMobilePricing: s.useMobilePricing,
+        pricing: s.pricing,
+        bufferMinutes: s.bufferMinutes,
+      }),
+    }));
     
     console.log('Formatted slot times:', formattedSlots.join(', '));
     

@@ -424,10 +424,21 @@ async function getAvailableTimeSlots(
   const slots = generateTimeSlots(startTime, endTime, SLOT_GRID_MINUTES, appointmentDuration);
   console.log(`[Slots] Generated ${slots.length} base slots (${SLOT_GRID_MINUTES}-min grid)`);
 
+  // Static availability has no per-slot drive time inside its window —
+  // the buffer comes from the StaticLocation's turnover time and there's
+  // no Distance Matrix call to make. Override the caller-supplied buffer
+  // with the location's bufferMinutes so adjacent in-studio bookings
+  // respect the room's actual reset cadence.
+  const isStaticWindow = adminAvailability.kind === 'static';
+  const staticBuffer = adminAvailability.staticLocation?.staticConfig?.bufferMinutes;
+  const slotBuffer = isStaticWindow && Number.isFinite(staticBuffer)
+    ? staticBuffer
+    : effectiveBufferMinutes;
+
   // Step 2: Remove slots occupied by existing bookings
   const slotsAfterOccupied = removeOccupiedSlots(
     slots, bookings, appointmentDuration,
-    effectiveBufferMinutes, requestedGroupId, clientLocation
+    slotBuffer, requestedGroupId, clientLocation
   );
   console.log(`[Slots] ${slotsAfterOccupied.length} slots after removing occupied`);
 
@@ -449,6 +460,14 @@ async function getAvailableTimeSlots(
     : slotsAfterOccupied;
   if (effectiveBlockedTimes.length > 0) {
     console.log(`[Slots] ${slotsAfterBlocked.length} slots after removing blocked times`);
+  }
+
+  // Static window short-circuit: clients come to the provider's
+  // location, no per-slot drive math, no Distance Matrix calls. Just
+  // return what's left after occupied + blocked filtering.
+  if (isStaticWindow) {
+    console.log(`[Slots] Static window — returning ${slotsAfterBlocked.length} slots without travel validation`);
+    return slotsAfterBlocked;
   }
 
   // Step 3: Use availability's own anchor if it has one, otherwise use provided homeBase

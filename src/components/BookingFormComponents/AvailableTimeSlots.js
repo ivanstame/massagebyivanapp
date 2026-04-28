@@ -206,30 +206,42 @@ const AvailableTimeSlots = ({
                 <p className="text-slate-500">No available times in this period</p>
               </div>
             ) : (
-              shown.map(slot => (
-                <button
-                  key={slot.iso}
-                  onClick={() => onTimeSelected(slot)}
-                  className={`
-                    min-h-touch p-3 rounded-lg border-2 transition-all duration-200
-                    hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-                    ${selectedTime?.iso === slot.iso
-                      ? 'border-teal-600 bg-teal-50 shadow-md'
-                      : 'border-line bg-paper-elev hover:border-teal-300'
-                    }
-                  `}
-                >
-                  <div className={`
-                    text-lg font-medium
-                    ${selectedTime?.iso === slot.iso ? 'text-teal-700' : 'text-slate-900'}
-                  `}>
-                    {slot.display || slot.local}
-                  </div>
-                  {selectedTime?.iso === slot.iso && (
-                    <Check className="w-4 h-4 text-teal-600 mx-auto mt-1" />
-                  )}
-                </button>
-              ))
+              shown.map(slot => {
+                const isStatic = slot.kind === 'static';
+                const selected = selectedTime?.iso === slot.iso;
+                return (
+                  <button
+                    key={slot.iso}
+                    onClick={() => onTimeSelected(slot)}
+                    title={isStatic && slot.location?.name ? `In-studio at ${slot.location.name}` : undefined}
+                    className={`
+                      min-h-touch p-3 rounded-lg border-2 transition-all duration-200
+                      hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                      ${selected
+                        ? (isStatic ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-teal-600 bg-teal-50 shadow-md')
+                        : (isStatic ? 'border-blue-200 bg-paper-elev hover:border-blue-400' : 'border-line bg-paper-elev hover:border-teal-300')
+                      }
+                    `}
+                  >
+                    <div className={`
+                      text-lg font-medium
+                      ${selected
+                        ? (isStatic ? 'text-blue-700' : 'text-teal-700')
+                        : 'text-slate-900'}
+                    `}>
+                      {slot.display || slot.local}
+                    </div>
+                    {isStatic && (
+                      <div className="text-[10px] uppercase tracking-wide font-medium text-blue-700 mt-0.5">
+                        In-studio
+                      </div>
+                    )}
+                    {selected && (
+                      <Check className={`w-4 h-4 mx-auto mt-1 ${isStatic ? 'text-blue-600' : 'text-teal-600'}`} />
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
 
