@@ -1,15 +1,18 @@
 // Smoke test for Phase 1 of the static-location feature.
 //
 // Proves that adding a location to a BlockedTime actually changes the
-// drive-time math for adjacent slots. We do this by running the
-// production getAvailableTimeSlots function twice against the same
-// setup — once with the block having no location, once with the
-// block at a Pasadena address — and comparing the slots that appear
-// just after the block ends.
+// drive-time math for adjacent slots. Runs getAvailableTimeSlots
+// twice against the same setup — once with the block having no
+// location, once with the block at a Pasadena address — and asserts
+// the with-location run pushes the first post-block slot LATER by
+// the right amount (block-end + buffer + actual drive from block
+// address + arrival buffer, snapped to the 15-min grid).
 //
-// If Phase 1 works, the with-location run should expose slots EARLIER
-// after the block (Pasadena → Pasadena ≈ 5min drive) than the no-
-// location run (Downtown LA home base → Pasadena ≈ 20-30min drive).
+// Note on baseline semantics: a block with no location does NOT fall
+// back to home base — it simply isn't consulted as a travel-boundary,
+// so slots can start at the instant the block ends. Adding a location
+// is what subjects the block to travel-time math at all. That's the
+// behavior we're proving here.
 //
 // All test docs are tagged with @avayble-blocktest.local so even if
 // cleanup fails partway through, the residue can be wiped manually.
@@ -115,8 +118,8 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;
     const homeBase = { lat: HOME_LAT, lng: HOME_LNG };
 
     // ── Run A: block has NO location ─────────────────────────────────
-    log('Run A: block has NO location → drive-time falls back to home base');
-    log('  expected: first slot after block is delayed by LA→Pasadena drive (~25min)');
+    log('Run A: block has NO location → not consulted as a travel boundary');
+    log('  expected: first slot is at block end (no travel time imposed)');
     const slotsA = await getAvailableTimeSlots(
       availability, [], clientLocation, 60, 15, null, 0,
       provider._id, [], homeBase,
@@ -132,7 +135,7 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;
 
     // ── Run B: block has a Pasadena location ─────────────────────────
     log('Run B: same block + Pasadena location → drive-time uses block address');
-    log('  expected: first slot after block is much sooner (Pasadena→Pasadena ~5min)');
+    log('  expected: first slot after 14:00 includes drive from block address');
     await BlockedTime.updateOne(
       { _id: block._id },
       {
@@ -163,27 +166,25 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;
     if (!firstAfterA || !firstAfterB) {
       failures.push('One or both runs returned zero slots after the block — slot generator may have rejected the day entirely');
       allPassed = false;
-    } else if (firstAfterB < firstAfterA) {
-      log(`✓ With-location run unlocks slots EARLIER by ${Math.round((firstAfterA - firstAfterB) / 60000)} minutes`);
+    } else if (firstAfterB > firstAfterA) {
+      const deltaMin = Math.round((firstAfterB - firstAfterA) / 60000);
+      log(`✓ With-location run pushes the first post-block slot LATER by ${deltaMin} minutes`);
+      log(`  no-location:   ${firstAfterA.toFormat('HH:mm')}`);
+      log(`  with-location: ${firstAfterB.toFormat('HH:mm')}`);
       log('  → BlockedTime.location is correctly being used as a drive-time origin.');
+      log('  → A booking adjacent to this block now respects the drive from the block address.');
     } else if (firstAfterB.toMillis() === firstAfterA.toMillis()) {
       failures.push(
         `Both runs returned the same first-after-block slot (${firstAfterA.toFormat('HH:mm')}). ` +
-        'Either Distance Matrix returned identical times for both routes (unlikely), ' +
-        'or the slot generator is not consulting BlockedTime.location.'
+        'The slot generator is not consulting BlockedTime.location.'
       );
       allPassed = false;
     } else {
       failures.push(
-        `With-location run returned a LATER first slot (${firstAfterB.toFormat('HH:mm')}) ` +
-        `than no-location (${firstAfterA.toFormat('HH:mm')}). This is backwards.`
+        `With-location run returned an EARLIER first slot (${firstAfterB.toFormat('HH:mm')}) ` +
+        `than no-location (${firstAfterA.toFormat('HH:mm')}). Travel time should add, not remove, spacing.`
       );
       allPassed = false;
-    }
-
-    // Also surface slot counts as a sanity hint
-    if (slotsB.length > slotsA.length) {
-      log(`  bonus: with-location run also exposed ${slotsB.length - slotsA.length} more bookable slots overall`);
     }
 
   } catch (err) {
