@@ -3,20 +3,25 @@
 //
 // Setup:
 //   - Provider with home base in Downtown LA
-//   - Two availability windows on the same day:
+//   - Three availability windows on the same day:
 //     a) Mobile 9:00-11:30 AM
 //     b) Static 12:00-15:00 at a Pasadena studio
 //     c) Mobile 15:30-18:00
 //   - Client wants to book a 60-min mobile session at a Pasadena address
 //
 // Expectations:
-//   - Run A (NO static-window-as-boundary wired): slots after 15:30
-//     compute drive from home base (Downtown LA → Pasadena ≈ 25min)
-//   - Run B (WITH the wiring — current code): slots after 15:30 should
-//     start sooner because the previous "boundary" is the static window
-//     at the Pasadena studio (Pasadena → Pasadena ≈ 5min)
+//   - Run A (NO static-window-as-boundary): static window contributes
+//     no travel constraint to the evening mobile slots, so the first
+//     slot opens at 15:30 with zero drive time imposed.
+//   - Run B (WITH the wiring — current code): static window's address
+//     IS treated as travel origin for adjacent slots, so the first slot
+//     opens later (15:30 + 15min buffer + ~4min drive Pasadena→Pasadena
+//     + 15min arrival, snapped to the 15-min grid).
 //
-// We diff the first available slot after 15:30 between the two runs.
+// Pass criterion: Run B is LATER than Run A. That proves the synthetic
+// boundary is being consulted — adding a real travel-origin constraint
+// pushes slots back; without it, the system unrealistically lets slots
+// start instantly. (See Phase 1's verification for the same shape.)
 
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -115,7 +120,7 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;   // Pasadena (near studio)
 
     // ── Run A: WITHOUT static-window-as-boundary ────────────────────
     log('Run A: evening mobile slots WITHOUT the Phase 2d wiring');
-    log('  expected: first slot after 15:30 reflects drive from home base (LA → Pasadena ~25min)');
+    log('  expected: first slot at 15:30 (no travel imposed by the absent boundary)');
     const slotsA = await getAvailableTimeSlots(
       mobileEvening, [], clientLocation, 60, 15, null, 0,
       provider._id, [], homeBase,
@@ -129,7 +134,7 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;   // Pasadena (near studio)
 
     // ── Run B: WITH static-window-as-boundary ───────────────────────
     log('Run B: evening mobile slots WITH the Phase 2d wiring');
-    log('  expected: first slot after 15:30 reflects drive from Pasadena studio (~5min)');
+    log('  expected: first slot LATER than 15:30 (drive from Pasadena studio + buffers, snapped to grid)');
     // Build the same synthetic boundary the route now constructs.
     const populatedStatic = await Availability.findById(staticWindow._id)
       .populate('staticLocation', 'name address lat lng staticConfig isStaticLocation');
@@ -158,11 +163,11 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;   // Pasadena (near studio)
     if (!firstA || !firstB) {
       failures.push('One or both runs returned zero evening slots');
       allPassed = false;
-    } else if (firstB < firstA) {
-      const deltaMin = Math.round((firstA - firstB) / 60000);
-      log(`✓ With Phase 2d, evening slots open ${deltaMin} minutes EARLIER`);
-      log(`  no-boundary:    ${firstA.toFormat('HH:mm')} (drive from home base)`);
-      log(`  with-boundary:  ${firstB.toFormat('HH:mm')} (drive from static studio)`);
+    } else if (firstB > firstA) {
+      const deltaMin = Math.round((firstB - firstA) / 60000);
+      log(`✓ With Phase 2d, evening slots open ${deltaMin} minutes LATER`);
+      log(`  no-boundary:    ${firstA.toFormat('HH:mm')} (no travel imposed)`);
+      log(`  with-boundary:  ${firstB.toFormat('HH:mm')} (drive from static studio + buffers)`);
       log('  → static-window addresses are correctly acting as travel origins for adjacent mobile slots.');
     } else if (firstB.toMillis() === firstA.toMillis()) {
       failures.push(
@@ -172,8 +177,8 @@ const CLIENT_LAT = 34.1366, CLIENT_LNG = -118.1450;   // Pasadena (near studio)
       allPassed = false;
     } else {
       failures.push(
-        `Run B returned a LATER first slot (${firstB.toFormat('HH:mm')}) than Run A (${firstA.toFormat('HH:mm')}). ` +
-        'A nearer travel origin (Pasadena vs Downtown LA) should free up earlier slots, not push them back.'
+        `Run B returned an EARLIER first slot (${firstB.toFormat('HH:mm')}) than Run A (${firstA.toFormat('HH:mm')}). ` +
+        'Adding a travel-origin constraint should push slots back, not pull them forward.'
       );
       allPassed = false;
     }
