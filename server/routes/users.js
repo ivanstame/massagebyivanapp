@@ -691,8 +691,21 @@ router.get('/provider/:providerId/services', async (req, res) => {
       return res.status(404).json({ message: 'Provider not found' });
     }
 
+    // Sort offerings shortest-duration first by default — the convention
+    // for time-based services (massage, sessions, lessons). When a provider
+    // sets an explicit displayOrder we honor it; otherwise we fall back to
+    // duration ascending.
+    const sortedPricing = [...(provider.providerProfile?.basePricing || [])].sort((a, b) => {
+      const aOrder = typeof a.displayOrder === 'number' ? a.displayOrder : null;
+      const bOrder = typeof b.displayOrder === 'number' ? b.displayOrder : null;
+      if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+      if (aOrder !== null) return -1;
+      if (bOrder !== null) return 1;
+      return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+    });
+
     res.json({
-      basePricing: provider.providerProfile?.basePricing || [],
+      basePricing: sortedPricing,
       addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
       acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash'],
       venmoHandle: provider.providerProfile?.venmoHandle || null
