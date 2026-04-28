@@ -30,6 +30,11 @@ async function generateFromTemplate(providerId, laDate) {
   });
   if (!template) return null;
 
+  // Per-date opt-out — provider explicitly removed this date's occurrence.
+  if (Array.isArray(template.exclusions) && template.exclusions.includes(localDateStr)) {
+    return null;
+  }
+
   // Check if a template-sourced availability already exists for this date
   const existingTemplate = await Availability.findOne({
     provider: providerId,
@@ -126,6 +131,13 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
 
     if (!existingDates.has(localDateStr) && templateByDay[dayOfWeek]) {
       const template = templateByDay[dayOfWeek];
+
+      // Skip dates the provider has explicitly opted out of for this template.
+      if (Array.isArray(template.exclusions) && template.exclusions.includes(localDateStr)) {
+        current = current.plus({ days: 1 });
+        continue;
+      }
+
       const startLA = DateTime.fromFormat(
         `${localDateStr} ${template.startTime}`,
         'yyyy-MM-dd HH:mm',
@@ -770,8 +782,26 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     const deletedStart = availability.start;
     const deletedEnd = availability.end;
     const deletedLocalDate = availability.localDate;
+    const deletedSource = availability.source;
     await availability.remove();
     console.log(`Availability block ${req.params.id} deleted successfully`);
+
+    // If this was a template-derived occurrence, record the date as an
+    // exclusion on the template so it doesn't get re-materialized on the
+    // next page load. Equivalent to iCal's EXDATE — the provider's intent
+    // is "skip this specific date", not "drop the whole weekly rule".
+    if (deletedSource === 'template') {
+      try {
+        const luxonWeekday = laDate.weekday;
+        const dayOfWeek = luxonWeekday === 7 ? 0 : luxonWeekday;
+        await WeeklyTemplate.updateOne(
+          { provider: req.user._id, dayOfWeek },
+          { $addToSet: { exclusions: deletedLocalDate } }
+        );
+      } catch (exclusionErr) {
+        console.error('Failed to record template exclusion:', exclusionErr.message);
+      }
+    }
 
     // Un-override Google Calendar blocks that are no longer covered by any remaining availability
     const overriddenBlocks = await BlockedTime.find({

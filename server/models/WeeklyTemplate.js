@@ -33,6 +33,15 @@ const WeeklyTemplateSchema = new mongoose.Schema({
     },
     startTime: { type: String, default: null }, // "HH:mm" — when the anchor block starts
     endTime: { type: String, default: null }     // "HH:mm" — when the anchor block ends
+  },
+  // Per-date opt-outs: dates (YYYY-MM-DD in LA) where the provider has
+  // explicitly removed this template's occurrence. Materialization skips
+  // any date in this list, so deleting a single template-derived
+  // availability sticks instead of being resurrected on the next fetch.
+  // Equivalent to iCal's EXDATE for a weekly RRULE.
+  exclusions: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 
