@@ -276,7 +276,11 @@ const ProviderAvailability = () => {
   }, [fetchBlockedTimes, selectedDate]);
 
   const handleBlockOffTime = useCallback(async (payload) => {
-    const conflicts = findGcalConflicts(payload.date, payload.start, payload.end);
+    // All-day blocks have no explicit start/end — treat them as covering
+    // the entire day for conflict detection.
+    const startStr = payload.allDay ? '00:00' : payload.start;
+    const endStr = payload.allDay ? '23:59' : payload.end;
+    const conflicts = findGcalConflicts(payload.date, startStr, endStr);
     if (conflicts.length > 0) {
       setPendingAction({ type: 'blockoff', data: payload });
       setGcalConflicts(conflicts);
