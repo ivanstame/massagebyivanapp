@@ -3,6 +3,33 @@ const router = express.Router();
 const SavedLocation = require('../models/SavedLocation');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
+// Helpers ---------------------------------------------------------------
+
+function sanitizePricing(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter(t => t && Number.isFinite(Number(t.duration)) && Number.isFinite(Number(t.price)))
+    .map((t, idx) => ({
+      duration: Number(t.duration),
+      price: Number(t.price),
+      label: typeof t.label === 'string' ? t.label.trim().slice(0, 100) : '',
+      displayOrder: typeof t.displayOrder === 'number' ? t.displayOrder : idx
+    }));
+}
+
+function buildStaticConfig(input) {
+  if (!input || typeof input !== 'object') {
+    return { bufferMinutes: 15, useMobilePricing: true, pricing: [] };
+  }
+  const buffer = Number.isFinite(Number(input.bufferMinutes)) ? Number(input.bufferMinutes) : 15;
+  const useMobile = !!input.useMobilePricing;
+  return {
+    bufferMinutes: Math.max(0, Math.min(120, buffer)),
+    useMobilePricing: useMobile,
+    pricing: useMobile ? [] : sanitizePricing(input.pricing)
+  };
+}
+
 // Get all saved locations for the logged-in provider
 router.get('/', ensureAuthenticated, async (req, res) => {
   try {
@@ -25,7 +52,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Only providers can manage locations' });
     }
 
-    const { name, address, lat, lng, isHomeBase } = req.body;
+    const { name, address, lat, lng, isHomeBase, isStaticLocation, staticConfig } = req.body;
     if (!name || !address || lat == null || lng == null) {
       return res.status(400).json({ message: 'name, address, lat, and lng are required' });
     }
@@ -44,7 +71,9 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       address,
       lat,
       lng,
-      isHomeBase: isHomeBase || false
+      isHomeBase: !!isHomeBase,
+      isStaticLocation: !!isStaticLocation,
+      staticConfig: isStaticLocation ? buildStaticConfig(staticConfig) : undefined
     });
 
     await location.save();
@@ -64,7 +93,7 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, address, lat, lng, isHomeBase } = req.body;
+    const { name, address, lat, lng, isHomeBase, isStaticLocation, staticConfig } = req.body;
 
     // If setting as home base, unset any existing home base
     if (isHomeBase && !location.isHomeBase) {
@@ -74,11 +103,25 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       );
     }
 
-    if (name) location.name = name;
-    if (address) location.address = address;
+    if (name !== undefined) location.name = name;
+    if (address !== undefined) location.address = address;
     if (lat != null) location.lat = lat;
     if (lng != null) location.lng = lng;
-    if (isHomeBase !== undefined) location.isHomeBase = isHomeBase;
+    if (isHomeBase !== undefined) location.isHomeBase = !!isHomeBase;
+    if (isStaticLocation !== undefined) {
+      location.isStaticLocation = !!isStaticLocation;
+      // Always rewrite the config when the role changes — when toggling
+      // off, scrub it; when toggling on, accept the supplied (or default)
+      // config.
+      if (location.isStaticLocation) {
+        location.staticConfig = buildStaticConfig(staticConfig ?? location.staticConfig);
+      } else {
+        location.staticConfig = undefined;
+      }
+    } else if (location.isStaticLocation && staticConfig !== undefined) {
+      // Role unchanged but config was sent — apply it.
+      location.staticConfig = buildStaticConfig(staticConfig);
+    }
 
     await location.save();
     res.json(location);

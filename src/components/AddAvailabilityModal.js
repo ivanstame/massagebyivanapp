@@ -28,15 +28,14 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const [savedRes, staticRes] = await Promise.all([
-          api.get('/api/saved-locations'),
-          api.get('/api/static-locations').catch(() => ({ data: [] })),
-        ]);
-        const locs = savedRes.data || [];
+        const res = await api.get('/api/saved-locations');
+        const locs = res.data || [];
         setSavedLocations(locs);
         const home = locs.find(l => l.isHomeBase);
         setHomeBase(home || null);
-        setStaticLocations(staticRes.data || []);
+        // Static locations are now just saved locations tagged with the
+        // isStaticLocation role — no separate endpoint.
+        setStaticLocations(locs.filter(l => l.isStaticLocation));
       } catch (err) {
         console.error('Failed to fetch locations:', err);
       } finally {
@@ -226,8 +225,8 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </div>
             {staticLocations.length === 0 && (
               <p className="text-xs text-slate-400 mt-2">
-                <a href="/provider/static-locations" className="text-[#B07A4E] underline">
-                  Add an in-studio location
+                <a href="/provider/locations" className="text-[#B07A4E] underline">
+                  Tag a saved location as in-studio
                 </a>{' '}
                 to enable in-studio availability.
               </p>

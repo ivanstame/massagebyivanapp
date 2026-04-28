@@ -225,7 +225,7 @@ router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
     const blocks = await Availability.find({
       provider: providerId,
       localDate: laDate.toFormat(TIME_FORMATS.ISO_DATE)
-    }).populate('staticLocation', 'name address lat lng bufferMinutes useMobilePricing pricing');
+    }).populate('staticLocation', 'name address lat lng staticConfig isStaticLocation');
 
     res.json(blocks);
   } catch (error) {

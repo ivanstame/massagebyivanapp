@@ -203,7 +203,6 @@ app.use('/api', require('./routes/direct-access'));
 app.use('/api/provider-requests', require('./routes/provider-assignment-requests'));
 app.use('/api/weekly-template', require('./routes/weekly-template'));
 app.use('/api/saved-locations', require('./routes/saved-locations'));
-app.use('/api/static-locations', require('./routes/static-locations'));
 app.use('/api/join-code', require('./routes/join-code'));
 app.use('/api/stripe', require('./routes/stripe'));
 app.use('/api/google-calendar', require('./routes/googleCalendar'));

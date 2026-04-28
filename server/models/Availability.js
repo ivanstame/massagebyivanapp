@@ -32,7 +32,7 @@ const AvailabilitySchema = new mongoose.Schema({
   },
   staticLocation: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'StaticLocation',
+    ref: 'SavedLocation',
     default: null
   },
   // Fixed location anchor info for this day (populated from template)

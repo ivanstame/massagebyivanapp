@@ -50,15 +50,16 @@ const WeeklyTemplateEditor = () => {
   const fetchTemplate = useCallback(async () => {
     try {
       setLoading(true);
-      const [templateRes, locationsRes, staticRes] = await Promise.all([
+      const [templateRes, locationsRes] = await Promise.all([
         axios.get('/api/weekly-template', { withCredentials: true }),
-        axios.get('/api/saved-locations', { withCredentials: true }),
-        axios.get('/api/static-locations', { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get('/api/saved-locations', { withCredentials: true })
       ]);
 
       const locs = locationsRes.data;
       setSavedLocations(locs);
-      setStaticLocations(staticRes.data || []);
+      // Static locations are saved locations tagged with the
+      // isStaticLocation role — single source of truth.
+      setStaticLocations((locs || []).filter(l => l.isStaticLocation));
       const homeLoc = locs.find(l => l.isHomeBase);
 
       if (templateRes.data.length > 0) {
@@ -411,8 +412,8 @@ const WeeklyTemplateEditor = () => {
                           </select>
                         ) : (
                           <span className="text-xs text-amber-600">
-                            <Link to="/provider/static-locations" className="underline">
-                              Add an in-studio location
+                            <Link to="/provider/locations" className="underline">
+                              Tag a saved location as in-studio
                             </Link> first
                           </span>
                         )}

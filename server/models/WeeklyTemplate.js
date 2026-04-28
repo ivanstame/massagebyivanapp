@@ -33,7 +33,7 @@ const WeeklyTemplateSchema = new mongoose.Schema({
   },
   staticLocation: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'StaticLocation',
+    ref: 'SavedLocation',
     default: null
   },
   // Fixed location anchor for this day (e.g., "Tuesday at Peters Chiropractic 9-5")

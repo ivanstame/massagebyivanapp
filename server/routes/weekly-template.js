@@ -13,7 +13,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 
     const templates = await WeeklyTemplate.find({ provider: req.user._id })
       .populate('anchor.locationId', 'name address lat lng')
-      .populate('staticLocation', 'name address lat lng bufferMinutes')
+      .populate('staticLocation', 'name address lat lng staticConfig isStaticLocation')
       .sort({ dayOfWeek: 1 });
 
     res.json(templates);

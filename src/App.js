@@ -41,7 +41,6 @@ import ProviderAppointments from './components/ProviderAppointments';
 import ProviderClients from './components/ProviderClients';
 import ProviderClientDetails from './components/ProviderClientDetails';
 import ProviderLocations from './components/ProviderLocations';
-import ProviderStaticLocations from './components/ProviderStaticLocations';
 import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
 import InvitationHandling from './components/InvitationHandling';
@@ -279,13 +278,11 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Old URL — Static Locations got merged into the unified
+              Locations page. Keep a redirect so any bookmarks still work. */}
           <Route
             path="/provider/static-locations"
-            element={
-              <ProtectedRoute providerOnly>
-                <ProviderStaticLocations />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/provider/locations" replace />}
           />
           <Route
             path="/provider/services"
