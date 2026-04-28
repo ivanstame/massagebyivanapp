@@ -41,6 +41,7 @@ import ProviderAppointments from './components/ProviderAppointments';
 import ProviderClients from './components/ProviderClients';
 import ProviderClientDetails from './components/ProviderClientDetails';
 import ProviderLocations from './components/ProviderLocations';
+import ProviderStaticLocations from './components/ProviderStaticLocations';
 import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
 import InvitationHandling from './components/InvitationHandling';
@@ -275,6 +276,14 @@ function App() {
             element={
               <ProtectedRoute providerOnly>
                 <ProviderLocations />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/static-locations"
+            element={
+              <ProtectedRoute providerOnly>
+                <ProviderStaticLocations />
               </ProtectedRoute>
             }
           />

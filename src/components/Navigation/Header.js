@@ -40,6 +40,7 @@ const Header = () => {
         { href: '/provider/availability', label: 'Availability' },
         { href: '/provider/schedule-template', label: 'Weekly Hours' },
         { href: '/provider/locations', label: 'Locations' },
+        { href: '/provider/static-locations', label: 'In-studio Locations' },
         { href: '/provider/services', label: 'Services' },
         { href: '/provider/clients', label: 'Clients' },
         { href: '/provider/mileage', label: 'Mileage' },
