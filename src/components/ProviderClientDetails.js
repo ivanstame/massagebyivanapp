@@ -281,28 +281,39 @@ const ProviderClientDetails = () => {
                     </span>
                   )}
                 </div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {client?.email && (
-                    <a
-                      href={`mailto:${client.email}`}
-                      className="flex items-center text-slate-600 hover:text-[#B07A4E] break-all"
-                    >
-                      <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span className="break-all">{client.email}</span>
-                    </a>
+                    <div className="flex items-center text-slate-600">
+                      <Mail className="w-4 h-4 mr-2 flex-shrink-0 text-slate-400" />
+                      <a
+                        href={`mailto:${client.email}`}
+                        className="text-[#B07A4E] underline underline-offset-2 hover:text-[#8A5D36] break-all"
+                      >
+                        {client.email}
+                      </a>
+                    </div>
                   )}
                   {client?.profile?.phoneNumber && (
-                    <a
-                      href={`tel:${client.profile.phoneNumber}`}
-                      className="flex items-center text-slate-600 hover:text-[#B07A4E]"
-                    >
-                      <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
-                      {client.profile.phoneNumber}
-                    </a>
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-slate-600">
+                      <Phone className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                      <a
+                        href={`tel:${client.profile.phoneNumber}`}
+                        className="text-[#B07A4E] underline underline-offset-2 hover:text-[#8A5D36]"
+                      >
+                        {client.profile.phoneNumber}
+                      </a>
+                      <a
+                        href={`sms:${client.profile.phoneNumber}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-[#B07A4E] border border-[#B07A4E]/40 rounded-full hover:bg-[#B07A4E]/10"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Text
+                      </a>
+                    </div>
                   )}
                   {client?.profile?.address && (
                     <div className="flex items-start text-slate-600">
-                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0 mt-1" />
+                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0 mt-1 text-slate-400" />
                       <span>{formatAddress(client.profile.address)}</span>
                     </div>
                   )}
@@ -318,15 +329,6 @@ const ProviderClientDetails = () => {
                 <CalendarPlus className="w-4 h-4 mr-1.5" />
                 Book appointment
               </button>
-              {client?.profile?.phoneNumber && (
-                <a
-                  href={`sms:${client.profile.phoneNumber}`}
-                  className="hidden sm:inline-flex p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                  title="Text client"
-                >
-                  <MessageSquare className="w-5 h-5" />
-                </a>
-              )}
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg flex-shrink-0"
