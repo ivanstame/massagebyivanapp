@@ -38,13 +38,17 @@ const BlockedTimeSchema = new mongoose.Schema({
   allDay: { type: Boolean, default: false }
 }, { timestamps: true });
 
-BlockedTimeSchema.pre('save', function(next) {
+// Derive localDate / date from `start` BEFORE validation runs — both
+// fields are required, and Mongoose validates before pre('save'). If we
+// computed them in pre('save'), the required-check would fail first.
+BlockedTimeSchema.pre('validate', function(next) {
   try {
+    if (!this.start || !this.end) return next();
     const startDT = DateTime.fromJSDate(this.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
     const endDT = DateTime.fromJSDate(this.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
 
     if (!startDT.hasSame(endDT, 'day')) {
-      throw new Error('Start and end times must be within the same day');
+      return next(new Error('Start and end times must be within the same day'));
     }
 
     this.localDate = startDT.toFormat(TIME_FORMATS.ISO_DATE);
