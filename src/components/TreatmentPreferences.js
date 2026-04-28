@@ -395,9 +395,15 @@ const TreatmentPreferences = () => {
       setSuccessMessage('Preferences saved');
       setIsEditing(false);
 
-      const isRegistrationComplete = (user?.registrationStep || 1) >= 3;
-      if (!isRegistrationComplete) {
-        navigate('/dashboard');
+      const wasOnboarding = (user?.registrationStep || 1) < 3;
+      if (wasOnboarding) {
+        const isClient = user?.accountType !== 'PROVIDER';
+        const hasProvider = !!(user?.providerId || data.user?.providerId);
+        if (isClient && !hasProvider) {
+          navigate('/provider-selection');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       setError(err.message || 'An error occurred while saving your preferences');

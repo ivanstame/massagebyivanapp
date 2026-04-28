@@ -181,23 +181,14 @@ const ProfileSetup = () => {
 
       setUser({
         ...user,
-        ...userData.user,
-        registrationStep: 3
+        ...userData.user
       });
 
       if (user?.accountType === 'PROVIDER') {
-        navigate('/dashboard', {
-          replace: true
-        });
-      } else if (user?.providerId || user?.hasProviderViaJoinCode) {
-        // Client already has a provider (via join code or invitation), skip provider selection
-        navigate('/dashboard', {
-          replace: true
-        });
+        navigate('/dashboard', { replace: true });
       } else {
-        navigate('/provider-selection', {
-          replace: true
-        });
+        // Clients still have step 3 (treatment preferences) to complete.
+        navigate('/treatment-preferences', { replace: true });
       }
 
     } catch (err) {
