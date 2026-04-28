@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../AuthContext';
@@ -22,6 +22,39 @@ const ProviderServices = () => {
   const [showAddAddon, setShowAddAddon] = useState(false);
   const [newAddon, setNewAddon] = useState({ name: '', price: '', description: '', extraTime: 0 });
 
+  // FLIP animation for offering reorder. We capture each row's top
+  // before basePricing changes (in the move handler) and after the new
+  // layout commits we animate from the captured delta back to zero so
+  // each affected row visibly slides into its new spot.
+  const rowRefs = useRef({});
+  const previousTops = useRef({});
+
+  useLayoutEffect(() => {
+    if (Object.keys(previousTops.current).length === 0) return;
+    Object.entries(rowRefs.current).forEach(([uid, el]) => {
+      if (!el) return;
+      const prevTop = previousTops.current[uid];
+      if (prevTop === undefined) return;
+      const newTop = el.getBoundingClientRect().top;
+      const deltaY = prevTop - newTop;
+      if (deltaY === 0) return;
+      el.animate(
+        [
+          { transform: `translateY(${deltaY}px)` },
+          { transform: 'translateY(0)' }
+        ],
+        { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+      );
+    });
+    previousTops.current = {};
+  }, [basePricing]);
+
+  const captureRowPositions = () => {
+    Object.entries(rowRefs.current).forEach(([uid, el]) => {
+      if (el) previousTops.current[uid] = el.getBoundingClientRect().top;
+    });
+  };
+
   const tradePreset = getTrade(trade);
 
   useEffect(() => {
@@ -43,11 +76,17 @@ const ProviderServices = () => {
 
       // Seed with trade-appropriate starter packages when the provider has none yet.
       // These are in-memory suggestions; nothing is persisted until Save.
+      // _uid is a client-only stable id used as the React key + as the FLIP
+      // identity so the move animation can track which row went where.
+      const withUid = arr => arr.map(p => ({
+        ...p,
+        _uid: p._uid || `t-${Math.random().toString(36).slice(2, 10)}`
+      }));
       const savedPricing = providerProfile.basePricing || [];
       if (savedPricing.length > 0) {
-        setBasePricing(savedPricing);
+        setBasePricing(withUid(savedPricing));
       } else {
-        setBasePricing(getTrade(providerTrade).starterPackages.map(p => ({ ...p })));
+        setBasePricing(withUid(getTrade(providerTrade).starterPackages.map(p => ({ ...p }))));
       }
 
       setAddons(providerProfile.addons || []);
@@ -68,7 +107,10 @@ const ProviderServices = () => {
   };
 
   const handleAddPricingTier = () => {
-    setBasePricing(prev => [...prev, { duration: 60, price: 0, label: '' }]);
+    setBasePricing(prev => [
+      ...prev,
+      { duration: 60, price: 0, label: '', _uid: `t-${Math.random().toString(36).slice(2, 10)}` }
+    ]);
     setSaved(false);
   };
 
@@ -83,10 +125,13 @@ const ProviderServices = () => {
 
   // Move a tier one position up or down. Up/down chevron buttons are
   // the most reliable cross-browser sortable affordance — native HTML5
-  // drag-and-drop is unpredictable and dead on touch devices.
+  // drag-and-drop is unpredictable and dead on touch devices. Capture
+  // current row positions first so the FLIP effect can animate the
+  // delta after the next render.
   const movePricingTier = (from, direction) => {
     const to = from + direction;
     if (to < 0 || to >= basePricing.length) return;
+    captureRowPositions();
     setBasePricing(prev => {
       const next = [...prev];
       [next[from], next[to]] = [next[to], next[from]];
@@ -154,13 +199,17 @@ const ProviderServices = () => {
       setError(null);
 
       // Auto-generate labels if missing. Stamp displayOrder from the
-      // current array position so the provider's drag-to-reorder sticks
-      // (server sorts by displayOrder when present, otherwise duration).
-      const pricingWithLabels = basePricing.map((p, idx) => ({
-        ...p,
-        label: p.label || `${p.duration} Minutes`,
-        displayOrder: idx
-      }));
+      // current array position so the provider's reorder sticks (server
+      // sorts by displayOrder when present, otherwise duration). _uid is
+      // a client-only animation key — strip it before saving.
+      const pricingWithLabels = basePricing.map((p, idx) => {
+        const { _uid, ...rest } = p;
+        return {
+          ...rest,
+          label: rest.label || `${rest.duration} Minutes`,
+          displayOrder: idx
+        };
+      });
 
       await axios.put('/api/users/provider/services', {
         basePricing: pricingWithLabels,
@@ -233,7 +282,14 @@ const ProviderServices = () => {
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
-              <div key={index} className="flex items-start gap-2 p-3 bg-paper-deep rounded-lg border border-line-soft">
+              <div
+                key={tier._uid || index}
+                ref={el => {
+                  if (el) rowRefs.current[tier._uid] = el;
+                  else delete rowRefs.current[tier._uid];
+                }}
+                className="flex items-start gap-2 p-3 bg-paper-deep rounded-lg border border-line-soft will-change-transform"
+              >
                 {basePricing.length > 1 && (
                   <div className="flex flex-col gap-0.5 flex-shrink-0 mt-5">
                     <button
