@@ -262,18 +262,26 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
   // Fetch the client's redeemable packages so the payment-method step can
   // offer "Use package credit" when one matches the selected duration.
-  // For provider-on-behalf bookings, this is left empty for now (the
-  // provider won't see package options); Phase 6 introduces a provider-side
-  // endpoint to fetch the target client's packages.
+  //   - Client booking themselves: /packages/mine (their own packages)
+  //   - Provider booking on behalf: /packages/client/:targetClientId
+  //     (the target's packages, scoped to this provider on the server)
   useEffect(() => {
-    if (!user || isProviderBooking) {
+    if (!user) {
+      setRedeemablePackages([]);
+      return;
+    }
+    if (isProviderBooking && !targetClient?._id) {
+      // Provider hasn't picked a client yet — no packages to show.
       setRedeemablePackages([]);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get('/api/packages/mine');
+        const url = isProviderBooking
+          ? `/api/packages/client/${targetClient._id}`
+          : '/api/packages/mine';
+        const res = await api.get(url);
         if (cancelled) return;
         // Only show packages that are paid, not cancelled, and have any
         // remaining capacity (sessions OR minutes depending on kind).
@@ -290,7 +298,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, isProviderBooking]);
+  }, [user, isProviderBooking, targetClient?._id]);
 
   // Filter redeemable packages to those that fit the currently-selected
   // duration. Sessions-mode requires an exact duration match; minutes-mode
