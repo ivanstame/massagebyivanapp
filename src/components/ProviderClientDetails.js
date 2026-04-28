@@ -262,82 +262,108 @@ const ProviderClientDetails = () => {
       <div className="max-w-7xl mx-auto p-4">
         {/* Client Header */}
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-4 sm:p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-            <div className="flex items-start space-x-4 min-w-0">
-              <div className="bg-slate-100 p-3 rounded-full flex-shrink-0">
-                <User className="w-6 h-6 text-slate-600" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-slate-900 break-words">
-                    {client?.profile?.fullName || 'Unnamed Client'}
-                  </h1>
-                  {client?.isManaged && (
-                    <span
-                      className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600"
-                      title="Client profile you manage on their behalf"
-                    >
-                      Managed
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 space-y-1.5">
-                  {client?.email && (
-                    <div className="flex items-center text-slate-600">
-                      <Mail className="w-4 h-4 mr-2 flex-shrink-0 text-slate-400" />
-                      <a
-                        href={`mailto:${client.email}`}
-                        className="text-[#B07A4E] underline underline-offset-2 hover:text-[#8A5D36] break-all"
-                      >
-                        {client.email}
-                      </a>
-                    </div>
-                  )}
-                  {client?.profile?.phoneNumber && (
-                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-slate-600">
-                      <Phone className="w-4 h-4 flex-shrink-0 text-slate-400" />
-                      <a
-                        href={`tel:${client.profile.phoneNumber}`}
-                        className="text-[#B07A4E] underline underline-offset-2 hover:text-[#8A5D36]"
-                      >
-                        {client.profile.phoneNumber}
-                      </a>
-                      <a
-                        href={`sms:${client.profile.phoneNumber}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-[#B07A4E] border border-[#B07A4E]/40 rounded-full hover:bg-[#B07A4E]/10"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        Text
-                      </a>
-                    </div>
-                  )}
-                  {client?.profile?.address && (
-                    <div className="flex items-start text-slate-600">
-                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0 mt-1 text-slate-400" />
-                      <span>{formatAddress(client.profile.address)}</span>
-                    </div>
-                  )}
-                </div>
+          {/* Identity row: avatar + name + overflow menu */}
+          <div className="flex items-start gap-4">
+            <div className="bg-slate-100 p-3 rounded-full flex-shrink-0">
+              <User className="w-6 h-6 text-slate-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-slate-900 break-words">
+                  {client?.profile?.fullName || 'Unnamed Client'}
+                </h1>
+                {client?.isManaged && (
+                  <span
+                    className="text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600"
+                    title="Client profile you manage on their behalf"
+                  >
+                    Managed
+                  </span>
+                )}
               </div>
             </div>
-
-            <div className="flex items-center gap-2 sm:flex-shrink-0">
-              <button
-                onClick={() => navigate(`/book?clientId=${clientId}`)}
-                className="inline-flex items-center justify-center flex-1 sm:flex-none px-3 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] text-sm font-medium whitespace-nowrap"
-              >
-                <CalendarPlus className="w-4 h-4 mr-1.5" />
-                Book appointment
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg flex-shrink-0"
-                title="More options"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-            </div>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg flex-shrink-0"
+              title="More options"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
           </div>
+
+          {/* Quick-actions row (iOS-Contacts style: round icon + label) */}
+          <div className="mt-5 grid grid-cols-4 gap-2">
+            <button
+              onClick={() => navigate(`/book?clientId=${clientId}`)}
+              className="flex flex-col items-center gap-1.5 group"
+              title="Book appointment"
+            >
+              <span className="w-12 h-12 rounded-full bg-[#B07A4E] text-white flex items-center justify-center group-hover:bg-[#8A5D36] transition-colors">
+                <CalendarPlus className="w-5 h-5" />
+              </span>
+              <span className="text-xs text-slate-700 font-medium">Book</span>
+            </button>
+            <a
+              href={client?.profile?.phoneNumber ? `tel:${client.profile.phoneNumber}` : undefined}
+              aria-disabled={!client?.profile?.phoneNumber}
+              onClick={(e) => { if (!client?.profile?.phoneNumber) e.preventDefault(); }}
+              className={`flex flex-col items-center gap-1.5 group ${!client?.profile?.phoneNumber ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={client?.profile?.phoneNumber ? 'Call client' : 'No phone on file'}
+            >
+              <span className="w-12 h-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                <Phone className="w-5 h-5" />
+              </span>
+              <span className="text-xs text-slate-700 font-medium">Call</span>
+            </a>
+            <a
+              href={client?.profile?.phoneNumber ? `sms:${client.profile.phoneNumber}` : undefined}
+              aria-disabled={!client?.profile?.phoneNumber}
+              onClick={(e) => { if (!client?.profile?.phoneNumber) e.preventDefault(); }}
+              className={`flex flex-col items-center gap-1.5 group ${!client?.profile?.phoneNumber ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={client?.profile?.phoneNumber ? 'Text client' : 'No phone on file'}
+            >
+              <span className="w-12 h-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                <MessageSquare className="w-5 h-5" />
+              </span>
+              <span className="text-xs text-slate-700 font-medium">Text</span>
+            </a>
+            <a
+              href={client?.email ? `mailto:${client.email}` : undefined}
+              aria-disabled={!client?.email}
+              onClick={(e) => { if (!client?.email) e.preventDefault(); }}
+              className={`flex flex-col items-center gap-1.5 group ${!client?.email ? 'opacity-40 cursor-not-allowed' : ''}`}
+              title={client?.email ? 'Email client' : 'No email on file'}
+            >
+              <span className="w-12 h-12 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                <Mail className="w-5 h-5" />
+              </span>
+              <span className="text-xs text-slate-700 font-medium">Email</span>
+            </a>
+          </div>
+
+          {/* Contact data list — read-only reference */}
+          {(client?.email || client?.profile?.phoneNumber || client?.profile?.address) && (
+            <div className="mt-5 pt-4 border-t border-line space-y-2 text-sm">
+              {client?.email && (
+                <div className="flex items-start text-slate-600">
+                  <Mail className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <span className="break-all">{client.email}</span>
+                </div>
+              )}
+              {client?.profile?.phoneNumber && (
+                <div className="flex items-start text-slate-600">
+                  <Phone className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <span>{client.profile.phoneNumber}</span>
+                </div>
+              )}
+              {client?.profile?.address && (
+                <div className="flex items-start text-slate-600">
+                  <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <span>{formatAddress(client.profile.address)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Claim-link section — only shown for managed clients. Lets the
