@@ -25,9 +25,24 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Only providers can block off time' });
     }
 
-    const { date, start, end, allDay, reason } = req.body;
+    const { date, start, end, allDay, reason, location } = req.body;
     if (!date) {
       return res.status(400).json({ message: 'date is required' });
+    }
+
+    // Sanitize the optional location. We require lat+lng for it to be
+    // usable as a drive-time origin/destination — text-only addresses
+    // would force a server-side geocode that the modal already did
+    // client-side via the saved-location selection.
+    let sanitizedLocation = null;
+    if (location && typeof location === 'object'
+        && typeof location.lat === 'number'
+        && typeof location.lng === 'number') {
+      sanitizedLocation = {
+        address: typeof location.address === 'string' ? location.address : null,
+        lat: location.lat,
+        lng: location.lng,
+      };
     }
 
     let startLA, endLA;
@@ -109,7 +124,8 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       start: startUTC,
       end: endUTC,
       allDay: !!allDay,
-      reason: reason ? String(reason).trim().slice(0, 200) : ''
+      reason: reason ? String(reason).trim().slice(0, 200) : '',
+      ...(sanitizedLocation && { location: sanitizedLocation })
     });
 
     await blockedTime.save();

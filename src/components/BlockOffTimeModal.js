@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { AlertCircle, Calendar, Repeat, Trash2, User } from 'lucide-react';
+import { AlertCircle, Calendar, MapPin, Repeat, Trash2, User } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../utils/timeConstants';
 
@@ -23,13 +23,23 @@ const formatHHmmTo12h = (hhmm) => {
 // that the provider can adjust. Either way, the server doesn't require
 // availability to exist — blocks live independently and persistently
 // suppress slots if availability gets added later.
-const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }) => {
+const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [], onBlock, onClose }) => {
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [reason, setReason] = useState('');
+  // Optional location for the block. When set, drive-time math for any
+  // booking immediately before/after this block uses this address as
+  // the origin/destination instead of falling back to home base.
+  const [selectedLocationId, setSelectedLocationId] = useState('');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filter out home base — that's already the implicit default.
+  const pickableLocations = useMemo(
+    () => (savedLocations || []).filter(l => !l.isHomeBase),
+    [savedLocations]
+  );
   // Conflicts returned by the server — list of bookings that overlap.
   // While present we suppress the request submit and show a per-item
   // cancellation list instead.
@@ -166,6 +176,19 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
         end: to24Hour(endTime),
         reason: reason.trim(),
       };
+    }
+
+    // Attach location if the provider picked one. Send the resolved
+    // address/lat/lng so the server doesn't need to look it up again.
+    if (selectedLocationId) {
+      const loc = pickableLocations.find(l => l._id === selectedLocationId);
+      if (loc) {
+        payload.location = {
+          address: loc.address,
+          lat: loc.lat,
+          lng: loc.lng,
+        };
+      }
     }
 
     setIsSubmitting(true);
@@ -335,6 +358,37 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
                   {generateTimeOptions()}
                 </select>
               </div>
+            </div>
+          )}
+
+          {/* Optional location for the block. Useful when the provider is
+              committed somewhere with an address (Massage Envy shift, off-
+              site gig) so a private appointment scheduled adjacent to this
+              block pulls drive-time from this address instead of home base. */}
+          {pickableLocations.length > 0 && (
+            <div>
+              <label htmlFor="blockLocation" className="block text-sm font-medium text-slate-700 mb-1">
+                Where you'll be <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <select
+                  id="blockLocation"
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg pl-9 pr-2 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                >
+                  <option value="">Not specified</option>
+                  {pickableLocations.map(loc => (
+                    <option key={loc._id} value={loc._id}>
+                      {loc.name} — {loc.address}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Picking a location lets the next or previous appointment calculate drive time from here instead of your home base.
+              </p>
             </div>
           )}
 

@@ -860,6 +860,7 @@ const formatTime = useCallback((time) => {
             block={blockOffTargetBlock}
             availabilityBlocks={!blockOffTargetBlock ? availabilityBlocks : undefined}
             date={selectedDate}
+            savedLocations={savedLocations}
             onBlock={handleBlockOffTime}
             onClose={() => {
               setBlockOffModalOpen(false);
