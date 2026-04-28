@@ -261,15 +261,15 @@ const ProviderClientDetails = () => {
     <div className="pt-16">
       <div className="max-w-7xl mx-auto p-4">
         {/* Client Header */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex justify-between items-start">
-            <div className="flex items-start space-x-4">
-              <div className="bg-slate-100 p-3 rounded-full">
+        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div className="flex items-start space-x-4 min-w-0">
+              <div className="bg-slate-100 p-3 rounded-full flex-shrink-0">
                 <User className="w-6 h-6 text-slate-600" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-slate-900">
+                  <h1 className="text-2xl font-bold text-slate-900 break-words">
                     {client?.profile?.fullName || 'Unnamed Client'}
                   </h1>
                   {client?.isManaged && (
@@ -283,61 +283,57 @@ const ProviderClientDetails = () => {
                 </div>
                 <div className="mt-2 space-y-1">
                   {client?.email && (
-                    <div className="flex items-center text-slate-600">
-                      <Mail className="w-4 h-4 mr-2" />
-                      {client.email}
-                    </div>
+                    <a
+                      href={`mailto:${client.email}`}
+                      className="flex items-center text-slate-600 hover:text-[#B07A4E] break-all"
+                    >
+                      <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="break-all">{client.email}</span>
+                    </a>
                   )}
                   {client?.profile?.phoneNumber && (
-                    <div className="flex items-center text-slate-600">
-                      <Phone className="w-4 h-4 mr-2" />
+                    <a
+                      href={`tel:${client.profile.phoneNumber}`}
+                      className="flex items-center text-slate-600 hover:text-[#B07A4E]"
+                    >
+                      <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
                       {client.profile.phoneNumber}
-                    </div>
+                    </a>
                   )}
                   {client?.profile?.address && (
-                    <div className="flex items-center text-slate-600">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {formatAddress(client.profile.address)}
+                    <div className="flex items-start text-slate-600">
+                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0 mt-1" />
+                      <span>{formatAddress(client.profile.address)}</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2 sm:flex-shrink-0">
               <button
                 onClick={() => navigate(`/book?clientId=${clientId}`)}
-                className="inline-flex items-center px-3 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] text-sm font-medium"
+                className="inline-flex items-center justify-center flex-1 sm:flex-none px-3 py-2 bg-[#B07A4E] text-white rounded-lg hover:bg-[#8A5D36] text-sm font-medium whitespace-nowrap"
               >
                 <CalendarPlus className="w-4 h-4 mr-1.5" />
                 Book appointment
               </button>
               {client?.profile?.phoneNumber && (
-                <button
-                  onClick={() => window.location.href = `tel:${client.profile.phoneNumber}`}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                  title="Call client"
-                >
-                  <Phone className="w-5 h-5" />
-                </button>
-              )}
-              {client?.profile?.phoneNumber && (
-                <button
-                  onClick={() => window.location.href = `sms:${client.profile.phoneNumber}`}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                <a
+                  href={`sms:${client.profile.phoneNumber}`}
+                  className="hidden sm:inline-flex p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                   title="Text client"
                 >
                   <MessageSquare className="w-5 h-5" />
-                </button>
+                </a>
               )}
-              <div className="relative">
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg flex-shrink-0"
+                title="More options"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
