@@ -972,6 +972,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
               paymentMethod: selectedPaymentMethod,
               venmoHandle,
               providerName: provider?.providerProfile?.businessName || null,
+              providerPhone: provider?.profile?.phoneNumber || null,
+              clientName: user?.profile?.fullName || '',
               packageName
             };
           })()}

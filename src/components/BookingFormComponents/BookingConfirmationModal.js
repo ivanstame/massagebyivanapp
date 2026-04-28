@@ -33,6 +33,8 @@ const BookingConfirmationModal = ({
     paymentMethod,
     venmoHandle,
     providerName,
+    providerPhone,
+    clientName,
     packageName
   } = bookingDetails || {};
   const formatDate = (date) => {
@@ -152,6 +154,23 @@ const BookingConfirmationModal = ({
     );
   };
 
+  // Build a "make this recurring" SMS link. Tiny version of standing-
+  // appointment requests: provider handles it via a normal text thread,
+  // we just pre-fill enough context to skip the back-and-forth.
+  const standingSmsLink = (() => {
+    if (!providerPhone || !selectedDate || !selectedTime) return null;
+    const dt = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
+    const dayOfWeek = dt.toFormat('cccc');
+    const timeStr = selectedTime.display || selectedTime.local || dt.toFormat('h:mm a');
+    const minutes = (selectedDuration || 60) + (pricing.extraTime || 0);
+    const greetingName = providerName ? providerName.split(' ')[0] : 'there';
+    const fromLine = clientName ? ` This is ${clientName}.` : '';
+    const body =
+      `Hi ${greetingName} —${fromLine} I'd like to set up a standing appointment ` +
+      `for every ${dayOfWeek} at ${timeStr} (${minutes} min). Does that work?`;
+    return `sms:${providerPhone}?&body=${encodeURIComponent(body)}`;
+  })();
+
   if (!isVisible) return null;
 
   return (
@@ -210,6 +229,23 @@ const BookingConfirmationModal = ({
               Book Another Session
             </button>
           </div>
+
+          {/* Tiny standing-appointment ask. Single-tap SMS to the provider
+              with a pre-filled message; provider handles scheduling on
+              their end with the existing standing-appointment tools. */}
+          {standingSmsLink && numSessions === 1 && (
+            <div className="mt-5 pt-4 border-t border-line text-left">
+              <p className="text-xs text-slate-500 mb-2">
+                Want this on a regular schedule?
+              </p>
+              <a
+                href={standingSmsLink}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36]"
+              >
+                Ask {providerName ? providerName.split(' ')[0] : 'your provider'} about a standing appointment →
+              </a>
+            </div>
+          )}
 
           <div className="mt-6 text-xs text-slate-500">
             A confirmation email has been sent to your inbox.
