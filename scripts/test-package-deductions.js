@@ -110,6 +110,7 @@ function nextWeekday(offsetDays) {
     pkg = await PackagePurchase.create({
       provider: provider._id,
       client: client._id,
+      name: 'Test 4×60 comped pack',
       kind: 'sessions',
       sessionsTotal: 4,
       sessionDuration: 60,
