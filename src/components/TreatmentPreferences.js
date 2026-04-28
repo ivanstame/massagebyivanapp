@@ -438,23 +438,40 @@ const TreatmentPreferences = () => {
               )}
             </div>
             {isRegistrationComplete && (
-              <button
-                type={isEditing ? 'submit' : 'button'}
-                form={isEditing ? 'prefs-form' : undefined}
-                onClick={() => !isEditing && setIsEditing(true)}
-                disabled={isLoading}
-                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg flex-shrink-0
-                  ${isEditing
-                    ? 'text-white bg-[#B07A4E] hover:bg-[#8A5D36]'
-                    : 'text-[#B07A4E] hover:bg-[#B07A4E]/10'}
-                  transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isEditing ? (
-                  <><Check size={18} className="mr-1.5" /> Save</>
-                ) : (
-                  <><Edit2 size={18} className="mr-1.5" /> Edit</>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    disabled={isLoading}
+                    className="px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    Cancel
+                  </button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditing) {
+                      handleSubmit({ preventDefault: () => {} });
+                    } else {
+                      setIsEditing(true);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg
+                    ${isEditing
+                      ? 'text-white bg-[#B07A4E] hover:bg-[#8A5D36]'
+                      : 'text-[#B07A4E] hover:bg-[#B07A4E]/10'}
+                    transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isEditing ? (
+                    <><Check size={18} className="mr-1.5" /> Save</>
+                  ) : (
+                    <><Edit2 size={18} className="mr-1.5" /> Edit</>
+                  )}
+                </button>
+              </div>
             )}
           </div>
 
