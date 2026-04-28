@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { AuthContext } from '../AuthContext';
 
 
-const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
+const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   const { user } = useContext(AuthContext);
   const [availabilityData, setAvailabilityData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,7 +69,10 @@ const MonthCalendar = ({ selectedDate, onDateChange, events }) => {
     };
 
     fetchMonthAvailability();
-  }, [selectedDate, providerId]);
+    // refreshKey lets the parent force a re-fetch after mutations
+    // (delete a block, add availability, change weekly hours, etc.)
+    // without forcing the user to scrub away and back to the date.
+  }, [selectedDate, providerId, refreshKey]);
 
   const handlePrevMonth = () => {
     onDateChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));

@@ -84,6 +84,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [newBookingId, setNewBookingId] = useState(null);
   const [showStripeCheckout, setShowStripeCheckout] = useState(false);
   const [pendingBookingPrice, setPendingBookingPrice] = useState(null);
+  // Bumped after a booking succeeds so the calendar re-fetches month
+  // dots — a booking might consume the last open slot on a date and
+  // the green dot should clear.
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
   // Get provider info and services
   useEffect(() => {
@@ -626,6 +630,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
       } else {
         setBookingSuccess(true);
       }
+      // Booking consumed a slot — refresh calendar dots in case this
+      // was the day's last opening.
+      setCalendarRefreshKey(k => k + 1);
     } catch (err) {
       console.error('Error creating booking:', err);
       // err can be an Error instance (with .alternatives for chain
@@ -751,6 +758,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             selectedDate={selectedDate}
             onDateChange={setSelectedDate}
             isComplete={selectedDate !== null}
+            refreshKey={calendarRefreshKey}
           />
 
           {/* 2. Recipient — only for client self-bookings. When a provider

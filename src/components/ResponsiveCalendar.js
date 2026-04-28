@@ -6,7 +6,7 @@ import { AuthContext } from '../AuthContext';
 
 
 
-const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
+const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   const { user } = useContext(AuthContext);
   const scrollRef = useRef(null);
   const [month, setMonth] = useState(selectedDate.getMonth());
@@ -57,7 +57,9 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
     };
 
     fetchMonthAvailability();
-  }, [month, year, providerId]);
+    // refreshKey lets the parent force a re-fetch after mutations
+    // (delete a block, add availability, etc.) without scrubbing away.
+  }, [month, year, providerId, refreshKey]);
 
   // Auto-scroll to today's temporal coordinates
   useEffect(() => {
@@ -189,22 +191,24 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events }) => {
 };
 
 // The grand unifier of temporal visualization
-const ResponsiveCalendar = ({ selectedDate, onDateChange, events }) => {
+const ResponsiveCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   return (
     <>
       <div className="md:hidden">
-        <MobileDatePicker 
+        <MobileDatePicker
           selectedDate={selectedDate}
           onDateChange={onDateChange}
           events={events}
+          refreshKey={refreshKey}
         />
       </div>
 
       <div className="hidden md:block">
-        <MonthCalendar 
+        <MonthCalendar
           selectedDate={selectedDate}
           onDateChange={onDateChange}
           events={events}
+          refreshKey={refreshKey}
         />
       </div>
     </>

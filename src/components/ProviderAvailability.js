@@ -118,6 +118,11 @@ const ProviderAvailability = () => {
   const [deleteConfirmBlock, setDeleteConfirmBlock] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline'); // 'timeline' or 'list'
   const [showDepartureEditor, setShowDepartureEditor] = useState(false);
+  // Bumped after any mutation that affects month-level calendar dots
+  // (add/modify/delete availability, block off time, delete a block).
+  // Pipes into ResponsiveCalendar's refreshKey to force a re-fetch.
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const bumpCalendar = () => setCalendarRefreshKey(k => k + 1);
   const [savedLocations, setSavedLocations] = useState([]);
   const [homeBase, setHomeBase] = useState(null);
   const [blockedTimes, setBlockedTimes] = useState([]);
@@ -237,6 +242,7 @@ const ProviderAvailability = () => {
       const availabilityData = { ...newAvailability, provider: user._id };
       await axios.post('/api/availability', availabilityData, { withCredentials: true });
       await fetchAvailabilityBlocks(selectedDate);
+      bumpCalendar();
       setIsModalOpen(false);
       setError(null);
     } catch (error) {
@@ -272,6 +278,7 @@ const ProviderAvailability = () => {
     await axios.post('/api/provider/blocked-times', payload, { withCredentials: true });
     await fetchBlockedTimes(selectedDate);
     await fetchAvailabilityBlocks(selectedDate);
+    bumpCalendar();
     setBlockOffModalOpen(false);
     setBlockOffTargetBlock(null);
   }, [fetchBlockedTimes, fetchAvailabilityBlocks, selectedDate]);
@@ -294,6 +301,7 @@ const ProviderAvailability = () => {
     try {
       await axios.delete(`/api/provider/blocked-times/${blockedTimeId}`, { withCredentials: true });
       await fetchBlockedTimes(selectedDate);
+      bumpCalendar();
     } catch (error) {
       console.error('Error deleting blocked time:', error);
       setError('Failed to remove blocked time');
@@ -309,6 +317,7 @@ const ProviderAvailability = () => {
       );
       if (response.status === 200) {
         await fetchAvailabilityBlocks(selectedDate);
+        bumpCalendar();
         setError(null);
         setConflictInfo(null);
         setModifyModalOpen(false);
@@ -385,6 +394,7 @@ const ProviderAvailability = () => {
         { withCredentials: true }
       );
       await fetchBlockedTimes(selectedDate);
+      bumpCalendar();
     } catch (error) {
       console.error('Error restoring blocked time:', error);
       setError('Failed to restore block');
@@ -405,6 +415,7 @@ const ProviderAvailability = () => {
           fetchAvailabilityBlocks(selectedDate),
           fetchBlockedTimes(selectedDate)
         ]);
+        bumpCalendar();
         // Show success feedback
         setError(null);
         setConflictInfo(null);
@@ -443,6 +454,7 @@ const ProviderAvailability = () => {
         });
       }
       await fetchAvailabilityBlocks(selectedDate);
+      bumpCalendar();
       setShowDepartureEditor(false);
     } catch (err) {
       console.error('Failed to update departure location:', err);
@@ -622,6 +634,7 @@ const formatTime = useCallback((time) => {
               }}
               events={availabilityBlocks}
               disabled={requestState === 'LOADING'}
+              refreshKey={calendarRefreshKey}
             />
           </div>
           <div className="lg:w-2/3">
@@ -721,9 +734,10 @@ const formatTime = useCallback((time) => {
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               events={availabilityBlocks}
+              refreshKey={calendarRefreshKey}
             />
           </div>
-          
+
           {/* Mobile Tabs */}
           <div className="flex-shrink-0 flex border-b border-line bg-paper-elev">
              <button

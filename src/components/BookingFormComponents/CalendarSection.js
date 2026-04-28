@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar, Check, Info } from 'lucide-react';
 import ResponsiveCalendar from '../ResponsiveCalendar';
 
-const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availableSlots = [], isDisabled, isComplete }) => {
+const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availableSlots = [], isDisabled, isComplete, refreshKey = 0 }) => {
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Calendar wrapper with improved styling */}
@@ -17,6 +17,7 @@ const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availabl
             date: selectedDate,
             time: slot
           }))}
+          refreshKey={refreshKey}
         />
         
         {isDisabled && (
