@@ -57,22 +57,34 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const providerId = req.user._id;
 
     // Bookings that already exist still take precedence — refuse to block
-    // a time the provider has already promised to a client.
-    const overlappingBooking = await Booking.findOne({
+    // a time the provider has already promised to a client. Return ALL
+    // conflicts so the modal can list them with per-item cancel actions.
+    const overlappingBookings = await Booking.find({
       provider: providerId,
       localDate: date,
       status: { $nin: ['cancelled', 'completed'] },
       startTime: { $lt: endLA.toFormat('HH:mm') },
       endTime: { $gt: startLA.toFormat('HH:mm') }
-    });
-    if (overlappingBooking) {
-      return res.status(400).json({
-        message: 'Cannot block time that overlaps with an existing booking',
-        conflicts: [{
-          id: overlappingBooking._id,
-          startTime: overlappingBooking.startTime,
-          endTime: overlappingBooking.endTime
-        }]
+    })
+      .populate('client', 'profile.fullName email')
+      .sort({ startTime: 1 });
+
+    if (overlappingBookings.length > 0) {
+      const count = overlappingBookings.length;
+      const isAllDay = !!allDay;
+      return res.status(409).json({
+        message: isAllDay
+          ? `You have ${count} appointment${count > 1 ? 's' : ''} on this day. Cancel or reschedule ${count > 1 ? 'them' : 'it'} before blocking the entire day.`
+          : `This time overlaps with ${count} existing appointment${count > 1 ? 's' : ''}. Cancel or reschedule first.`,
+        conflicts: overlappingBookings.map(b => ({
+          id: b._id,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          clientName: b.client?.profile?.fullName || b.recipientInfo?.name || 'Client',
+          isRecurring: !!b.series,
+          seriesId: b.series || null,
+          status: b.status
+        }))
       });
     }
 

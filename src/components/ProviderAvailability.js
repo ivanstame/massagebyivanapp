@@ -271,9 +271,10 @@ const ProviderAvailability = () => {
   const doBlockOffTime = useCallback(async (payload) => {
     await axios.post('/api/provider/blocked-times', payload, { withCredentials: true });
     await fetchBlockedTimes(selectedDate);
+    await fetchAvailabilityBlocks(selectedDate);
     setBlockOffModalOpen(false);
     setBlockOffTargetBlock(null);
-  }, [fetchBlockedTimes, selectedDate]);
+  }, [fetchBlockedTimes, fetchAvailabilityBlocks, selectedDate]);
 
   const handleBlockOffTime = useCallback(async (payload) => {
     // All-day blocks have no explicit start/end — treat them as covering

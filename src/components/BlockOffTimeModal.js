@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertCircle, Calendar } from 'lucide-react';
+import axios from 'axios';
+import { AlertCircle, Calendar, Repeat, Trash2, User } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../utils/timeConstants';
+
+const formatHHmmTo12h = (hhmm) => {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const display = h % 12 || 12;
+  return `${display}:${String(m).padStart(2, '0')} ${period}`;
+};
 
 // Modal for creating a manual block. Two shapes:
 //   - All day: midnight-to-midnight LA — single toggle, time pickers hide.
@@ -21,6 +30,12 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
   const [reason, setReason] = useState('');
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Conflicts returned by the server — list of bookings that overlap.
+  // While present we suppress the request submit and show a per-item
+  // cancellation list instead.
+  const [conflicts, setConflicts] = useState(null);
+  const [conflictHeader, setConflictHeader] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
 
   const parseTime = (isoOrHHmm) => {
     if (typeof isoOrHHmm === 'string' && isoOrHHmm.includes('T')) {
@@ -119,6 +134,8 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setConflicts(null);
+    setConflictHeader('');
 
     let payload;
     let localDate;
@@ -155,9 +172,34 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
     try {
       await onBlock(payload);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to block off time');
+      const data = err?.response?.data;
+      if (data?.conflicts && data.conflicts.length > 0) {
+        // Server told us about real bookings that block this — surface
+        // them inline so the provider can cancel each (one occurrence at
+        // a time for recurring series) and retry.
+        setConflicts(data.conflicts);
+        setConflictHeader(data.message || 'Existing appointments block this time.');
+      } else {
+        setError(data?.message || 'Failed to block off time');
+      }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const cancelConflict = async (conflictId) => {
+    setCancellingId(conflictId);
+    setError(null);
+    try {
+      // Default scope (no query string) cancels just this single booking,
+      // including a single instance of a recurring series — the rest of
+      // the series stays intact.
+      await axios.delete(`/api/bookings/${conflictId}`, { withCredentials: true });
+      setConflicts(prev => (prev || []).filter(c => c.id !== conflictId));
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to cancel that appointment');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -186,6 +228,62 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, onBlock, onClose }
           <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-400 text-red-700 flex items-start">
             <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
             <p className="text-sm">{error}</p>
+          </div>
+        )}
+
+        {conflicts && conflicts.length > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 border-l-4 border-amber-400 rounded">
+            <div className="flex items-start mb-3">
+              <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-amber-600" />
+              <p className="text-sm text-amber-900 font-medium">{conflictHeader}</p>
+            </div>
+            <ul className="space-y-2">
+              {conflicts.map(c => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 bg-paper-elev border border-amber-200 rounded-lg px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">{c.clientName}</span>
+                      {c.isRecurring && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-teal-50 text-teal-700"
+                          title="Recurring series — cancelling here cancels only this single occurrence"
+                        >
+                          <Repeat className="w-3 h-3" />
+                          Recurring
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {formatHHmmTo12h(c.startTime)} – {formatHHmmTo12h(c.endTime)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => cancelConflict(c.id)}
+                    disabled={cancellingId === c.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-700 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    title={c.isRecurring ? 'Cancel just this occurrence' : 'Cancel this appointment'}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {cancellingId === c.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-amber-800 mt-3">
+              Cancel each appointment, then click <span className="font-medium">Block time</span> again.
+              Recurring appointments are cancelled for this day only — the rest of the series stays.
+            </p>
+          </div>
+        )}
+
+        {conflicts && conflicts.length === 0 && (
+          <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 rounded text-sm text-green-800">
+            All appointments cleared. Click <span className="font-medium">Block time</span> to finish.
           </div>
         )}
 
