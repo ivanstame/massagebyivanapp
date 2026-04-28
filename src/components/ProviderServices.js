@@ -21,6 +21,11 @@ const ProviderServices = () => {
   const [error, setError] = useState(null);
   const [showAddAddon, setShowAddAddon] = useState(false);
   const [newAddon, setNewAddon] = useState({ name: '', price: '', description: '', extraTime: 0 });
+  // Drag-and-drop state for reordering offerings. dragIndex = the row
+  // currently being dragged; overIndex = the row it's hovering over (for
+  // the drop indicator line).
+  const [dragIndex, setDragIndex] = useState(null);
+  const [overIndex, setOverIndex] = useState(null);
 
   const tradePreset = getTrade(trade);
 
@@ -78,6 +83,19 @@ const ProviderServices = () => {
       return;
     }
     setBasePricing(prev => prev.filter((_, i) => i !== index));
+    setSaved(false);
+  };
+
+  // Reorder via drag-and-drop. We don't persist intermediate moves —
+  // the new order rides along with the next Save like every other edit.
+  const movePricingTier = (from, to) => {
+    if (from === to || from < 0 || to < 0) return;
+    setBasePricing(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
     setSaved(false);
   };
 
@@ -139,10 +157,13 @@ const ProviderServices = () => {
       setSaving(true);
       setError(null);
 
-      // Auto-generate labels if missing
-      const pricingWithLabels = basePricing.map(p => ({
+      // Auto-generate labels if missing. Stamp displayOrder from the
+      // current array position so the provider's drag-to-reorder sticks
+      // (server sorts by displayOrder when present, otherwise duration).
+      const pricingWithLabels = basePricing.map((p, idx) => ({
         ...p,
-        label: p.label || `${p.duration} Minutes`
+        label: p.label || `${p.duration} Minutes`,
+        displayOrder: idx
       }));
 
       await axios.put('/api/users/provider/services', {
@@ -209,11 +230,53 @@ const ProviderServices = () => {
           </div>
           <p className="text-xs text-slate-500 mb-4">
             Each offering is what a client picks when booking &mdash; give it a clear name, duration, and price.
+            {basePricing.length > 1 && (
+              <> Drag the <GripVertical className="inline w-3 h-3 -mt-0.5" /> handle to reorder how clients see them.</>
+            )}
           </p>
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
-              <div key={index} className="flex items-start gap-3 p-3 bg-paper-deep rounded-lg border border-line-soft">
+              <div
+                key={index}
+                draggable={basePricing.length > 1}
+                onDragStart={(e) => {
+                  setDragIndex(index);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null && dragIndex !== index) {
+                    setOverIndex(index);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (overIndex === index) setOverIndex(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null && dragIndex !== index) {
+                    movePricingTier(dragIndex, index);
+                  }
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                className={`flex items-start gap-2 p-3 bg-paper-deep rounded-lg border transition-colors
+                  ${overIndex === index ? 'border-[#B07A4E] border-2' : 'border-line-soft'}
+                  ${dragIndex === index ? 'opacity-50' : ''}`}
+              >
+                {basePricing.length > 1 && (
+                  <div
+                    className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0 mt-6 touch-none"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                )}
                 <div className="flex-1 space-y-2">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Offering name</label>

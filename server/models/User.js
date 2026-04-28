@@ -94,11 +94,14 @@ const UserSchema = new mongoose.Schema({
       maxlength: 30,
       match: [/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/, 'Venmo handle may only contain letters, numbers, dashes, and underscores']
     },
-    // Provider-configured pricing by duration
+    // Provider-configured pricing by duration. displayOrder lets the
+    // provider override the default duration-ascending sort with a
+    // hand-curated order (drag-to-reorder in ProviderServices).
     basePricing: [{
       duration: { type: Number, required: true },  // minutes: 60, 90, 120
       price: { type: Number, required: true },
-      label: String  // e.g. "60 Minutes"
+      label: String,  // e.g. "60 Minutes"
+      displayOrder: { type: Number, default: null }
     }],
     // Stripe Connect
     stripeAccountId: { type: String, default: null },
