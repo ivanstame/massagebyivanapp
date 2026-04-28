@@ -213,6 +213,166 @@ function nextWeekday(offsetDays) {
       log('  ✗ 5th reservation should have FAILED but returned a doc');
     }
 
+    // ── Step 6: minutes-mode package — variable duration deductions ─
+    log('\n─────────────────────────────────────────────────────────────');
+    log('Step 6: mint a 300-minute pack and exercise variable durations');
+    const minutesPkg = await PackagePurchase.create({
+      provider: provider._id,
+      client: client._id,
+      name: 'Test 300-minute pool',
+      kind: 'minutes',
+      minutesTotal: 300,
+      price: 0,
+      paymentMethod: 'comped',
+      paymentStatus: 'paid',
+      paidAt: new Date(),
+      purchasedAt: new Date(),
+      redemptions: []
+    });
+    log(`  package _id:        ${minutesPkg._id}`);
+    log(`  minutesTotal:       ${minutesPkg.minutesTotal}`);
+    log(`  minutesUsed:        ${minutesPkg.minutesUsed}`);
+    log(`  minutesRemaining:   ${minutesPkg.minutesRemaining}\n`);
+
+    // Sequence: 75 → 225, 60 → 165, 90 → 75, 75 → 0
+    const minutesPlan = [
+      { minutes: 75, expectedRemaining: 225 },
+      { minutes: 60, expectedRemaining: 165 },
+      { minutes: 90, expectedRemaining: 75 },
+      { minutes: 75, expectedRemaining: 0 },
+    ];
+
+    for (let i = 0; i < minutesPlan.length; i++) {
+      const { minutes, expectedRemaining } = minutesPlan[i];
+      // Offset further out to avoid colliding with the sessions-mode bookings
+      const slot = nextWeekday(i + 4);
+      const bookingId = new mongoose.Types.ObjectId();
+
+      const reserved = await reservePackageCredit({
+        packageId: minutesPkg._id,
+        clientId: client._id,
+        providerId: provider._id,
+        duration: minutes,
+        bookingId,
+      });
+
+      if (!reserved) {
+        failures.push(`Minutes booking ${i + 1} (${minutes}min): reservation returned null`);
+        allPassed = false;
+        log(`  booking ${pad(i + 1)} ✗ ${minutes}min reservation FAILED`);
+        continue;
+      }
+
+      const booking = await Booking.create({
+        _id: bookingId,
+        provider: provider._id,
+        client: client._id,
+        date: slot.toUTC().toJSDate(),
+        localDate: slot.toFormat('yyyy-MM-dd'),
+        startTime: slot.toFormat('HH:mm'),
+        endTime: slot.plus({ minutes }).toFormat('HH:mm'),
+        duration: minutes,
+        location: {
+          lat: 34.05, lng: -118.24,
+          address: '200 Test Way, Los Angeles, CA 90001'
+        },
+        pricing: { basePrice: 0, addonsPrice: 0, totalPrice: 0 },
+        paymentMethod: 'package',
+        paymentStatus: 'paid',
+        paidAt: new Date(),
+        packageRedemption: {
+          packagePurchase: minutesPkg._id,
+          redeemedAt: new Date()
+        },
+        bookedBy: { name: 'Test Client', userId: client._id }
+      });
+      bookingIds.push(booking._id);
+
+      const fresh = await PackagePurchase.findById(minutesPkg._id);
+      const ok = fresh.minutesRemaining === expectedRemaining;
+      if (!ok) {
+        failures.push(
+          `Minutes booking ${i + 1} (${minutes}min): expected remaining=${expectedRemaining}, ` +
+          `got ${fresh.minutesRemaining}`
+        );
+        allPassed = false;
+      }
+
+      log(
+        `  booking ${pad(i + 1)} ${ok ? '✓' : '✗'} ` +
+        `${pad(minutes)}min  →  ` +
+        `used=${fresh.minutesUsed}/${fresh.minutesTotal}  ` +
+        `remaining=${fresh.minutesRemaining}` +
+        (ok ? '' : `  (expected ${expectedRemaining})`)
+      );
+    }
+
+    // ── Step 7: insufficient-capacity guard for minutes-mode ────────
+    log('\nStep 7: try to book 60 minutes against an empty pool — expected to FAIL');
+    const minOverflow = await reservePackageCredit({
+      packageId: minutesPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 60,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (minOverflow === null) {
+      log('  ✓ 60-min reservation correctly rejected (pool exhausted)');
+    } else {
+      failures.push('Minutes overflow reservation succeeded — capacity check broken');
+      allPassed = false;
+      log('  ✗ 60-min reservation should have FAILED but returned a doc');
+    }
+
+    // ── Step 8: partial-capacity edge — 90 min against 75 remaining ─
+    log('\nStep 8: refresh pool to 75 remaining, try to book 90 — expected to FAIL');
+    // Roll back the most recent redemption (the 75-min one) to put the pool
+    // back at 75 remaining without re-creating the package.
+    const lastRedemption = (await PackagePurchase.findById(minutesPkg._id))
+      .redemptions.slice(-1)[0];
+    await PackagePurchase.updateOne(
+      { _id: minutesPkg._id },
+      { $pull: { redemptions: { _id: lastRedemption._id } } }
+    );
+    // Also delete that booking from the cleanup queue (it's orphaned now)
+    const orphanBookingId = lastRedemption.booking;
+    await Booking.deleteOne({ _id: orphanBookingId });
+    bookingIds.splice(bookingIds.indexOf(orphanBookingId), 1);
+
+    const refreshed = await PackagePurchase.findById(minutesPkg._id);
+    log(`  pool restored: remaining=${refreshed.minutesRemaining}`);
+    const partialOverflow = await reservePackageCredit({
+      packageId: minutesPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 90,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (partialOverflow === null) {
+      log('  ✓ 90-min reservation correctly rejected (only 75 remaining)');
+    } else {
+      failures.push('Partial-capacity reservation succeeded — should have failed');
+      allPassed = false;
+      log('  ✗ 90-min reservation should have FAILED but returned a doc');
+    }
+
+    // And the 75 should still succeed at exactly the boundary
+    const exactFit = await reservePackageCredit({
+      packageId: minutesPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 75,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (exactFit) {
+      log('  ✓ 75-min reservation succeeded at exact boundary');
+      // Cleanup will sweep this redemption via the package delete
+    } else {
+      failures.push('Boundary reservation (75 of 75) failed — should have succeeded');
+      allPassed = false;
+      log('  ✗ 75-min reservation should have SUCCEEDED');
+    }
+
   } catch (err) {
     allPassed = false;
     failures.push(`Unexpected error: ${err.message}`);
