@@ -162,7 +162,10 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
               );
             })}
 
-            {/* Anchor blocks (fixed location commitments) */}
+            {/* Anchor blocks (fixed location commitments) — these sit on
+                top of their parent availability block (z-10), so they
+                must surface the same Modify/Delete actions; otherwise
+                taps land on the amber overlay and nothing happens. */}
             {availabilityBlocks
               .filter(block => block.anchor && block.anchor.name && block.anchor.startTime)
               .map((block, index) => {
@@ -171,8 +174,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 return (
                   <div
                     key={`anchor-${index}`}
-                    className="absolute left-0 right-0 bg-amber-50 border border-amber-300
-                      rounded-lg z-10"
+                    onClick={() => onModify && onModify(block)}
+                    className="group absolute left-0 right-0 bg-amber-50 border border-amber-300
+                      rounded-lg z-10 cursor-pointer hover:bg-amber-100 transition-colors"
                     style={{
                       top: `${anchorStart}px`,
                       height: `${Math.max(anchorEnd - anchorStart, 30)}px`,
@@ -183,9 +187,24 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                         <span className="text-sm font-medium text-amber-800">
                           {`${formatTime(block.anchor.startTime)} - ${formatTime(block.anchor.endTime)}`}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                          Fixed
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            Fixed
+                          </span>
+                          {onDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(block);
+                              }}
+                              aria-label="Delete fixed availability"
+                              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-xs px-2 py-0.5
+                                rounded bg-red-500 text-white hover:bg-red-600 transition-opacity font-medium"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-amber-700 mt-0.5 font-medium">{block.anchor.name}</p>
                       {block.anchor.address && (
