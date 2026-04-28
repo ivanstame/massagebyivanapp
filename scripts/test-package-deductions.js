@@ -373,6 +373,86 @@ function nextWeekday(offsetDays) {
       log('  ✗ 75-min reservation should have SUCCEEDED');
     }
 
+    // ── Step 9: literal "30 left, try 60 / 90 / then 30" scenario ──
+    log('\n─────────────────────────────────────────────────────────────');
+    log('Step 9: tiny 30-minute pool — try 60, then 90, then 30');
+    const tinyPkg = await PackagePurchase.create({
+      provider: provider._id,
+      client: client._id,
+      name: 'Test 30-min remainder',
+      kind: 'minutes',
+      minutesTotal: 30,
+      price: 0,
+      paymentMethod: 'comped',
+      paymentStatus: 'paid',
+      paidAt: new Date(),
+      purchasedAt: new Date(),
+      redemptions: []
+    });
+    log(`  package _id:        ${tinyPkg._id}`);
+    log(`  minutesTotal:       ${tinyPkg.minutesTotal}`);
+    log(`  minutesRemaining:   ${tinyPkg.minutesRemaining}\n`);
+
+    // 60 against 30 → must fail
+    const sixty = await reservePackageCredit({
+      packageId: tinyPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 60,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (sixty === null) {
+      log('  ✓ 60-min reservation correctly rejected (only 30 remaining)');
+    } else {
+      failures.push('60-vs-30 reservation succeeded — should have failed');
+      allPassed = false;
+      log('  ✗ 60-min reservation should have FAILED');
+    }
+
+    // 90 against 30 → must fail
+    const ninety = await reservePackageCredit({
+      packageId: tinyPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 90,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (ninety === null) {
+      log('  ✓ 90-min reservation correctly rejected (only 30 remaining)');
+    } else {
+      failures.push('90-vs-30 reservation succeeded — should have failed');
+      allPassed = false;
+      log('  ✗ 90-min reservation should have FAILED');
+    }
+
+    // 30 against 30 → must succeed (the package is still useful for the
+    // exact short duration that fits)
+    const thirty = await reservePackageCredit({
+      packageId: tinyPkg._id,
+      clientId: client._id,
+      providerId: provider._id,
+      duration: 30,
+      bookingId: new mongoose.Types.ObjectId(),
+    });
+    if (thirty) {
+      const after = await PackagePurchase.findById(tinyPkg._id);
+      log(`  ✓ 30-min reservation accepted — pool now ${after.minutesRemaining}/30`);
+    } else {
+      failures.push('30-vs-30 reservation failed — should have succeeded');
+      allPassed = false;
+      log('  ✗ 30-min reservation should have SUCCEEDED');
+    }
+
+    // Verify the failed 60 and 90 left no trace on the package
+    const finalState = await PackagePurchase.findById(tinyPkg._id);
+    if (finalState.redemptions.length === 1) {
+      log('  ✓ failed reservations left no orphan redemption rows');
+    } else {
+      failures.push(`Expected exactly 1 redemption after step 9, got ${finalState.redemptions.length}`);
+      allPassed = false;
+      log(`  ✗ expected 1 redemption row, found ${finalState.redemptions.length}`);
+    }
+
   } catch (err) {
     allPassed = false;
     failures.push(`Unexpected error: ${err.message}`);
