@@ -215,7 +215,7 @@ const ProviderAppointments = () => {
         {/* Filter chips */}
         <div className="mb-6 flex flex-wrap gap-2">
           <FilterChip active={filter === 'all'}      onClick={() => setFilter('all')}      label="All" />
-          <FilterChip active={filter === 'pending'}  onClick={() => setFilter('pending')}  label="Pending" badge={pendingCount} accent="amber" />
+          <FilterChip active={filter === 'pending'}  onClick={() => setFilter('pending')}  label="Tentative" badge={pendingCount} accent="amber" />
           <FilterChip active={filter === 'confirmed'} onClick={() => setFilter('confirmed')} label="Confirmed" />
           <FilterChip active={filter === 'unpaid'}   onClick={() => setFilter('unpaid')}   label="Unpaid" badge={unpaidUpcomingCount} accent="amber" />
         </div>
@@ -369,7 +369,7 @@ const AppointmentRow = ({ booking }) => {
       <div className="flex items-center gap-2 flex-shrink-0">
         {isPending && (
           <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-            Pending
+            Tentative
           </span>
         )}
         {isCompleted && (

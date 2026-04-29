@@ -1260,7 +1260,11 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
     booking.localDate = localDateStr;
     booking.startTime = time;
     booking.endTime = newEndLA.toFormat('HH:mm');
-    booking.status = 'pending'; // Reset to pending after reschedule
+    // Don't demote on reschedule — a confirmed booking stays confirmed,
+    // a tentative one stays tentative. Reschedule isn't a re-approval
+    // event in this app's model: the provider is doing the moving (or
+    // the client is asking to move) and the underlying agreement still
+    // holds.
 
     await booking.save();
 

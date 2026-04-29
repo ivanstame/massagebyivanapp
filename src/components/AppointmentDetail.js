@@ -174,7 +174,13 @@ const AppointmentDetail = () => {
             </h1>
             <span className={`av-meta px-2.5 py-1 rounded-full border border-line text-ink-2 ${statusColor(booking.status)}`}
               style={{ fontSize: 10 }}>
-              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+              {(() => {
+                // Schema-level enum is still "pending"; the user-facing
+                // label reads "Tentative" since "pending" is ambiguous
+                // ("pending what — payment? approval?").
+                const label = booking.status === 'pending' ? 'tentative' : booking.status;
+                return label.charAt(0).toUpperCase() + label.slice(1);
+              })()}
             </span>
           </div>
           <div className="text-sm text-ink-2 mt-1">

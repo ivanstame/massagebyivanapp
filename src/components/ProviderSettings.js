@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Settings, MapPin, Clock, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw, Smartphone } from 'lucide-react';
+import { Settings, MapPin, AlertCircle, CheckCircle, Trash2, Home, CreditCard, Calendar, ExternalLink, Loader2, RefreshCw, Smartphone } from 'lucide-react';
 import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 import { TRADES, TRADE_KEYS } from '../shared/trades';
@@ -49,12 +49,6 @@ const ProviderSettings = () => {
     venmoHandle: '',
     phoneNumber: '',
     address: { street: '', unit: '', city: '', state: '', zip: '' },
-    scheduling: {
-      defaultDuration: 60,
-      bufferTime: 15,
-      advanceBooking: 30,
-      maxDailyBookings: 8
-    },
     services: []
   });
 
@@ -73,7 +67,6 @@ const ProviderSettings = () => {
           state: user.profile?.address?.state || '',
           zip: user.profile?.address?.zip || ''
         },
-        scheduling: user.providerProfile?.scheduling || prev.scheduling,
         services: user.providerProfile?.services || [],
         homeOffice: user.providerProfile?.homeOffice || false,
         cancellationPolicy: user.providerProfile?.cancellationPolicy || { enabled: false, windowHours: 24, lateCancelFee: 0 }
@@ -221,10 +214,6 @@ const ProviderSettings = () => {
   const validateSettings = () => {
     if (!settings.businessName || settings.businessName.trim().length === 0) {
       setError('Business name is required');
-      return false;
-    }
-    if (settings.scheduling.maxDailyBookings < 1 || settings.scheduling.maxDailyBookings > 12) {
-      setError('Maximum daily bookings must be between 1 and 12');
       return false;
     }
     if (settings.phoneNumber && !isValidPhoneNumber(settings.phoneNumber)) {
@@ -914,49 +903,6 @@ const ProviderSettings = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Scheduling */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-[#B07A4E]" />
-            <h3 className="font-medium text-slate-900">Scheduling</h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Default Appointment Duration
-              </label>
-              <select
-                value={settings.scheduling.defaultDuration}
-                onChange={(e) => setSettings(prev => ({
-                  ...prev,
-                  scheduling: { ...prev.scheduling, defaultDuration: parseInt(e.target.value) }
-                }))}
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-              >
-                <option value={60}>60 minutes</option>
-                <option value={90}>90 minutes</option>
-                <option value={120}>120 minutes</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Maximum Daily Bookings
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="12"
-                value={settings.scheduling.maxDailyBookings}
-                onChange={(e) => setSettings(prev => ({
-                  ...prev,
-                  scheduling: { ...prev.scheduling, maxDailyBookings: parseInt(e.target.value) }
-                }))}
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-              />
-            </div>
-          </div>
         </div>
 
         {/* Action buttons */}
