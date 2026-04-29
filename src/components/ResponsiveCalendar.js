@@ -62,37 +62,50 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     // (delete a block, add availability, etc.) without scrubbing away.
   }, [month, year, providerId, refreshKey]);
 
-  // Auto-scroll to today's temporal coordinates
+  // Auto-scroll the strip on month change. Today's number when looking
+  // at the current month (so today is centered on first paint); day 1
+  // for any other month (so a fresh nav lands on the start, not on
+  // wherever the previous selectedDate happened to fall).
   useEffect(() => {
-    if (scrollRef.current) {
-      const today = new Date().getDate();
-      const selectedElement = scrollRef.current.children[today - 1];
-      if (selectedElement) {
-        selectedElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'nearest',
-          inline: 'center' 
-        });
-      }
+    if (!scrollRef.current) return;
+    const todayLA = DateTime.now().setZone(DEFAULT_TZ);
+    const isCurrentMonth = todayLA.year === year && (todayLA.month - 1) === month;
+    const targetDayIdx = isCurrentMonth ? todayLA.day - 1 : 0;
+    const el = scrollRef.current.children[targetDayIdx];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-  }, [month]);
+  }, [month, year]);
 
+  // When the user navigates months via the arrows, also tell the parent
+  // about it — selectedDate moves to day 1 of the new month so the rest
+  // of the app (slot fetcher, day view, refreshes) is in sync. Without
+  // this, the strip just changed which month it *displays* while the
+  // parent still thought you were on the old day, and the auto-scroll
+  // would land you on the same day-of-month in the new month rather
+  // than on the 1st.
   const handlePrevMonth = () => {
-    if (month === 0) {
-      setMonth(11);
-      setYear(year - 1);
-    } else {
-      setMonth(month - 1);
-    }
+    let newMonth, newYear;
+    if (month === 0) { newMonth = 11; newYear = year - 1; }
+    else { newMonth = month - 1; newYear = year; }
+    setMonth(newMonth);
+    setYear(newYear);
+    onDateChange(DateTime.fromObject(
+      { year: newYear, month: newMonth + 1, day: 1, hour: 0 },
+      { zone: DEFAULT_TZ }
+    ).toJSDate());
   };
 
   const handleNextMonth = () => {
-    if (month === 11) {
-      setMonth(0);
-      setYear(year + 1);
-    } else {
-      setMonth(month + 1);
-    }
+    let newMonth, newYear;
+    if (month === 11) { newMonth = 0; newYear = year + 1; }
+    else { newMonth = month + 1; newYear = year; }
+    setMonth(newMonth);
+    setYear(newYear);
+    onDateChange(DateTime.fromObject(
+      { year: newYear, month: newMonth + 1, day: 1, hour: 0 },
+      { zone: DEFAULT_TZ }
+    ).toJSDate());
   };
 
   const isPastDate = (date) => {
