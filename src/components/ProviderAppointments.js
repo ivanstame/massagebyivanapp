@@ -74,10 +74,19 @@ const ProviderAppointments = () => {
   // reappear here looking unprocessed.
   const isPast = (a) => {
     if (a.status === 'cancelled') return true;
-    const end = moment.utc(a.date)
-      .set('hour', parseInt(a.endTime.split(':')[0]))
-      .set('minute', parseInt(a.endTime.split(':')[1]));
-    return end.isSameOrBefore(moment.utc());
+    // localDate is the LA-local YYYY-MM-DD; endTime is HH:mm in LA.
+    // Build the end moment in LA and compare to now-in-LA. The old
+    // version used moment.utc(a.date).set('hour', endHour) which
+    // interpreted the LA endTime as UTC, marking same-day afternoon
+    // appointments as "past" any time after ~late morning (LA) — so
+    // a same-day booking added in the afternoon disappeared from the
+    // Upcoming list entirely.
+    const endLA = moment.tz(
+      `${a.localDate} ${a.endTime}`,
+      'YYYY-MM-DD HH:mm',
+      'America/Los_Angeles'
+    );
+    return endLA.isSameOrBefore(moment.tz('America/Los_Angeles'));
   };
 
   const getRecipientName = (a) => {
