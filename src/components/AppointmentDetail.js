@@ -6,10 +6,11 @@ import { DateTime } from 'luxon';
 import {
   ArrowLeft, Calendar, Clock, MapPin, User, Phone,
   DollarSign, Trash2, AlertCircle, Tag, Plus, Banknote, CheckCircle,
-  PlayCircle, CircleCheck, Loader2
+  PlayCircle, CircleCheck, Loader2, CalendarClock
 } from 'lucide-react';
 import StaticMapPreview from './StaticMapPreview';
 import NavigateButton from './NavigateButton';
+import RescheduleModal from './RescheduleModal';
 import { buildVenmoPayUrl } from '../utils/venmo';
 
 const AppointmentDetail = () => {
@@ -27,6 +28,7 @@ const AppointmentDetail = () => {
   //   'all'        → also cancel the series rule itself
   const [cancelScope, setCancelScope] = useState('one');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -473,6 +475,21 @@ const AppointmentDetail = () => {
           </div>
         )}
 
+        {/* Reschedule button — only when the appointment is still in
+            pending/confirmed status. The server endpoint enforces this
+            too; we hide the affordance to avoid a dead-click. */}
+        {['pending', 'confirmed'].includes(booking.status) && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowReschedule(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-[#B07A4E]/40 text-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/5 transition-colors font-medium"
+            >
+              <CalendarClock className="w-4 h-4" />
+              Reschedule
+            </button>
+          </div>
+        )}
+
         {/* Cancel button */}
         {booking.status !== 'cancelled' && booking.status !== 'completed' && (
           <div className="mt-6">
@@ -562,6 +579,29 @@ const AppointmentDetail = () => {
           </div>
         )}
       </div>
+
+      {showReschedule && booking && (
+        <RescheduleModal
+          booking={booking}
+          onSuccess={(updated) => {
+            // The server returns the rescheduled booking, but it may
+            // not have the same populated shape as our initial fetch
+            // (provider/client refs deeply populated, etc.). Easiest
+            // path: re-fetch by id so the UI shows fresh, fully-
+            // populated data.
+            setBooking(updated && updated._id ? { ...booking, ...updated } : booking);
+            (async () => {
+              try {
+                const res = await axios.get(`/api/bookings/${id}`, { withCredentials: true });
+                setBooking(res.data);
+              } catch (e) {
+                // Non-fatal — local merge above is good enough.
+              }
+            })();
+          }}
+          onClose={() => setShowReschedule(false)}
+        />
+      )}
     </div>
   );
 };
