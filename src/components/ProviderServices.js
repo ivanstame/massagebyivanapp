@@ -244,6 +244,41 @@ const ProviderServices = () => {
     setSaved(false);
   };
 
+  // Bulk-sort the Standard tier in place. FLIP-aware: capture before,
+  // apply, animate. Same shape works for alternate tiers below.
+  const sortBasePricing = (mode) => {
+    captureRowPositions();
+    setBasePricing(prev => {
+      const next = [...prev];
+      next.sort((a, b) => {
+        if (mode === 'duration') return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+        if (mode === 'name') {
+          return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+        }
+        return 0;
+      });
+      return next;
+    });
+    setSaved(false);
+  };
+
+  const sortTierPricing = (tierUid, mode) => {
+    captureRowPositions();
+    setPricingTiers(prev => prev.map(t => {
+      if (t._uid !== tierUid) return t;
+      const next = [...t.pricing];
+      next.sort((a, b) => {
+        if (mode === 'duration') return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+        if (mode === 'name') {
+          return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+        }
+        return 0;
+      });
+      return { ...t, pricing: next };
+    }));
+    setSaved(false);
+  };
+
   const handleAddAddon = () => {
     if (!newAddon.name.trim()) {
       setError('Add-on name is required');
@@ -422,12 +457,32 @@ const ProviderServices = () => {
               <h3 className="font-medium text-slate-900">Service Offerings</h3>
             </div>
           </div>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-xs text-slate-500 mb-3">
             Each offering is what a client picks when booking &mdash; give it a clear name, duration, and price.
             {basePricing.length > 1 && (
-              <> Use the up/down arrows to control the order clients see them in.</>
+              <> The order here is the order clients will see on the booking form.</>
             )}
           </p>
+
+          {basePricing.length > 1 && (
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="text-xs text-slate-500 mr-1">Quick sort:</span>
+              <button
+                type="button"
+                onClick={() => sortBasePricing('duration')}
+                className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+              >
+                By duration
+              </button>
+              <button
+                type="button"
+                onClick={() => sortBasePricing('name')}
+                className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+              >
+                By name
+              </button>
+            </div>
+          )}
 
           <div className="space-y-3">
             {basePricing.map((tier, index) => (
@@ -531,6 +586,7 @@ const ProviderServices = () => {
             Define alternate price lists for specific clients (grandfathered, member, concierge,
             family, etc.). Your <strong>Standard</strong> rates above are the default for new clients.
             Tag individual clients with a tier from their client-detail page.
+            Within each tier, the order of rows here is the order tagged clients see on the booking form.
           </p>
 
           {pricingTiers.length === 0 ? (
@@ -565,6 +621,26 @@ const ProviderServices = () => {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+
+                  {tier.pricing.length > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-slate-500 mr-1">Sort:</span>
+                      <button
+                        type="button"
+                        onClick={() => sortTierPricing(tier._uid, 'duration')}
+                        className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+                      >
+                        By duration
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sortTierPricing(tier._uid, 'name')}
+                        className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+                      >
+                        By name
+                      </button>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     {tier.pricing.map((row, rowIdx) => (
