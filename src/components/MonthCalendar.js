@@ -4,11 +4,69 @@ import { format } from 'date-fns';
 import { DateTime } from 'luxon';
 import { AuthContext } from '../AuthContext';
 
+// 6-month grid the provider/client can pop open by tapping the header.
+// Shows the current month + next 5. The shortest path most users want
+// is "skip ahead one month" — but providers also reference future
+// months when scheduling standing-appointment-ish work.
+const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
+  const today = new Date();
+  const months = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    months.push(d);
+  }
+  const isSelected = (d) =>
+    d.getFullYear() === selectedDate.getFullYear() &&
+    d.getMonth() === selectedDate.getMonth();
+  const isCurrent = (d) =>
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth();
+  const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return (
+    <div
+      className="absolute inset-0 bg-black/30 z-30 flex items-start justify-center pt-12"
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper-elev rounded-lg shadow-xl border border-line p-3 w-64"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="grid grid-cols-3 gap-2">
+          {months.map((d, idx) => {
+            const sel = isSelected(d);
+            const cur = isCurrent(d);
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => { onPick(d); onClose(); }}
+                className={`p-2 rounded-lg border text-sm font-medium transition-colors
+                  ${sel
+                    ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E]'
+                    : 'border-line bg-paper-elev text-slate-700 hover:border-[#B07A4E]/50'}
+                `}
+              >
+                <div>{monthShort[d.getMonth()]}</div>
+                <div className="text-xs text-slate-500">{d.getFullYear()}</div>
+                {cur && (
+                  <div className="text-[10px] uppercase tracking-wide text-[#B07A4E] mt-0.5">Today</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   const { user } = useContext(AuthContext);
   const [availabilityData, setAvailabilityData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Scope the availability fetch by provider — clients have a single
   // assigned provider, providers see their own. Without this, /month
@@ -120,11 +178,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
         </h2>
       </div>
 
-      <div className="bg-paper-elev rounded-lg shadow-md overflow-hidden">
+      <div className="bg-paper-elev rounded-lg shadow-md overflow-hidden relative">
         {/* Calendar Header - The command center of temporal navigation */}
         <div className="bg-[#B07A4E] text-white p-4">
           <div className="flex items-center justify-between mb-4">
-            <button 
+            <button
               onClick={handlePrevMonth}
               className="text-white hover:text-[#FBF7EF] transition-colors"
             >
@@ -132,10 +190,15 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h2 className="text-xl font-semibold">
+            <button
+              type="button"
+              onClick={() => setShowMonthPicker(v => !v)}
+              className="text-xl font-semibold hover:text-[#FBF7EF] transition-colors px-3 py-1 rounded"
+              title="Pick another month"
+            >
               {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
-            </h2>
-            <button 
+            </button>
+            <button
               onClick={handleNextMonth}
               className="text-white hover:text-[#FBF7EF] transition-colors"
             >
@@ -204,6 +267,14 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
             })}
           </div>
         </div>
+
+        {showMonthPicker && (
+          <MonthPickerOverlay
+            selectedDate={selectedDate}
+            onPick={(d) => onDateChange(d)}
+            onClose={() => setShowMonthPicker(false)}
+          />
+        )}
       </div>
     </div>
   );

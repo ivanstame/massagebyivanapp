@@ -109,8 +109,18 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
   };
   
 
+  // 6-month grid the user can pop open by tapping the month name.
+  // Mirrors the desktop MonthCalendar's picker — current + next 5.
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const today = new Date();
+  const sixMonths = [];
+  for (let i = 0; i < 6; i++) {
+    sixMonths.push(new Date(today.getFullYear(), today.getMonth() + i, 1));
+  }
+  const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
   return (
-    <div className="bg-paper-elev rounded-lg shadow-sm p-1 border border-line">
+    <div className="bg-paper-elev rounded-lg shadow-sm p-1 border border-line relative">
       <div className="bg-paper-elev rounded-lg overflow-hidden">
         <div className="p-2 border-b border-line">
           <div className="flex items-center justify-between">
@@ -122,9 +132,14 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h2 className="text-base font-medium text-slate-900">
+            <button
+              type="button"
+              onClick={() => setShowMonthPicker(v => !v)}
+              className="text-base font-medium text-slate-900 hover:text-[#B07A4E] transition-colors px-2 py-0.5"
+              title="Pick another month"
+            >
               {monthNames[month]} {year}
-            </h2>
+            </button>
             <button
               onClick={handleNextMonth}
               className="text-slate-600 hover:text-slate-800 transition-colors"
@@ -186,6 +201,47 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
           </div>
         </div>
       </div>
+
+      {showMonthPicker && (
+        <div
+          className="absolute inset-0 bg-black/30 z-30 flex items-start justify-center pt-10"
+          onClick={() => setShowMonthPicker(false)}
+        >
+          <div
+            className="bg-paper-elev rounded-lg shadow-xl border border-line p-3 w-64"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {sixMonths.map((d, idx) => {
+                const sel = d.getFullYear() === year && d.getMonth() === month;
+                const cur = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setMonth(d.getMonth());
+                      setYear(d.getFullYear());
+                      setShowMonthPicker(false);
+                    }}
+                    className={`p-2 rounded-lg border text-sm font-medium transition-colors
+                      ${sel
+                        ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E]'
+                        : 'border-line bg-paper-elev text-slate-700 hover:border-[#B07A4E]/50'}
+                    `}
+                  >
+                    <div>{monthShort[d.getMonth()]}</div>
+                    <div className="text-xs text-slate-500">{d.getFullYear()}</div>
+                    {cur && (
+                      <div className="text-[10px] uppercase tracking-wide text-[#B07A4E] mt-0.5">Today</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
