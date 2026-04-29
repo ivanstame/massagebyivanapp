@@ -48,7 +48,9 @@ const ProviderServices = () => {
       );
     });
     previousTops.current = {};
-  }, [basePricing]);
+    // Also re-runs when alternate tiers change order so tier-row swaps
+    // get the same animation treatment as Standard.
+  }, [basePricing, pricingTiers]);
 
   const captureRowPositions = () => {
     Object.entries(rowRefs.current).forEach(([uid, el]) => {
@@ -193,6 +195,25 @@ const ProviderServices = () => {
       if (t._uid !== tierUid) return t;
       if (t.pricing.length <= 1) return t; // keep at least one
       return { ...t, pricing: t.pricing.filter((_, i) => i !== rowIdx) };
+    }));
+    setSaved(false);
+  };
+
+  // Reorder a row within an alternate tier. Same FLIP machinery as
+  // the Standard tier — capture positions, swap, let useLayoutEffect
+  // animate the delta. Row _uids are unique across all tiers, so the
+  // shared rowRefs map handles them transparently.
+  const moveTierRowPosition = (tierUid, from, direction) => {
+    const tier = pricingTiers.find(t => t._uid === tierUid);
+    if (!tier) return;
+    const to = from + direction;
+    if (to < 0 || to >= tier.pricing.length) return;
+    captureRowPositions();
+    setPricingTiers(prev => prev.map(t => {
+      if (t._uid !== tierUid) return t;
+      const next = [...t.pricing];
+      [next[from], next[to]] = [next[to], next[from]];
+      return { ...t, pricing: next };
     }));
     setSaved(false);
   };
@@ -547,7 +568,36 @@ const ProviderServices = () => {
 
                   <div className="space-y-2">
                     {tier.pricing.map((row, rowIdx) => (
-                      <div key={row._uid || rowIdx} className="flex items-end gap-2 p-2 bg-paper-elev rounded border border-line-soft">
+                      <div
+                        key={row._uid || rowIdx}
+                        ref={el => {
+                          if (el) rowRefs.current[row._uid] = el;
+                          else delete rowRefs.current[row._uid];
+                        }}
+                        className="flex items-end gap-2 p-2 bg-paper-elev rounded border border-line-soft will-change-transform"
+                      >
+                        {tier.pricing.length > 1 && (
+                          <div className="flex flex-col gap-0.5 flex-shrink-0 mb-0.5">
+                            <button
+                              type="button"
+                              onClick={() => moveTierRowPosition(tier._uid, rowIdx, -1)}
+                              disabled={rowIdx === 0}
+                              title="Move up"
+                              className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveTierRowPosition(tier._uid, rowIdx, 1)}
+                              disabled={rowIdx === tier.pricing.length - 1}
+                              title="Move down"
+                              className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                         <div className="flex-1">
                           <label className="block text-xs text-slate-500 mb-0.5">Label</label>
                           <input
