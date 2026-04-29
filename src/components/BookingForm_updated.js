@@ -6,7 +6,7 @@ import api from '../services/api';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
-import { ArrowLeft, ArrowRight, User as UserIcon, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, User as UserIcon, Plus, MapPin } from 'lucide-react';
 
 // Import the new components
 import CalendarSection from './BookingFormComponents/CalendarSection';
@@ -54,6 +54,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [recipientInfo, setRecipientInfo] = useState({ name: '', phone: '', email: '' });
   const [fullAddress, setFullAddress] = useState('');
   const [location, setLocation] = useState(null);
+  // The day's availability shape — used to short-circuit the address
+  // picker when the day is purely in-studio (location is fixed at the
+  // studio, asking the client for their address is misleading).
+  const [dayBlocks, setDayBlocks] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
   // Identifier stored alongside the booking; name comes from the selected package's label.
@@ -407,6 +411,50 @@ const BookingForm = ({ googleMapsLoaded }) => {
       fetchAvailableSlots();
     }
   }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions]);
+
+  // Fetch the day's availability shape so we know if it's purely
+  // in-studio (no client address required) or has any mobile windows
+  // (address required as before). Lightweight call — payload is just
+  // the blocks list with kind + populated staticLocation.
+  useEffect(() => {
+    const providerId = user?.accountType === 'PROVIDER' ? user._id : user?.providerId;
+    if (!providerId || !selectedDate) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const dateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+        const res = await api.get(`/api/availability/blocks/${dateLA}`, {
+          params: { providerId },
+        });
+        if (!cancelled) setDayBlocks(res.data || []);
+      } catch (err) {
+        console.error('Failed to fetch day blocks:', err);
+        if (!cancelled) setDayBlocks([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDate, user?._id, user?.accountType, user?.providerId]);
+
+  // Derive: is the entire day in-studio? If so, the address picker is
+  // suppressed and the booking's location auto-fills from the studio.
+  const dayIsPurelyStatic = dayBlocks.length > 0 && dayBlocks.every(b => b.kind === 'static' && b.staticLocation);
+  const studioForDay = dayIsPurelyStatic ? dayBlocks[0].staticLocation : null;
+
+  // Auto-fill location with the studio's coords when the day is
+  // purely in-studio. The slot fetcher needs *some* lat/lng to
+  // satisfy its query params (mobile-window math uses it; static-
+  // window math ignores it). Using the studio's own coords is the
+  // semantically honest sentinel.
+  useEffect(() => {
+    if (!dayIsPurelyStatic || !studioForDay) return;
+    setLocation({
+      lat: studioForDay.lat,
+      lng: studioForDay.lng,
+      address: studioForDay.address,
+      fullAddress: `${studioForDay.name} — ${studioForDay.address}`,
+    });
+    setFullAddress(`${studioForDay.name} — ${studioForDay.address}`);
+  }, [dayIsPurelyStatic, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name]);
 
   // If the chain expands past where the user's selected time can fit
   // (added an addon, added another session, or the slot list refreshed),
@@ -782,22 +830,50 @@ const BookingForm = ({ googleMapsLoaded }) => {
             />
           )}
 
-          {/* 3. Address — saved-address comes from the target client when a
-              provider is booking on their behalf, otherwise from the logged-in user. */}
-          <AddressSection
-            savedAddress={(() => {
-              const addrSource = isProviderBooking ? targetClient : user;
-              const addr = addrSource?.profile?.address;
-              if (!addr) return null;
-              const fullAddr = addr.formatted ||
-                (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
-              if (!fullAddr) return null;
-              return { fullAddress: fullAddr };
-            })()}
-            currentAddress={location}
-            onAddressChange={handleAddressConfirmed}
-            isComplete={fullAddress !== ''}
-          />
+          {/* 3. Address — the day's shape decides whether we even ask:
+                - Purely in-studio: location is the studio, full stop.
+                  Show a banner instead of an address picker.
+                - Mixed or mobile: ask for the client's address (existing
+                  flow). Mixed days that include in-studio slots will
+                  override the address on submit when a static slot is
+                  picked, so the client's address only matters if they
+                  pick a mobile slot. */}
+          {dayIsPurelyStatic && studioForDay ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900">
+                    In-studio appointment
+                  </p>
+                  <p className="text-sm text-slate-700 mt-0.5">
+                    {studioForDay.name}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {studioForDay.address}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    No address needed — clients come to this location on this day.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <AddressSection
+              savedAddress={(() => {
+                const addrSource = isProviderBooking ? targetClient : user;
+                const addr = addrSource?.profile?.address;
+                if (!addr) return null;
+                const fullAddr = addr.formatted ||
+                  (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
+                if (!fullAddr) return null;
+                return { fullAddress: fullAddr };
+              })()}
+              currentAddress={location}
+              onAddressChange={handleAddressConfirmed}
+              isComplete={fullAddress !== ''}
+            />
+          )}
 
           {/* 4. Duration — from provider's pricing */}
           <SimpleDurationSelector

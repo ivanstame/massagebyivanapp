@@ -206,7 +206,18 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
 // Get availability blocks for a specific date
 router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
   try {
-    const providerId = req.user._id;
+    // Accept a providerId query param so clients can read their assigned
+    // provider's availability shape (the booking form uses this to decide
+    // whether to ask for an address — purely-static days don't need one).
+    let providerId = req.user._id;
+    if (req.user.accountType === 'CLIENT') {
+      providerId = req.query.providerId || req.user.providerId;
+    } else if (req.query.providerId) {
+      providerId = req.query.providerId;
+    }
+    if (!providerId) {
+      return res.json([]);
+    }
     const laDate = DateTime.fromISO(req.params.date, { zone: DEFAULT_TZ });
 
     // Auto-generate from template if no availability exists for this date
