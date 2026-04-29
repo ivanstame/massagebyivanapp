@@ -228,32 +228,60 @@ const PackageRow = ({ pkg, onCancel, onReinstate, working }) => {
           <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">
             Redemption history ({liveRedemptions.length})
           </summary>
-          <ul className="mt-2 space-y-1.5">
-            {liveRedemptions.map(r => (
-              <li key={r._id} className="flex items-center justify-between text-xs text-slate-600">
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-slate-400" />
-                  Used {DateTime.fromISO(r.redeemedAt).toFormat('MMM d, yyyy h:mm a')}
-                  {isMinutes && r.minutesConsumed > 0 && (
-                    <span className="text-slate-400 ml-1">({r.minutesConsumed} min)</span>
-                  )}
-                </span>
-                {!isCancelled && (
-                  <button
-                    onClick={() => onReinstate(r._id)}
-                    disabled={working === `${pkg._id}:${r._id}`}
-                    className="text-[#B07A4E] hover:text-[#8A5D36] inline-flex items-center gap-1 disabled:opacity-50"
-                  >
-                    {working === `${pkg._id}:${r._id}` ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <RotateCcw className="w-3 h-3" />
+          <ul className="mt-2 space-y-2">
+            {liveRedemptions.map(r => {
+              // r.booking is populated server-side now — show the
+              // appointment's date/time/status so the math reconciles
+              // (pending appointments count against remaining capacity).
+              const b = r.booking && typeof r.booking === 'object' ? r.booking : null;
+              const apptLabel = b
+                ? `${DateTime.fromFormat(b.localDate, 'yyyy-MM-dd').toFormat('EEE, MMM d')} at ${DateTime.fromFormat(b.startTime, 'HH:mm').toFormat('h:mm a')}`
+                : `Used ${DateTime.fromISO(r.redeemedAt).toFormat('MMM d, yyyy h:mm a')}`;
+              const status = b?.status || null;
+              const statusColors = {
+                pending: 'bg-amber-50 text-amber-700 border-amber-200',
+                confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
+                completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                cancelled: 'bg-slate-100 text-slate-500 border-slate-200',
+              };
+              return (
+                <li key={r._id} className="flex items-start justify-between gap-2 text-xs text-slate-600">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Calendar className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      <span className="text-slate-900">{apptLabel}</span>
+                      {isMinutes && r.minutesConsumed > 0 && (
+                        <span className="text-slate-500">({r.minutesConsumed} min)</span>
+                      )}
+                      {status && (
+                        <span className={`text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border ${statusColors[status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {status}
+                        </span>
+                      )}
+                    </div>
+                    {b && (
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        Redeemed {DateTime.fromISO(r.redeemedAt).toFormat('MMM d, h:mm a')}
+                      </div>
                     )}
-                    Reinstate
-                  </button>
-                )}
-              </li>
-            ))}
+                  </div>
+                  {!isCancelled && (
+                    <button
+                      onClick={() => onReinstate(r._id)}
+                      disabled={working === `${pkg._id}:${r._id}`}
+                      className="text-[#B07A4E] hover:text-[#8A5D36] inline-flex items-center gap-1 disabled:opacity-50 flex-shrink-0"
+                    >
+                      {working === `${pkg._id}:${r._id}` ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-3 h-3" />
+                      )}
+                      Reinstate
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </details>
       )}

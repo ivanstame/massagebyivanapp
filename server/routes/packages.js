@@ -357,7 +357,12 @@ router.get('/client/:clientId', ensureAuthenticated, async (req, res) => {
     const purchases = await PackagePurchase.find({
       client: req.params.clientId,
       provider: req.user._id,
-    }).sort({ createdAt: -1 });
+    })
+      // Populate the booking each redemption was applied to, so the UI
+      // can show "Apr 30 at 2pm — pending" next to each row instead of
+      // just the redemption timestamp.
+      .populate('redemptions.booking', 'localDate startTime endTime duration status')
+      .sort({ createdAt: -1 });
 
     res.json(purchases);
   } catch (err) {
@@ -585,6 +590,7 @@ router.get('/mine', ensureAuthenticated, async (req, res) => {
 
     const purchases = await PackagePurchase.find({ client: req.user._id })
       .populate('provider', 'providerProfile.businessName email profile.fullName')
+      .populate('redemptions.booking', 'localDate startTime endTime duration status')
       .sort({ createdAt: -1 });
 
     res.json(purchases);
