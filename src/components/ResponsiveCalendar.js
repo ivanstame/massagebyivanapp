@@ -3,6 +3,7 @@ import MonthCalendar from './MonthCalendar';
 import { Calendar } from 'lucide-react';
 import { DateTime } from "luxon";
 import { AuthContext } from '../AuthContext';
+import { DEFAULT_TZ } from '../utils/timeConstants';
 
 
 
@@ -111,11 +112,14 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
 
   // 6-month grid the user can pop open by tapping the month name.
   // Mirrors the desktop MonthCalendar's picker — current + next 5.
+  // Build cells from LA so labels and equality checks match the way
+  // the rest of the app reasons about time.
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const today = new Date();
+  const todayLA = DateTime.now().setZone(DEFAULT_TZ);
   const sixMonths = [];
   for (let i = 0; i < 6; i++) {
-    sixMonths.push(new Date(today.getFullYear(), today.getMonth() + i, 1));
+    const dt = todayLA.startOf('month').plus({ months: i });
+    sixMonths.push({ year: dt.year, month0: dt.month - 1 });
   }
   const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -212,16 +216,16 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grid grid-cols-3 gap-2">
-              {sixMonths.map((d, idx) => {
-                const sel = d.getFullYear() === year && d.getMonth() === month;
-                const cur = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+              {sixMonths.map(({ year: y, month0 }, idx) => {
+                const sel = y === year && month0 === month;
+                const cur = y === todayLA.year && month0 === (todayLA.month - 1);
                 return (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => {
-                      setMonth(d.getMonth());
-                      setYear(d.getFullYear());
+                      setMonth(month0);
+                      setYear(y);
                       setShowMonthPicker(false);
                     }}
                     className={`p-2 rounded-lg border text-sm font-medium transition-colors
@@ -230,8 +234,8 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
                         : 'border-line bg-paper-elev text-slate-700 hover:border-[#B07A4E]/50'}
                     `}
                   >
-                    <div>{monthShort[d.getMonth()]}</div>
-                    <div className="text-xs text-slate-500">{d.getFullYear()}</div>
+                    <div>{monthShort[month0]}</div>
+                    <div className="text-xs text-slate-500">{y}</div>
                     {cur && (
                       <div className="text-[10px] uppercase tracking-wide text-[#B07A4E] mt-0.5">Today</div>
                     )}

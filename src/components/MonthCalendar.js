@@ -3,25 +3,36 @@ import React, { useState, useEffect, useContext } from 'react';
 import { format } from 'date-fns';
 import { DateTime } from 'luxon';
 import { AuthContext } from '../AuthContext';
+import { DEFAULT_TZ } from '../utils/timeConstants';
+
+// Build a JS Date that represents midnight on day 1 of the given
+// month in LA, no matter what the user's local browser timezone is.
+// new Date(year, month, 1) builds in *local* time — for users east
+// of LA (most of the US) midnight local lands on the previous day
+// in LA, which causes the calendar to land on the last of the prior
+// month. Anchoring in LA explicitly fixes that.
+const firstOfMonthLA = (year, month0Indexed) => {
+  return DateTime.fromObject(
+    { year, month: month0Indexed + 1, day: 1, hour: 0 },
+    { zone: DEFAULT_TZ }
+  ).toJSDate();
+};
 
 // 6-month grid the provider/client can pop open by tapping the header.
 // Shows the current month + next 5. The shortest path most users want
 // is "skip ahead one month" — but providers also reference future
 // months when scheduling standing-appointment-ish work.
 const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
-  const today = new Date();
-  const months = [];
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    months.push(d);
-  }
-  const isSelected = (d) =>
-    d.getFullYear() === selectedDate.getFullYear() &&
-    d.getMonth() === selectedDate.getMonth();
-  const isCurrent = (d) =>
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth();
+  // Read everything in LA so the cells label the months the way the
+  // app reasons about time, not the way the user's browser does.
+  const todayLA = DateTime.now().setZone(DEFAULT_TZ);
+  const selLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
   const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const cells = [];
+  for (let i = 0; i < 6; i++) {
+    const dt = todayLA.startOf('month').plus({ months: i });
+    cells.push({ year: dt.year, month0: dt.month - 1 }); // month 0-indexed for display map
+  }
 
   return (
     <div
@@ -33,22 +44,22 @@ const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grid grid-cols-3 gap-2">
-          {months.map((d, idx) => {
-            const sel = isSelected(d);
-            const cur = isCurrent(d);
+          {cells.map(({ year, month0 }, idx) => {
+            const sel = year === selLA.year && month0 === (selLA.month - 1);
+            const cur = year === todayLA.year && month0 === (todayLA.month - 1);
             return (
               <button
                 key={idx}
                 type="button"
-                onClick={() => { onPick(d); onClose(); }}
+                onClick={() => { onPick(firstOfMonthLA(year, month0)); onClose(); }}
                 className={`p-2 rounded-lg border text-sm font-medium transition-colors
                   ${sel
                     ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E]'
                     : 'border-line bg-paper-elev text-slate-700 hover:border-[#B07A4E]/50'}
                 `}
               >
-                <div>{monthShort[d.getMonth()]}</div>
-                <div className="text-xs text-slate-500">{d.getFullYear()}</div>
+                <div>{monthShort[month0]}</div>
+                <div className="text-xs text-slate-500">{year}</div>
                 {cur && (
                   <div className="text-[10px] uppercase tracking-wide text-[#B07A4E] mt-0.5">Today</div>
                 )}
@@ -133,11 +144,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
   }, [selectedDate, providerId, refreshKey]);
 
   const handlePrevMonth = () => {
-    onDateChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));
+    onDateChange(firstOfMonthLA(selectedDate.getFullYear(), selectedDate.getMonth() - 1));
   };
 
   const handleNextMonth = () => {
-    onDateChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1));
+    onDateChange(firstOfMonthLA(selectedDate.getFullYear(), selectedDate.getMonth() + 1));
   };
 
   // The truth about whether we can book this shit or not
