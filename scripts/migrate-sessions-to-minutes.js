@@ -25,6 +25,8 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 
 const PackagePurchase = require('../server/models/PackagePurchase');
+// Required so populate('redemptions.booking') can resolve the ref.
+require('../server/models/Booking');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
