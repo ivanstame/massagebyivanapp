@@ -600,4 +600,26 @@ router.get('/mine', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Provider's master list of every package they've sold/comped, across all
+// clients. Powers the /provider/packages page. Cardinality is small enough
+// per provider that we send the full set and let the client filter/search/
+// bucket; tabs and search live client-side.
+router.get('/provider/all', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const purchases = await PackagePurchase.find({ provider: req.user._id })
+      .populate('client', 'profile.fullName email phoneNumber')
+      .populate('redemptions.booking', 'localDate startTime endTime duration status')
+      .sort({ createdAt: -1 });
+
+    res.json(purchases);
+  } catch (err) {
+    console.error('Error listing provider packages:', err);
+    res.status(500).json({ message: 'Failed to load packages' });
+  }
+});
+
 module.exports = router;

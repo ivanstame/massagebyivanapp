@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { getTrade } from '../shared/trades';
 import PackageDealsSection from './PackageDealsSection';
+import SoldPackagesSection from './SoldPackagesSection';
 
 const ProviderServices = () => {
   const { user } = useContext(AuthContext);
@@ -927,6 +928,10 @@ const ProviderServices = () => {
         <PackageDealsSection
           availableDurations={basePricing.map(p => Number(p.duration)).filter(Boolean)}
         />
+
+        {/* Sold Packages — every instance clients own, with redemption
+            history. Collapsed by default to keep this page scannable. */}
+        <SoldPackagesSection />
 
         {/* Save button (covers Service Offerings + Add-ons, NOT Package Deals) */}
         <div className="flex justify-end mb-8">
