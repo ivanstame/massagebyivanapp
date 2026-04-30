@@ -22,6 +22,7 @@ const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
+const BlockedTime = require('../models/BlockedTime');
 const smsService = require('../services/smsService');
 const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
 
@@ -101,8 +102,25 @@ async function buildAvailabilityBody(providerId, weekStart) {
       status: { $nin: ['cancelled'] }
     }).select('startTime endTime').lean();
 
-    // For each block, subtract overlapping bookings, format remaining
-    // open ranges with kind/location info.
+    // BlockedTime rows include manually-blocked time AND Google-Calendar-
+    // synced events (which is how the provider's Peters/Jane appointments
+    // arrive). Treat them the same as bookings for subtraction purposes,
+    // skipping any the provider has explicitly overridden.
+    const dayBlocks = await BlockedTime.find({
+      provider: providerId,
+      localDate,
+      overridden: { $ne: true }
+    }).select('start end').lean();
+    const blockedRanges = dayBlocks.map(bt => {
+      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      return { startTime: sLA.toFormat('HH:mm'), endTime: eLA.toFormat('HH:mm') };
+    });
+    const occupied = [...dayBookings, ...blockedRanges];
+
+    // For each availability block, subtract overlapping
+    // bookings + blocked-times, then format remaining open ranges
+    // with kind/location info.
     const sortedBlocks = blocks.slice().sort((a, b) => a.start - b.start);
     const formattedParts = [];
     for (const block of sortedBlocks) {
@@ -110,10 +128,10 @@ async function buildAvailabilityBody(providerId, weekStart) {
       const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
       const window = { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
 
-      const blockBookings = dayBookings.filter(b =>
+      const blockOccupied = occupied.filter(b =>
         b.startTime < window.end && b.endTime > window.start
       );
-      const open = subtractBookings([window], blockBookings);
+      const open = subtractBookings([window], blockOccupied);
       if (open.length === 0) continue;
 
       const isStatic = block.kind === 'static' && block.staticLocation;
