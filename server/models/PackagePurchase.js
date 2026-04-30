@@ -113,6 +113,17 @@ const PackagePurchaseSchema = new mongoose.Schema({
   preConsumedMinutes: { type: Number, default: 0, min: 0 },
   preConsumedNote: { type: String, default: '', trim: true, maxlength: 200 },
 
+  // Marketing-framing snapshot. When a sessions-mode template ("5 × 90 min")
+  // is purchased, the purchase is materialized as a minutes pool (450 min)
+  // so the buyer can spend credits at any duration. We snapshot the original
+  // session framing here so UI surfaces can still show "5-pack 90 min" for
+  // the buyer's recognition. Null when the buyer purchased a true minutes-
+  // pool template.
+  displayPack: {
+    sessions: { type: Number, min: 1, max: 100, default: undefined },
+    sessionDuration: { type: Number, min: 30, max: 180, default: undefined },
+  },
+
   // Payment context.
   paymentMethod: {
     type: String,

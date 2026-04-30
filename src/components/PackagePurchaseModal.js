@@ -138,7 +138,7 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
               <p className="text-sm text-slate-500 mt-1">
                 {template.kind === 'minutes'
                   ? `Your ${template.minutesTotal} minutes are ready to use.`
-                  : `Your ${template.sessionsTotal} credits are ready to use.`}
+                  : `Your ${template.sessionsTotal * template.sessionDuration} minutes are ready to use — book at any duration.`}
               </p>
             </div>
           ) : (
@@ -147,7 +147,7 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
                 <p className="text-sm text-slate-500">
                   {template.kind === 'minutes'
                     ? `${template.minutesTotal} min pool — book any duration`
-                    : `${template.sessionsTotal} × ${template.sessionDuration}-min sessions`}
+                    : `${template.sessionsTotal} × ${template.sessionDuration}-min sessions (book any duration)`}
                 </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">${template.price.toFixed(2)}</p>
                 {template.kind === 'minutes' && template.minutesTotal > 0 && template.price > 0 ? (

@@ -5,6 +5,7 @@ import {
   XCircle, Calendar,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { packageHeadline } from '../utils/packageDisplay';
 
 // Provider-facing view of one client's packages. Lives on the
 // ProviderClientDetails page. Lets the provider:
@@ -171,9 +172,8 @@ const PackageRow = ({ pkg, onCancel, onReinstate, working }) => {
     statusBadge = <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Cash</span>;
   }
 
-  const summary = isMinutes
-    ? `${pkg.minutesTotal} min pool`
-    : `${pkg.sessionsTotal} × ${pkg.sessionDuration} min`;
+  // Marketing framing first (displayPack), then mode-native fallbacks.
+  const summary = packageHeadline(pkg);
 
   const unit = isMinutes ? 'min' : '';
 

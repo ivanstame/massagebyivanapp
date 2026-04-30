@@ -7,6 +7,7 @@ import {
   ArrowRight, Calendar,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { packageHeadline } from '../utils/packageDisplay';
 
 // Client-facing list of their own packages. Active packages first
 // (with progress meter), then cancelled, then fully-redeemed.
@@ -143,11 +144,14 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
 
   const isPending = pkg.paymentStatus === 'pending';
 
-  // Subtitle differs by mode. Sessions-mode shows both sessions AND derived
-  // minutes so clients can think in either unit.
-  const subtitle = isMinutes
-    ? `${total} min pool · book any duration`
-    : `${pkg.sessionsTotal} × ${pkg.sessionDuration}-min sessions`;
+  // Subtitle: shows the marketing framing ("5 × 90 min") if displayPack is
+  // set; otherwise generic minutes-pool or legacy sessions form. All
+  // minutes-mode packages can be booked at any duration the provider offers.
+  const subtitle = pkg.displayPack?.sessions
+    ? `${packageHeadline(pkg)} · book any duration`
+    : isMinutes
+      ? `${total} min pool · book any duration`
+      : `${pkg.sessionsTotal} × ${pkg.sessionDuration}-min sessions`;
 
   return (
     <div className={`bg-paper-elev rounded-lg shadow-sm border border-line p-4 ${muted ? 'opacity-70' : ''}`}>
@@ -205,6 +209,11 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
               {remaining * pkg.sessionDuration} of {total * pkg.sessionDuration} min remaining
             </p>
           )}
+          {isMinutes && pkg.displayPack?.sessionDuration > 0 && (
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              ≈ {Math.floor(remaining / pkg.displayPack.sessionDuration)} × {pkg.displayPack.sessionDuration}-min sessions left
+            </p>
+          )}
         </>
       )}
 
@@ -218,9 +227,7 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
         {used > 0 && (
           <span className="inline-flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {isMinutes
-              ? `${used} min used`
-              : `${used} session${used !== 1 ? 's' : ''} booked`}
+            {isMinutes ? `${used} min used` : `${used} session${used !== 1 ? 's' : ''} booked`}
           </span>
         )}
       </div>

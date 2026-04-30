@@ -4,6 +4,10 @@ const PackageTemplate = require('../models/PackageTemplate');
 const PackagePurchase = require('../models/PackagePurchase');
 const User = require('../models/User');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const {
+  materializeFromTemplate,
+  materializeFromSessionsSpec,
+} = require('../services/packageMaterialize');
 
 // ──────────────────────────────────────────────────────────────────────
 // Provider: manage their own package templates (the offerings clients buy)
@@ -280,19 +284,20 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
       });
     }
 
-    // Snapshot template fields onto the purchase. If price is 0 (free
-    // package — provider could in principle define one), still go through
-    // Stripe so the payment-confirmed signal flows through the same path;
-    // Stripe rejects $0 intents though, so we short-circuit to 'paid'.
+    // Snapshot template fields onto the purchase. Sessions-mode templates
+    // materialize as minutes pools (so the buyer can spend a 90-min credit
+    // on a 60-min visit) — see services/packageMaterialize.js. Marketing
+    // framing ("5 × 90 min — $X") survives via displayPack.
+    //
+    // If price is 0 (free package — provider could in principle define one),
+    // we short-circuit to 'paid' since Stripe rejects $0 intents.
+    const materialized = materializeFromTemplate(template);
     const purchase = await PackagePurchase.create({
       template: template._id,
       provider: template.provider,
       client: req.user._id,
       name: template.name,
-      kind: template.kind,
-      sessionsTotal: template.kind === 'sessions' ? template.sessionsTotal : undefined,
-      sessionDuration: template.kind === 'sessions' ? template.sessionDuration : undefined,
-      minutesTotal: template.kind === 'minutes' ? template.minutesTotal : undefined,
+      ...materialized,
       price: template.price,
       paymentMethod: 'stripe',
       paymentStatus: template.price > 0 ? 'pending' : 'paid',
@@ -487,21 +492,30 @@ router.post('/comp', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'Invalid purchasedAt date' });
     }
 
+    // Materialize sessions-style inputs (template-with-sessions OR ad-hoc
+    // sessions spec) into the minutes-pool shape. Marketing framing
+    // ("4 × 75 min") survives via displayPack so the provider's UI still
+    // reads as expected. Pre-consumed sessions get converted by the same
+    // factor (preSessions × sessionDuration → preMinutes).
+    const materialized = pkgKind === 'sessions'
+      ? materializeFromSessionsSpec({ sessionsTotal: pkgSessions, sessionDuration: pkgDuration })
+      : { kind: 'minutes', minutesTotal: pkgMinutes, displayPack: undefined };
+
+    const finalPreMinutes = pkgKind === 'sessions'
+      ? preSessions * pkgDuration
+      : preMinutes;
+
     const purchase = await PackagePurchase.create({
       template: templateRef,
       provider: req.user._id,
       client: clientId,
       name: pkgName,
-      kind: pkgKind,
-      sessionsTotal: pkgKind === 'sessions' ? pkgSessions : undefined,
-      sessionDuration: pkgKind === 'sessions' ? pkgDuration : undefined,
-      minutesTotal: pkgKind === 'minutes' ? pkgMinutes : undefined,
+      ...materialized,
       price: pkgPrice,
       paymentMethod: pkgPaymentMethod,
       paymentStatus: 'paid',
       purchasedAt: resolvedPurchasedAt,
-      preConsumedSessions: pkgKind === 'sessions' ? preSessions : 0,
-      preConsumedMinutes: pkgKind === 'minutes' ? preMinutes : 0,
+      preConsumedMinutes: finalPreMinutes,
       preConsumedNote: preConsumedNote ? String(preConsumedNote).trim() : '',
     });
 

@@ -48,9 +48,23 @@ const PaymentMethodSelector = ({
         <div className="mb-3 space-y-2">
           {redeemablePackages.map(pkg => {
             const isSelected = selectedMethod === 'package' && selectedPackageId === pkg._id;
-            const detail = pkg.kind === 'minutes'
-              ? `${pkg.minutesRemaining} of ${pkg.minutesTotal} min remaining`
-              : `${pkg.sessionsRemaining} of ${pkg.sessionsTotal} remaining`;
+            // Detail line: minutes-mode shows minutes remaining (with a
+            // session-count hint when displayPack is set so the buyer
+            // recognizes "how many of my 90-min credits are left"). Legacy
+            // sessions-mode packages keep their session-count display.
+            let detail;
+            if (pkg.kind === 'minutes') {
+              const remain = pkg.minutesRemaining ?? 0;
+              const total = pkg.minutesTotal || 0;
+              if (pkg.displayPack?.sessionDuration > 0) {
+                const sess = Math.floor(remain / pkg.displayPack.sessionDuration);
+                detail = `${remain} / ${total} min (≈ ${sess} × ${pkg.displayPack.sessionDuration}-min)`;
+              } else {
+                detail = `${remain} of ${total} min remaining`;
+              }
+            } else {
+              detail = `${pkg.sessionsRemaining} of ${pkg.sessionsTotal} remaining`;
+            }
             return (
               <button
                 key={pkg._id}

@@ -6,6 +6,7 @@ import {
   Layers, Search, Loader2, AlertCircle, ChevronDown, ChevronUp,
   Calendar, RotateCcw, ExternalLink, X, DollarSign, Filter,
 } from 'lucide-react';
+import { packageHeadline } from '../utils/packageDisplay';
 
 // Provider's master list of every package they've sold/comped, across all
 // clients. Three tabs (Active / Fulfilled / Cancelled), search by client
@@ -400,9 +401,7 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, working }) => {
     statusBadge = <Badge color="blue">Stripe</Badge>;
   }
 
-  const summary = isMinutes
-    ? `${pkg.minutesTotal} min pool`
-    : `${pkg.sessionsTotal} × ${pkg.sessionDuration} min`;
+  const summary = packageHeadline(pkg);
 
   const unit = isMinutes ? 'min' : '';
 
