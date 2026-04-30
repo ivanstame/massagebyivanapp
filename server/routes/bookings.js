@@ -719,6 +719,18 @@ router.get('/mileage-report', ensureAuthenticated, async (req, res) => {
     // IRS standard mileage rate (2025)
     const IRS_RATE = 0.70;
 
+    // Gaps between consecutive bookings ≥ this many minutes are
+    // assumed to mean the provider went home in between (and back).
+    // 2 hours is the threshold the user picked when scoping this —
+    // enough to make a return trip worth it in LA traffic, short
+    // enough to catch the obvious midday gaps.
+    const GAP_HOME_THRESHOLD_MIN = 120;
+    const minutesBetween = (endHHmm, startHHmm) => {
+      const [eh, em] = endHHmm.split(':').map(Number);
+      const [sh, sm] = startHHmm.split(':').map(Number);
+      return (sh * 60 + sm) - (eh * 60 + em);
+    };
+
     // Get all completed/confirmed bookings in date range
     const bookings = await Booking.find({
       provider: req.user._id,
@@ -765,8 +777,50 @@ router.get('/mileage-report', ensureAuthenticated, async (req, res) => {
           // IRS rule: home → first client is deductible ONLY if home office
           isDeductible = hasHomeOffice;
         } else {
-          // Middle leg: previous client → this client
+          // Middle leg: previous client → this client.
+          //
+          // Before drawing the direct prev-to-current line, check the
+          // gap. Long idle periods almost certainly mean the provider
+          // went home and came back, so insert two synthetic round-trip
+          // legs to reflect the reality of the day. Skip when home base
+          // is unset (no destination), when either booking is missing
+          // location (existing leg-skip pattern), or when the gap is
+          // under threshold.
           const prev = dayBookings[i - 1];
+          const gapMin = (prev.endTime && booking.startTime)
+            ? minutesBetween(prev.endTime, booking.startTime)
+            : 0;
+          if (gapMin >= GAP_HOME_THRESHOLD_MIN
+              && homeBase
+              && prev.location?.lat != null
+              && booking.location?.lat != null) {
+            const goHomeMiles = await calculateDistanceMiles(prev.location, homeBase);
+            const leaveHomeMiles = await calculateDistanceMiles(homeBase, booking.location);
+            const isGapDeductible = hasHomeOffice;
+
+            legs.push({
+              from: prev.location?.address || 'Previous client',
+              to: homeBase.address || 'Home',
+              miles: goHomeMiles,
+              isDeductible: isGapDeductible,
+              gapTrip: true,
+              gapMinutes: gapMin,
+            });
+            legs.push({
+              from: homeBase.address || 'Home',
+              to: booking.location?.address || 'Client',
+              miles: leaveHomeMiles,
+              isDeductible: isGapDeductible,
+              gapTrip: true,
+              gapMinutes: gapMin,
+            });
+            dayTotal += goHomeMiles + leaveHomeMiles;
+            if (isGapDeductible) dayDeductible += goHomeMiles + leaveHomeMiles;
+            // The "current booking" leg is now home→booking (already
+            // pushed above). Skip the normal prev→current append below.
+            continue;
+          }
+
           fromLabel = prev.location?.address || 'Previous client';
           toLabel = booking.location?.address || 'Client';
 

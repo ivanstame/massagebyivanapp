@@ -207,6 +207,9 @@ const MileageReport = () => {
                   ? 'All miles (including home to first client and last client to home) are deductible.'
                   : 'First and last trips of each day (home ↔ client) are commuting miles and not deductible.'}
               </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Long gaps between bookings (≥ 2 hours) include an estimated round trip home, shown as dashed amber rows.
+              </p>
               {!report.hasHomeOffice && (
                 <p className="text-sm text-amber-500 mt-1">
                   Toggle home office in Provider Settings to change this.
@@ -294,39 +297,66 @@ const MileageReport = () => {
                   {/* Expanded Legs */}
                   {expandedDays[day.date] && (
                     <div className="border-t border-line-soft px-5 py-3 space-y-2">
-                      {day.legs.map((leg, i) => (
-                        <div
-                          key={i}
-                          className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-                            leg.isDeductible ? 'bg-green-50/50' : 'bg-paper-deep'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${
-                              leg.isDeductible ? 'text-green-500' : 'text-slate-400'
-                            }`} />
-                            <span className="text-sm text-slate-600 truncate">
-                              {leg.from}
-                            </span>
-                            <span className="text-slate-300 flex-shrink-0">→</span>
-                            <span className="text-sm text-slate-600 truncate">
-                              {leg.to}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                            <span className={`text-sm font-medium ${
-                              leg.isDeductible ? 'text-green-700' : 'text-slate-400'
-                            }`}>
-                              {leg.miles.toFixed(1)} mi
-                            </span>
-                            {!leg.isDeductible && (
-                              <span className="text-xs bg-slate-200 text-slate-500 rounded-full px-2 py-0.5">
-                                commute
-                              </span>
+                      {day.legs.map((leg, i) => {
+                        // Gap-trip legs are auto-inserted estimates of
+                        // a return-home round trip during long idle
+                        // gaps between bookings. Render with dashed
+                        // amber styling so the provider knows they're
+                        // estimates, not booked appointments.
+                        const isGap = leg.gapTrip;
+                        const gapMin = leg.gapMinutes || 0;
+                        const gapH = Math.floor(gapMin / 60);
+                        const gapM = gapMin % 60;
+                        const gapLabel = gapH > 0
+                          ? (gapM > 0 ? `${gapH}h ${gapM}m` : `${gapH}h`)
+                          : `${gapM}m`;
+                        return (
+                          <div
+                            key={i}
+                            className={
+                              isGap
+                                ? 'py-2 px-3 rounded-lg bg-amber-50/60 border border-dashed border-amber-300'
+                                : `flex items-center justify-between py-2 px-3 rounded-lg ${
+                                    leg.isDeductible ? 'bg-green-50/50' : 'bg-paper-deep'
+                                  }`
+                            }
+                          >
+                            {isGap && (
+                              <div className="text-[10px] uppercase tracking-wide font-medium text-amber-700 mb-1">
+                                Estimated return home · {gapLabel} gap
+                              </div>
                             )}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                  isGap ? 'text-amber-500'
+                                    : (leg.isDeductible ? 'text-green-500' : 'text-slate-400')
+                                }`} />
+                                <span className="text-sm text-slate-600 truncate">
+                                  {leg.from}
+                                </span>
+                                <span className="text-slate-300 flex-shrink-0">→</span>
+                                <span className="text-sm text-slate-600 truncate">
+                                  {leg.to}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                                <span className={`text-sm font-medium ${
+                                  isGap ? 'text-amber-700'
+                                    : (leg.isDeductible ? 'text-green-700' : 'text-slate-400')
+                                }`}>
+                                  {leg.miles.toFixed(1)} mi
+                                </span>
+                                {!leg.isDeductible && !isGap && (
+                                  <span className="text-xs bg-slate-200 text-slate-500 rounded-full px-2 py-0.5">
+                                    commute
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <div className="flex justify-end pt-2 border-t border-line-soft">
                         <span className="text-sm text-slate-500">
                           Day deduction: <span className="font-semibold text-[#B07A4E]">${day.deduction.toFixed(2)}</span>
