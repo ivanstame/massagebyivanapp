@@ -41,6 +41,7 @@ import ProviderAppointments from './components/ProviderAppointments';
 import ProviderClients from './components/ProviderClients';
 import ProviderClientDetails from './components/ProviderClientDetails';
 import ProviderLocations from './components/ProviderLocations';
+import ProviderWeeklyOutreach from './components/ProviderWeeklyOutreach';
 import ProviderServices from './components/ProviderServices';
 import ProviderSettings from './components/ProviderSettings';
 import InvitationHandling from './components/InvitationHandling';
@@ -283,6 +284,14 @@ function App() {
           <Route
             path="/provider/static-locations"
             element={<Navigate to="/provider/locations" replace />}
+          />
+          <Route
+            path="/provider/weekly-outreach"
+            element={
+              <ProtectedRoute providerOnly>
+                <ProviderWeeklyOutreach />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/provider/services"

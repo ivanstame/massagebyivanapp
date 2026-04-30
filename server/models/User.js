@@ -137,6 +137,25 @@ const UserSchema = new mongoose.Schema({
     }],
     // Home office designation (affects mileage deduction rules)
     homeOffice: { type: Boolean, default: false },
+    // Weekly Outreach feature: provider sends a once-a-week SMS to
+    // clients summarizing the upcoming week's openings. Provider
+    // controls the opening + closing lines; the day-by-day body is
+    // auto-generated from real availability + bookings. lastSentAt
+    // enforces a 7-day rate limit so accidental double-sends don't
+    // happen.
+    weeklyOutreach: {
+      openingLine: {
+        type: String,
+        default: 'Hey {firstName}, quick heads-up on next week:',
+        maxlength: 280
+      },
+      closingLine: {
+        type: String,
+        default: 'Tap to book: {bookingLink}',
+        maxlength: 280
+      },
+      lastSentAt: { type: Date, default: null }
+    },
     // Cancellation policy
     cancellationPolicy: {
       windowHours: { type: Number, default: 24 },  // hours before appointment
