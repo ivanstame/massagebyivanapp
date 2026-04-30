@@ -441,12 +441,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const studioForDay = dayIsPurelyStatic ? dayBlocks[0].staticLocation : null;
 
   // Auto-fill location with the studio's coords when the day is
-  // purely in-studio. The slot fetcher needs *some* lat/lng to
-  // satisfy its query params (mobile-window math uses it; static-
-  // window math ignores it). Using the studio's own coords is the
-  // semantically honest sentinel.
+  // purely in-studio AND a CLIENT is self-booking. Provider-on-
+  // behalf bookings keep the target client's address — the provider
+  // is the source of truth and may take an in-home as a one-off
+  // exception even on a normally-in-studio day.
   useEffect(() => {
     if (!dayIsPurelyStatic || !studioForDay) return;
+    if (isProviderBooking) return;
     setLocation({
       lat: studioForDay.lat,
       lng: studioForDay.lng,
@@ -454,7 +455,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
       fullAddress: `${studioForDay.name} — ${studioForDay.address}`,
     });
     setFullAddress(`${studioForDay.name} — ${studioForDay.address}`);
-  }, [dayIsPurelyStatic, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name]);
+  }, [dayIsPurelyStatic, isProviderBooking, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name]);
 
   // If the chain expands past where the user's selected time can fit
   // (added an addon, added another session, or the slot list refreshed),
@@ -540,11 +541,20 @@ const BookingForm = ({ googleMapsLoaded }) => {
         throw new Error('Please pick a client before booking.');
       }
 
+      // Location resolution:
+      //   - Provider booking on behalf: ALWAYS use what's in the form.
+      //     Provider intent wins, even on a "static slot" — they may
+      //     be making an in-home exception on a normally in-studio day.
+      //   - Client self-booking a static slot: override to the studio's
+      //     address (the slot is in-studio, not at the client's home).
+      //   - Otherwise: use the form's address (mobile booking).
+      const useStaticLocationOverride =
+        isStaticSlot && selectedTime.location && !isProviderBooking;
       const bookingData = {
         date: bookingDateStr,
         time: formattedTime,
         duration: selectedDuration + extraTime,
-        location: isStaticSlot && selectedTime.location
+        location: useStaticLocationOverride
           ? {
               address: selectedTime.location.address,
               lat: selectedTime.location.lat,
@@ -831,14 +841,16 @@ const BookingForm = ({ googleMapsLoaded }) => {
           )}
 
           {/* 3. Address — the day's shape decides whether we even ask:
-                - Purely in-studio: location is the studio, full stop.
-                  Show a banner instead of an address picker.
-                - Mixed or mobile: ask for the client's address (existing
-                  flow). Mixed days that include in-studio slots will
-                  override the address on submit when a static slot is
-                  picked, so the client's address only matters if they
-                  pick a mobile slot. */}
-          {dayIsPurelyStatic && studioForDay ? (
+                - Purely in-studio + CLIENT self-booking: location is the
+                  studio, full stop. Show a banner instead of an address
+                  picker — they're being invited to the studio.
+                - Provider booking on behalf: ALWAYS show the address
+                  picker, defaulting to the target client's saved address.
+                  The provider may take an in-home as a one-off exception
+                  even on a normally-in-studio day. The provider's intent
+                  in the form wins.
+                - Otherwise: ask for the client's address (existing flow). */}
+          {dayIsPurelyStatic && studioForDay && !isProviderBooking ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -910,7 +922,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             selectedDate={selectedDate}
             selectedTime={selectedTime}
             fullAddress={
-              selectedTime?.kind === 'static' && selectedTime?.location?.address
+              selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
                 ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
                 : (location?.fullAddress || fullAddress)
             }
@@ -1114,7 +1126,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             return {
               selectedTime,
               selectedDate,
-              fullAddress: selectedTime?.kind === 'static' && selectedTime?.location?.address
+              fullAddress: selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
                 ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
                 : fullAddress,
               numSessions: 1,
