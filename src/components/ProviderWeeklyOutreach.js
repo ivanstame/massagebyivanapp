@@ -19,8 +19,12 @@ const ProviderWeeklyOutreach = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [state, setState] = useState(null); // {template, lastSentAt, canSendNow, recipientCounts, providerName}
-  const [filter, setFilter] = useState('all'); // 'all' | 'quiet'
+  const [state, setState] = useState(null);
+  // Selected client IDs — single source of truth for who gets the
+  // message. Quick-select buttons mutate this set; per-row checkboxes
+  // toggle individual entries.
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [search, setSearch] = useState('');
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -51,6 +55,11 @@ const ProviderWeeklyOutreach = () => {
         openingLine: res.data.template.openingLine,
         closingLine: res.data.template.closingLine,
       });
+      // Default selection on first load: all active clients.
+      setSelectedIds(prev => {
+        if (prev.size > 0) return prev; // preserve mid-session selection
+        return new Set((res.data.recipients || []).map(r => String(r._id)));
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load outreach state');
     } finally {
@@ -58,12 +67,14 @@ const ProviderWeeklyOutreach = () => {
     }
   }, []);
 
-  // Refetch preview whenever the filter changes (and after template save / send).
-  const loadPreview = useCallback(async (currentFilter = filter) => {
+  // Refetch preview when the selection changes (or after template
+  // save / send). Sample preview uses the first selected client's
+  // first name so the provider sees realistic personalization.
+  const loadPreview = useCallback(async (ids) => {
     try {
       setPreviewLoading(true);
       const res = await axios.post('/api/weekly-outreach/preview',
-        { filter: currentFilter },
+        { clientIds: Array.from(ids) },
         { withCredentials: true }
       );
       setPreview(res.data);
@@ -72,11 +83,11 @@ const ProviderWeeklyOutreach = () => {
     } finally {
       setPreviewLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => {
-    if (state) loadPreview(filter);
-  }, [state?.template?.openingLine, state?.template?.closingLine, filter]);
+    if (state) loadPreview(selectedIds);
+  }, [state?.template?.openingLine, state?.template?.closingLine, selectedIds, loadPreview]);
 
   const handleSaveTemplate = async () => {
     try {
@@ -97,7 +108,7 @@ const ProviderWeeklyOutreach = () => {
       setSending(true);
       setError(null);
       const res = await axios.post('/api/weekly-outreach/send',
-        { filter },
+        { clientIds: Array.from(selectedIds) },
         { withCredentials: true }
       );
       setSendResult(res.data);
@@ -121,14 +132,45 @@ const ProviderWeeklyOutreach = () => {
 
   if (!state) return null;
 
-  const { recipientCounts, lastSentAt, canSendNow, canSendAt } = state;
-  const recipients = filter === 'quiet' ? recipientCounts.quiet : recipientCounts.all;
+  const { recipients: allRecipients, lastSentAt, canSendNow, canSendAt } = state;
+  const totalCount = allRecipients.length;
+  const quietCount = allRecipients.filter(r => r.isQuiet).length;
+  const selectedCount = selectedIds.size;
+
   const lastSentLabel = lastSentAt
     ? DateTime.fromISO(lastSentAt).toRelative()
     : 'Never';
   const nextSendLabel = !canSendNow && canSendAt
     ? DateTime.fromISO(canSendAt).setZone('America/Los_Angeles').toFormat('cccc, LLL d')
     : null;
+
+  const filteredRecipients = search.trim()
+    ? allRecipients.filter(r => r.fullName.toLowerCase().includes(search.toLowerCase()))
+    : allRecipients;
+
+  const toggleClient = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const sid = String(id);
+      if (next.has(sid)) next.delete(sid);
+      else next.add(sid);
+      return next;
+    });
+  };
+  const selectAll = () => setSelectedIds(new Set(allRecipients.map(r => String(r._id))));
+  const selectQuiet = () => setSelectedIds(new Set(allRecipients.filter(r => r.isQuiet).map(r => String(r._id))));
+  const selectNone = () => setSelectedIds(new Set());
+
+  const formatLastBooking = (iso) => {
+    if (!iso) return 'no bookings yet';
+    const dt = DateTime.fromISO(iso);
+    const days = Math.floor(Math.abs(DateTime.now().diff(dt, 'days').days));
+    if (days < 1) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 14) return `${days} days ago`;
+    if (days < 60) return `${Math.floor(days / 7)} weeks ago`;
+    return dt.toFormat('LLL d, yyyy');
+  };
 
   return (
     <div className="av-paper pt-16 min-h-screen">
@@ -176,7 +218,7 @@ const ProviderWeeklyOutreach = () => {
         )}
 
         {/* Empty state — no clients with SMS consent + a phone number */}
-        {recipientCounts.all === 0 && (
+        {totalCount === 0 && (
           <div className="bg-paper-elev border border-line rounded-lg p-6 text-center">
             <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-600 font-medium mb-1">No eligible clients yet</p>
@@ -186,48 +228,100 @@ const ProviderWeeklyOutreach = () => {
           </div>
         )}
 
-        {recipientCounts.all > 0 && (
+        {totalCount > 0 && (
           <>
             {/* Recipients picker */}
             <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-5 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-[#B07A4E]" />
-                <h3 className="font-medium text-slate-900">Recipients</h3>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#B07A4E]" />
+                  <h3 className="font-medium text-slate-900">Recipients</h3>
+                </div>
+                <span className="text-xs text-slate-500">
+                  <strong className="text-slate-900">{selectedCount}</strong> of {totalCount} selected
+                </span>
               </div>
-              <div className="space-y-2">
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
-                  <input
-                    type="radio"
-                    checked={filter === 'all'}
-                    onChange={() => setFilter('all')}
-                    className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-slate-900">
-                      All active clients ({recipientCounts.all})
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Everyone with SMS consent and a phone number on file.
-                    </div>
+
+              {/* Quick-select shortcuts */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="text-xs px-2.5 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E]"
+                >
+                  All ({totalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={selectQuiet}
+                  className="text-xs px-2.5 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E]"
+                  title="Clients who haven't booked in the last 4 weeks. Usually higher-converting than blasting everyone."
+                >
+                  Quiet only ({quietCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={selectNone}
+                  className="text-xs px-2.5 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E]"
+                >
+                  None
+                </button>
+              </div>
+
+              {/* Search */}
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name…"
+                className="w-full mb-2 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+              />
+
+              {/* List */}
+              <div className="border border-line-soft rounded-lg max-h-72 overflow-y-auto">
+                {filteredRecipients.length === 0 ? (
+                  <div className="text-center py-6 text-sm text-slate-400">
+                    No matches.
                   </div>
-                </label>
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
-                  <input
-                    type="radio"
-                    checked={filter === 'quiet'}
-                    onChange={() => setFilter('quiet')}
-                    className="mt-0.5 text-[#B07A4E] focus:ring-[#B07A4E]"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-slate-900">
-                      Quiet clients only ({recipientCounts.quiet})
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Clients who haven't booked in the last 4 weeks. Usually converts better and
-                      feels less spammy than blasting your whole list.
-                    </div>
-                  </div>
-                </label>
+                ) : (
+                  filteredRecipients.map(r => {
+                    const id = String(r._id);
+                    const checked = selectedIds.has(id);
+                    return (
+                      <label
+                        key={id}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b border-line-soft last:border-b-0 ${
+                          checked ? 'bg-[#B07A4E]/5' : 'hover:bg-paper-deep'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleClient(r._id)}
+                          className="rounded border-slate-300 text-[#B07A4E] focus:ring-[#B07A4E]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-slate-900 truncate">
+                              {r.fullName}
+                            </span>
+                            {r.isQuiet && (
+                              <span
+                                className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                                title="No booking in the last 4 weeks"
+                              >
+                                Quiet
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            Last booking: {formatLastBooking(r.lastBookingAt)}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -251,6 +345,12 @@ const ProviderWeeklyOutreach = () => {
                 {preview?.sampleClientName && (
                   <> Showing <strong>{preview.sampleClientName}</strong>'s preview.</>
                 )}
+                {' '}
+                Avayble subtracts your existing appointments from each day's window, so the open
+                times you see are real.
+                {' '}
+                In-studio openings are labeled with the location name; everything else is
+                in-home.
               </p>
               {previewLoading ? (
                 <div className="py-8 flex items-center justify-center">
@@ -279,11 +379,11 @@ const ProviderWeeklyOutreach = () => {
                 </div>
                 <button
                   onClick={() => setShowConfirm(true)}
-                  disabled={!canSendNow || recipients === 0 || sending}
+                  disabled={!canSendNow || selectedCount === 0 || sending}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#B07A4E] text-white rounded-lg font-medium hover:bg-[#8A5D36] disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
                   {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Send to {recipients} client{recipients === 1 ? '' : 's'}
+                  Send to {selectedCount} client{selectedCount === 1 ? '' : 's'}
                 </button>
               </div>
             </div>
@@ -373,7 +473,7 @@ const ProviderWeeklyOutreach = () => {
             <div className="bg-paper-elev rounded-lg shadow-xl w-full max-w-md">
               <div className="p-5">
                 <h2 className="text-lg font-semibold text-slate-900 mb-2">
-                  Send to {recipients} client{recipients === 1 ? '' : 's'}?
+                  Send to {selectedCount} client{selectedCount === 1 ? '' : 's'}?
                 </h2>
                 <p className="text-sm text-slate-600 mb-2">
                   Each client will get their own personalized message with their first name in the greeting.

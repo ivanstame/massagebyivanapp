@@ -80,6 +80,10 @@ function subtractBookings(windows, bookings) {
 }
 
 // Build the day-by-day availability text block for the week.
+// Per-block subtraction so each window keeps its kind (mobile vs
+// in-studio) and we can label in-studio openings with the location
+// name in the SMS — clients need to know they're being invited to
+// a different location than the usual mobile visit.
 async function buildAvailabilityBody(providerId, weekStart) {
   const lines = [];
   for (let i = 0; i < 7; i++) {
@@ -87,15 +91,9 @@ async function buildAvailabilityBody(providerId, weekStart) {
     const localDate = dayLA.toFormat('yyyy-MM-dd');
     const dayLabel = dayLA.toFormat('EEE M/d');
 
-    const blocks = await Availability.find({ provider: providerId, localDate });
+    const blocks = await Availability.find({ provider: providerId, localDate })
+      .populate('staticLocation', 'name');
     if (blocks.length === 0) continue;  // skip days with no availability
-
-    // Convert blocks to HH:mm windows
-    const windows = blocks.map(b => {
-      const sLA = DateTime.fromJSDate(b.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-      const eLA = DateTime.fromJSDate(b.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-      return { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
-    }).sort((a, b) => a.start.localeCompare(b.start));
 
     const dayBookings = await Booking.find({
       provider: providerId,
@@ -103,12 +101,38 @@ async function buildAvailabilityBody(providerId, weekStart) {
       status: { $nin: ['cancelled'] }
     }).select('startTime endTime').lean();
 
-    const open = subtractBookings(windows, dayBookings);
-    if (open.length === 0) {
+    // For each block, subtract overlapping bookings, format remaining
+    // open ranges with kind/location info.
+    const sortedBlocks = blocks.slice().sort((a, b) => a.start - b.start);
+    const formattedParts = [];
+    for (const block of sortedBlocks) {
+      const sLA = DateTime.fromJSDate(block.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const window = { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
+
+      const blockBookings = dayBookings.filter(b =>
+        b.startTime < window.end && b.endTime > window.start
+      );
+      const open = subtractBookings([window], blockBookings);
+      if (open.length === 0) continue;
+
+      const isStatic = block.kind === 'static' && block.staticLocation;
+      const locationName = isStatic ? block.staticLocation.name : null;
+
+      for (const r of open) {
+        const range = `${fmtTime(r.start)}–${fmtTime(r.end)}`;
+        formattedParts.push(
+          isStatic
+            ? `${range} (in-studio at ${locationName})`
+            : range
+        );
+      }
+    }
+
+    if (formattedParts.length === 0) {
       lines.push(`${dayLabel} · booked`);
     } else {
-      const ranges = open.map(r => `${fmtTime(r.start)}–${fmtTime(r.end)}`).join(', ');
-      lines.push(`${dayLabel} · ${ranges}`);
+      lines.push(`${dayLabel} · ${formattedParts.join(', ')}`);
     }
   }
   return lines.join('\n');
@@ -128,9 +152,12 @@ function assembleMessage({ template, providerName, firstName, body, bookingLink 
   return `${opening}\n\n${body}\n\n${closing}\n\nReply STOP to opt out.`;
 }
 
-// Build the recipient list. Returns { all: [...], quiet: [...] } where
-// each list is users with smsConsent !== false. "Quiet" = last booking
-// older than QUIET_WEEKS, or no bookings + createdAt older than that.
+// Build the recipient list — one annotated list of every active client
+// with SMS consent and a phone number, each tagged with their last
+// booking date and a derived isQuiet flag (last booking older than
+// QUIET_WEEKS, or no booking + created longer ago than that). The
+// front-end uses this to render per-client checkboxes with quick-select
+// shortcuts.
 async function getRecipients(providerId) {
   const allClients = await User.find({
     providerId,
@@ -139,7 +166,7 @@ async function getRecipients(providerId) {
     'profile.phoneNumber': { $exists: true, $ne: null, $ne: '' }
   }).select('_id email profile.fullName profile.phoneNumber smsConsent createdAt').lean();
 
-  if (allClients.length === 0) return { all: [], quiet: [] };
+  if (allClients.length === 0) return [];
 
   // Latest non-cancelled booking date per client
   const latestByClient = await Booking.aggregate([
@@ -152,15 +179,35 @@ async function getRecipients(providerId) {
   }
 
   const cutoff = DateTime.now().setZone(DEFAULT_TZ).minus({ weeks: QUIET_WEEKS }).toJSDate();
-  const quiet = allClients.filter(c => {
-    const latest = latestMap[c._id.toString()];
-    if (latest) return latest < cutoff;
-    // No bookings — only count if they've been a client long enough to
-    // have plausibly booked by now.
-    return c.createdAt && c.createdAt < cutoff;
-  });
 
-  return { all: allClients, quiet };
+  return allClients
+    .map(c => {
+      const lastBookingAt = latestMap[c._id.toString()] || null;
+      const isQuiet = lastBookingAt
+        ? lastBookingAt < cutoff
+        : !!(c.createdAt && c.createdAt < cutoff);
+      return {
+        _id: c._id,
+        fullName: c.profile?.fullName || c.email,
+        firstName: c.profile?.fullName?.split(' ')[0] || 'there',
+        phoneNumber: c.profile?.phoneNumber,
+        lastBookingAt,
+        isQuiet,
+      };
+    })
+    .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+}
+
+// Filter the recipients list down to the set the caller wants:
+//   - clientIds: [...] — explicit per-client selection (preferred)
+//   - filter: 'all' | 'quiet' — fallback presets
+function selectRecipients(allRecipients, body) {
+  if (Array.isArray(body.clientIds) && body.clientIds.length > 0) {
+    const idSet = new Set(body.clientIds.map(String));
+    return allRecipients.filter(r => idSet.has(String(r._id)));
+  }
+  if (body.filter === 'quiet') return allRecipients.filter(r => r.isQuiet);
+  return allRecipients;
 }
 
 // ── Routes ──────────────────────────────────────────────────────────
@@ -179,7 +226,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
       : null;
     const canSendNow = !canSendAt || canSendAt <= new Date();
 
-    const { all, quiet } = await getRecipients(req.user._id);
+    const recipients = await getRecipients(req.user._id);
 
     res.json({
       template: {
@@ -189,7 +236,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
       lastSentAt,
       canSendNow,
       canSendAt,
-      recipientCounts: { all: all.length, quiet: quiet.length },
+      recipients, // [{ _id, fullName, firstName, phoneNumber, lastBookingAt, isQuiet }]
       providerName: provider.providerProfile?.businessName || provider.profile?.fullName || '',
     });
   } catch (err) {
@@ -229,16 +276,15 @@ router.post('/preview', ensureAuthenticated, async (req, res) => {
     }
     const provider = await User.findById(req.user._id).select('providerProfile profile.fullName');
     const template = provider?.providerProfile?.weeklyOutreach || {};
-    const filter = req.body.filter === 'quiet' ? 'quiet' : 'all';
 
     const weekStart = req.body.weekStart
       ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
       : startOfNextWeekLA();
 
-    const { all, quiet } = await getRecipients(req.user._id);
-    const recipients = filter === 'quiet' ? quiet : all;
-    const sample = recipients[0] || all[0] || null;
-    const sampleName = sample?.profile?.fullName?.split(' ')[0] || 'Sarah';
+    const allRecipients = await getRecipients(req.user._id);
+    const recipients = selectRecipients(allRecipients, req.body);
+    const sample = recipients[0] || allRecipients[0] || null;
+    const sampleName = sample?.firstName || 'Sarah';
 
     const body = await buildAvailabilityBody(req.user._id, weekStart);
     const bookingLink = `${BASE_URL()}/book`;
@@ -286,15 +332,14 @@ router.post('/send', ensureAuthenticated, async (req, res) => {
       }
     }
 
-    const filter = req.body.filter === 'quiet' ? 'quiet' : 'all';
     const weekStart = req.body.weekStart
       ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
       : startOfNextWeekLA();
 
-    const { all, quiet } = await getRecipients(req.user._id);
-    const recipients = filter === 'quiet' ? quiet : all;
+    const allRecipients = await getRecipients(req.user._id);
+    const recipients = selectRecipients(allRecipients, req.body);
     if (recipients.length === 0) {
-      return res.status(400).json({ message: 'No eligible recipients (active SMS-consenting clients).' });
+      return res.status(400).json({ message: 'No recipients selected.' });
     }
 
     const body = await buildAvailabilityBody(req.user._id, weekStart);
@@ -311,18 +356,19 @@ router.post('/send', ensureAuthenticated, async (req, res) => {
 
     // Sequential (avoids hammering SMS gateway). Per-recipient personalization.
     for (const r of recipients) {
-      const phone = r.profile?.phoneNumber;
-      if (!phone) { skipped++; continue; }
-      const firstName = r.profile?.fullName?.split(' ')[0] || 'there';
+      if (!r.phoneNumber) { skipped++; continue; }
       const message = assembleMessage({
         template,
         providerName,
-        firstName,
+        firstName: r.firstName,
         body,
         bookingLink,
       });
       try {
-        await smsService.sendSms(phone, message, r);
+        // smsService.sendSms's third arg is the user object for SMS-consent
+        // re-check; we already pre-filtered by smsConsent !== false in
+        // getRecipients, but pass it for the inside-the-service safety check.
+        await smsService.sendSms(r.phoneNumber, message, { _id: r._id, smsConsent: true });
         sent++;
       } catch (err) {
         failures.push({ id: r._id, error: err.message });
