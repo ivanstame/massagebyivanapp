@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { bookingService } from '../services/bookingService';
@@ -445,16 +445,35 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // behalf bookings keep the target client's address — the provider
   // is the source of truth and may take an in-home as a one-off
   // exception even on a normally-in-studio day.
+  //
+  // The ref tracks whether the current location was set by THIS
+  // effect (vs typed by the user). When the user changes the date
+  // off a static day onto a mobile one, we have to clear the auto-
+  // filled studio address so the booking doesn't quietly keep going
+  // to the studio. Without the ref guard we'd also wipe a manually
+  // typed address every time the form mounted on a mobile day.
+  const studioAutoFilledRef = useRef(false);
   useEffect(() => {
-    if (!dayIsPurelyStatic || !studioForDay) return;
     if (isProviderBooking) return;
-    setLocation({
-      lat: studioForDay.lat,
-      lng: studioForDay.lng,
-      address: studioForDay.address,
-      fullAddress: `${studioForDay.name} — ${studioForDay.address}`,
-    });
-    setFullAddress(`${studioForDay.name} — ${studioForDay.address}`);
+    if (dayIsPurelyStatic && studioForDay) {
+      const studioFullAddress = `${studioForDay.name} — ${studioForDay.address}`;
+      setLocation({
+        lat: studioForDay.lat,
+        lng: studioForDay.lng,
+        address: studioForDay.address,
+        fullAddress: studioFullAddress,
+      });
+      setFullAddress(studioFullAddress);
+      studioAutoFilledRef.current = true;
+    } else if (studioAutoFilledRef.current) {
+      // Day flipped from purely-static to has-mobile (or no availability).
+      // Drop the auto-filled studio address so the booking doesn't quietly
+      // keep submitting to the studio. The address picker re-appears
+      // with empty state and the user (re-)picks where they want service.
+      setLocation(null);
+      setFullAddress('');
+      studioAutoFilledRef.current = false;
+    }
   }, [dayIsPurelyStatic, isProviderBooking, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name]);
 
   // If the chain expands past where the user's selected time can fit
