@@ -469,6 +469,12 @@ const ProviderAvailability = () => {
       ? { name: 'Home Base', address: homeBase.address }
       : null;
 
+  // Departure bar only makes sense when at least one block on the day is
+  // mobile. A static-only day has no departure point — the day's whole
+  // window is at the studio. (Backend PATCH /:id/anchor would 400 on
+  // any attempted edit there anyway.)
+  const hasMobileBlocks = availabilityBlocks.some(b => b.kind !== 'static');
+
 const formatTime = useCallback((time) => {
   if (!time) return "";
   let dt;
@@ -667,7 +673,7 @@ const formatTime = useCallback((time) => {
             </div>
 
             {/* Departure Location */}
-            {availabilityBlocks.length > 0 && (
+            {hasMobileBlocks && (
               <div className="mb-4">
                 <div className="flex items-center justify-between p-3 bg-paper-deep border border-line rounded-lg">
                   <div className="flex items-center gap-2 min-w-0">
@@ -763,7 +769,7 @@ const formatTime = useCallback((time) => {
           </div>
 
           {/* Mobile Departure Location */}
-          {availabilityBlocks.length > 0 && (
+          {hasMobileBlocks && (
             <div className="flex-shrink-0 px-4 py-2 bg-paper-elev border-b border-line">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">

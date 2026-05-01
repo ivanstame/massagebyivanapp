@@ -183,7 +183,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 must surface the same Modify/Delete actions; otherwise
                 taps land on the amber overlay and nothing happens. */}
             {availabilityBlocks
-              .filter(block => block.anchor && block.anchor.name && block.anchor.startTime)
+              .filter(block => block.kind !== 'static' && block.anchor && block.anchor.name && block.anchor.startTime)
               .map((block, index) => {
                 const anchorStart = timeToPixels(block.anchor.startTime);
                 const anchorEnd = timeToPixels(block.anchor.endTime);

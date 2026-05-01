@@ -66,8 +66,12 @@ async function generateFromTemplate(providerId, laDate) {
     staticLocation: template.kind === 'static' ? template.staticLocation : null
   };
 
-  // Propagate anchor info if the template has one
-  if (template.anchor && template.anchor.locationId) {
+  // Propagate anchor info if the template has one. Skip for static
+  // templates — the day's whole window is the in-studio commitment, so
+  // a leftover anchor would render as a "Fixed" overlay on top of the
+  // in-studio block. (Defensive in case any historical template still
+  // carries both kind=static AND anchor.locationId.)
+  if (template.kind !== 'static' && template.anchor && template.anchor.locationId) {
     const loc = await SavedLocation.findById(template.anchor.locationId);
     if (loc) {
       availData.anchor = {
@@ -165,8 +169,9 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
         staticLocation: template.kind === 'static' ? template.staticLocation : null
       };
 
-      // Propagate anchor info
-      if (template.anchor && template.anchor.locationId) {
+      // Propagate anchor info. Skip for static templates — see the
+      // matching guard in generateFromTemplate above for rationale.
+      if (template.kind !== 'static' && template.anchor && template.anchor.locationId) {
         const loc = locationById[template.anchor.locationId.toString()];
         if (loc) {
           doc.anchor = {
@@ -780,27 +785,32 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         : null
     });
 
-    // Set departure location (anchor) if provided
-    const anchorData = availabilityData.anchor;
-    if (anchorData?.locationId) {
-      const loc = await SavedLocation.findById(anchorData.locationId);
-      if (loc && loc.provider.equals(req.user._id)) {
+    // Set departure location (anchor) if provided. Static blocks never
+    // get an anchor — the day's whole window IS the in-studio commitment,
+    // so a stray departure location would render as a "Fixed" overlay on
+    // top of the in-studio block. Belt for the modal's suspenders.
+    if (incomingKind === 'mobile') {
+      const anchorData = availabilityData.anchor;
+      if (anchorData?.locationId) {
+        const loc = await SavedLocation.findById(anchorData.locationId);
+        if (loc && loc.provider.equals(req.user._id)) {
+          newAvailability.anchor = {
+            locationId: loc._id,
+            name: loc.name,
+            address: loc.address,
+            lat: loc.lat,
+            lng: loc.lng,
+          };
+        }
+      } else if (anchorData?.lat && anchorData?.lng) {
         newAvailability.anchor = {
-          locationId: loc._id,
-          name: loc.name,
-          address: loc.address,
-          lat: loc.lat,
-          lng: loc.lng,
+          locationId: null,
+          name: anchorData.name || 'Custom Location',
+          address: anchorData.address || '',
+          lat: anchorData.lat,
+          lng: anchorData.lng,
         };
       }
-    } else if (anchorData?.lat && anchorData?.lng) {
-      newAvailability.anchor = {
-        locationId: null,
-        name: anchorData.name || 'Custom Location',
-        address: anchorData.address || '',
-        lat: anchorData.lat,
-        lng: anchorData.lng,
-      };
     }
     
     console.log('POST /api/availability - New availability object:', JSON.stringify(newAvailability, null, 2));
@@ -962,6 +972,18 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // PUT only adjusts the time window. Switching kind or staticLocation
+    // mid-edit would have to go through the same anchor/static guards as
+    // template save and POST create, which this handler doesn't apply.
+    // Refuse those fields up front so a stale or malicious client can't
+    // mutate a block into an inconsistent state. Re-create a new block
+    // if the mode actually needs to change.
+    if (req.body.kind !== undefined || req.body.staticLocation !== undefined) {
+      return res.status(400).json({
+        message: 'Kind and location cannot be modified via PUT. Delete this block and create a new one with the new mode.'
+      });
+    }
+
     // Extract and validate the updated data
     const { start, end } = req.body;
     
@@ -1107,6 +1129,15 @@ router.patch('/:id/anchor', ensureAuthenticated, async (req, res) => {
 
     if (!availability.provider.equals(req.user._id)) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Anchor only applies to mobile days. A static window's location
+    // commitment IS the studio; storing a separate departure anchor would
+    // surface as a "Fixed" overlay on top of the in-studio block.
+    if (availability.kind === 'static') {
+      return res.status(400).json({
+        message: 'Cannot set a departure anchor on an in-studio (static) block. Anchor only applies to mobile availability.'
+      });
     }
 
     const { locationId, name, address, lat, lng } = req.body;

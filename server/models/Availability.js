@@ -126,4 +126,19 @@ AvailabilitySchema.virtual('formattedDate').get(function() {
 // Compound index for efficient provider-date queries
 AvailabilitySchema.index({ provider: 1, date: 1 });
 
+// Template-source rows must be unique per (provider, localDate). The
+// generateFromTemplate dedup is a non-atomic findOne+create — two
+// concurrent /blocks/:date requests can race past the check and both
+// insert. The DB-level unique constraint closes the race. Manual rows
+// are intentionally NOT covered: providers can have multiple non-
+// overlapping manual blocks on the same day.
+AvailabilitySchema.index(
+  { provider: 1, localDate: 1 },
+  {
+    name: 'provider_1_localDate_1_template_unique',
+    unique: true,
+    partialFilterExpression: { source: 'template' },
+  }
+);
+
 module.exports = mongoose.model('Availability', AvailabilitySchema);

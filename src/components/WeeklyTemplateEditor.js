@@ -157,11 +157,30 @@ const WeeklyTemplateEditor = () => {
   const handleKindChange = (dayIndex, newKind) => {
     setDays(prev => prev.map(d => {
       if (d.dayOfWeek !== dayIndex) return d;
+      // Clear cross-mode state both directions. A static day's whole window
+      // is the in-studio commitment, so a leftover anchor from when the day
+      // was mobile would otherwise materialize into Availability rows and
+      // get rendered as a "Fixed" overlay on top of the in-studio block.
+      if (newKind === 'static') {
+        return {
+          ...d,
+          kind: 'static',
+          anchor: { locationId: null, startTime: null, endTime: null },
+        };
+      }
       return {
         ...d,
-        kind: newKind,
-        // Clear cross-mode state to prevent stale data leaking through.
-        ...(newKind === 'static' ? {} : { staticLocation: null }),
+        kind: 'mobile',
+        staticLocation: null,
+        // Restoring a mobile day with no anchor — auto-pick home base if
+        // available so the user doesn't have to re-pick after toggling.
+        anchor: d.anchor?.locationId
+          ? d.anchor
+          : {
+              locationId: homeBaseLocation?._id || null,
+              startTime: d.startTime,
+              endTime: d.endTime,
+            },
       };
     }));
     setSaved(false);

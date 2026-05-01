@@ -63,17 +63,6 @@ router.put('/', ensureAuthenticated, async (req, res) => {
         isActive: day.isActive !== undefined ? day.isActive : false
       };
 
-      // Include anchor data if provided
-      if (day.anchor && day.anchor.locationId) {
-        update.anchor = {
-          locationId: day.anchor.locationId,
-          startTime: day.anchor.startTime || day.startTime || '09:00',
-          endTime: day.anchor.endTime || day.endTime || '17:00'
-        };
-      } else {
-        update.anchor = { locationId: null, startTime: null, endTime: null };
-      }
-
       // Static-mode wiring. When kind=static, the day's whole window is
       // a fixed-location commitment; staticLocation must reference a
       // valid StaticLocation owned by the provider (the booking flow
@@ -83,6 +72,23 @@ router.put('/', ensureAuthenticated, async (req, res) => {
       update.staticLocation = incomingKind === 'static' && day.staticLocation
         ? day.staticLocation
         : null;
+
+      // Anchor wiring. Refuse anchor on a static day — the day's whole
+      // window IS the location commitment, so a stray departure-location
+      // anchor would otherwise propagate into materialized Availability
+      // rows and render as a "Fixed" overlay on top of the in-studio
+      // block. This is the backend belt for the editor's suspenders.
+      if (incomingKind === 'static') {
+        update.anchor = { locationId: null, startTime: null, endTime: null };
+      } else if (day.anchor && day.anchor.locationId) {
+        update.anchor = {
+          locationId: day.anchor.locationId,
+          startTime: day.anchor.startTime || day.startTime || '09:00',
+          endTime: day.anchor.endTime || day.endTime || '17:00'
+        };
+      } else {
+        update.anchor = { locationId: null, startTime: null, endTime: null };
+      }
 
       return {
         updateOne: {
