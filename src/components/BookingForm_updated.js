@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { bookingService } from '../services/bookingService';
@@ -231,21 +231,26 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setFullAddress(addressData.fullAddress);
   };
 
-  // Load saved address. For client self-bookings this reads user.profile.address;
-  // for provider-on-behalf bookings this reads the target client's address so
-  // the booking defaults to where the *recipient* is, not the provider.
-  useEffect(() => {
+  // Load the recipient's saved address into form state. For client
+  // self-bookings this is user.profile.address; for provider-on-behalf
+  // bookings it's the target client's address (the booking defaults to
+  // where the recipient is, not the provider). Geocodes through the
+  // server's /api/geocode helper so we have lat/lng for slot validation.
+  //
+  // Extracted into a callable function (vs inline in the mount effect)
+  // so the studio-clear branch can fall back to the saved address
+  // instead of leaving location null. Returns true if it kicked off a
+  // load; false if there was no saved address to load.
+  const loadSavedAddress = useCallback(() => {
     const source = isProviderBooking ? targetClient : user;
     if (!source || source.accountType !== 'CLIENT' || !source.profile?.address) {
-      return;
+      return false;
     }
-
     const addr = source.profile.address;
     const combinedAddress = (addr.street && addr.city && addr.state && addr.zip)
       ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}`
       : addr.formatted || null;
-
-    if (!combinedAddress) return;
+    if (!combinedAddress) return false;
 
     setFullAddress(combinedAddress);
     (async () => {
@@ -262,7 +267,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
         console.error('Auto-geocode failed', err);
       }
     })();
+    return true;
   }, [user, targetClient, isProviderBooking]);
+
+  useEffect(() => {
+    loadSavedAddress();
+  }, [loadSavedAddress]);
 
   // Fetch the client's redeemable packages so the payment-method step can
   // offer "Use package credit" when one matches the selected duration.
@@ -467,14 +477,20 @@ const BookingForm = ({ googleMapsLoaded }) => {
       studioAutoFilledRef.current = true;
     } else if (studioAutoFilledRef.current) {
       // Day flipped from purely-static to has-mobile (or no availability).
-      // Drop the auto-filled studio address so the booking doesn't quietly
-      // keep submitting to the studio. The address picker re-appears
-      // with empty state and the user (re-)picks where they want service.
-      setLocation(null);
-      setFullAddress('');
+      // The studio address is no longer the right default. Restore the
+      // recipient's saved address if they have one (the most-likely
+      // intended location for a mobile booking), else drop to empty so
+      // the picker re-renders blank. The empty fallback matters when the
+      // recipient has no saved address — we don't want to silently keep
+      // submitting to the studio.
+      const restored = loadSavedAddress();
+      if (!restored) {
+        setLocation(null);
+        setFullAddress('');
+      }
       studioAutoFilledRef.current = false;
     }
-  }, [dayIsPurelyStatic, isProviderBooking, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name]);
+  }, [dayIsPurelyStatic, isProviderBooking, studioForDay?.lat, studioForDay?.lng, studioForDay?.address, studioForDay?.name, loadSavedAddress]);
 
   // If the chain expands past where the user's selected time can fit
   // (added an addon, added another session, or the slot list refreshed),
