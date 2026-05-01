@@ -5,8 +5,16 @@ const User = require('../models/User');
 const gcalService = require('./googleCalendarService');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 
-const BUFFER_WITH_LOCATION = 15; // Travel time logic handles the rest
-const BUFFER_WITHOUT_LOCATION = 30; // Generous buffer since we don't know where provider is
+// Buffer added to each side of a synced GCal event when materializing the
+// BlockedTime range. Zero for events whose location we successfully
+// geocoded — the per-booking travel-time engine in timeUtils.js already
+// computes drive-time boundaries from the event's actual location, so
+// any extra padding here would be double-counted (and would also surface
+// as visibly inflated blocks in the provider's day view). Generous 30
+// when there's no location, since travel-time math has nothing to anchor
+// on and we'd rather over-block than miss a conflict.
+const BUFFER_WITH_LOCATION = 0;
+const BUFFER_WITHOUT_LOCATION = 30;
 
 // Simple in-memory geocode cache to avoid redundant API calls during a sync run
 const geocodeCache = new Map();
