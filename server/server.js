@@ -164,24 +164,44 @@ app.options('*', cors());
 // Session middleware MUST come before passport
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Fail fast in production rather than fall back to a hardcoded secret.
+// A predictable secret means anyone can forge a session and impersonate
+// any user — there's no upside to letting the server limp along
+// without a real value set.
+if (isProduction && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required in production');
+}
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-only-insecure-secret';
+
+// Absolute session TTL in hours. Defaults to 8 — typical workday — so a
+// stolen cookie has a bounded blast radius. Override per env if a
+// provider's day genuinely runs longer than that.
+const SESSION_HOURS = Number(process.env.SESSION_MAX_AGE_HOURS) || 8;
+const SESSION_TTL_MS = SESSION_HOURS * 60 * 60 * 1000;
+
 // Create MongoStore instance first with explicit configuration
 const store = MongoStore.create({
   mongoUrl: process.env.MONGODB_URI,
   collectionName: 'sessions',
-  ttl: 24 * 60 * 60, // 24 hours in seconds
+  ttl: Math.floor(SESSION_TTL_MS / 1000), // seconds, matches cookie maxAge
   autoRemove: 'native' // Use MongoDB's TTL index for automatic removal
 });
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  rolling: false, // absolute TTL from login, not sliding — no silent extension on activity
   store: store,
   cookie: {
     secure: isProduction, // Use secure cookies in production only
     httpOnly: true,
-    sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site in production, 'lax' for development
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    // 'lax' is the right default — frontend and API are same-origin so
+    // there's no cross-site request that legitimately needs the cookie.
+    // 'none' would broaden the attack surface (any cross-site request
+    // including the cookie) for no benefit.
+    sameSite: 'lax',
+    maxAge: SESSION_TTL_MS,
   }
 }));
 

@@ -30,9 +30,6 @@ const Login = () => {
 
       if (response.data.user) {
         setUser(response.data.user);
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
-        }
 
         const registrationStep = response.data.user.registrationStep || 1;
 

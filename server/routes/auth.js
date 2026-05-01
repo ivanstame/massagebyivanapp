@@ -199,20 +199,31 @@ router.post('/login', (req, res, next) => {
       return res.status(401).json({ message: info.message || 'Invalid credentials' });
     }
 
-    req.login(user, (err) => {
-      if (err) {
-        console.error('Session creation error:', err);
+    // Regenerate the session ID before logging in. Defends against
+    // session fixation: an attacker who can pre-set a session ID on
+    // the victim's browser (e.g., via a same-site iframe) inherits
+    // the login otherwise. Regenerating gives the authenticated
+    // session a fresh, unguessed ID.
+    req.session.regenerate((regenErr) => {
+      if (regenErr) {
+        console.error('Session regenerate error:', regenErr);
         return res.status(500).json({ message: 'Error creating session' });
       }
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Session creation error:', err);
+          return res.status(500).json({ message: 'Error creating session' });
+        }
 
-      const userData = user.getPublicProfile();
-      if (user.accountType === 'CLIENT' && user.providerId) {
-        userData.providerId = user.providerId;
-      }
+        const userData = user.getPublicProfile();
+        if (user.accountType === 'CLIENT' && user.providerId) {
+          userData.providerId = user.providerId;
+        }
 
-      return res.json({
-        message: 'Login successful',
-        user: userData
+        return res.json({
+          message: 'Login successful',
+          user: userData
+        });
       });
     });
   })(req, res, next);
