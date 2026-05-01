@@ -49,6 +49,7 @@ import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import ProviderSelection from './components/ProviderSelection';
 import UpdateAvailableBanner from './components/UpdateAvailableBanner';
+import InstallPromptBanner from './components/InstallPromptBanner';
 import { useVersionCheck } from './utils/useVersionCheck';
 import { register as registerServiceWorker, applyUpdate as applyServiceWorkerUpdate } from './serviceWorkerRegistration';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
@@ -151,6 +152,7 @@ function App() {
     <div className="App min-h-screen" style={{ background: 'var(--bg)' }}>
       <Header />
       <UpdateAvailableBanner visible={updateAvailable || swUpdateAvailable} onReload={handleBannerReload} />
+      <InstallPromptBanner />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>
