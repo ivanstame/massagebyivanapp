@@ -253,6 +253,55 @@ router.get('/blocks/:date', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Constants for the month-viability filter. Mirror the values used by
+// the slot generator so a "viable" day here matches what /available
+// would actually offer.
+const MONTH_MIN_DURATION = 30;   // smallest bookable session per Booking schema
+const MONTH_SETTLE_BUFFER = 15;  // matches SETTLE_BUFFER in chainBookingService.js
+
+// Pure helper: subtract a sorted, merged list of [start,end] excluded
+// ranges from a single window. Returns the gap intervals (free time)
+// inside the window. Inputs and outputs are minute-of-day numbers.
+function subtractRanges(window, excluded) {
+  const free = [];
+  let cursor = window.start;
+  for (const ex of excluded) {
+    if (ex.end <= cursor) continue;          // entirely before cursor
+    if (ex.start >= window.end) break;       // entirely after window
+    if (ex.start > cursor) free.push({ start: cursor, end: Math.min(ex.start, window.end) });
+    cursor = Math.max(cursor, ex.end);
+    if (cursor >= window.end) break;
+  }
+  if (cursor < window.end) free.push({ start: cursor, end: window.end });
+  return free;
+}
+
+// Sort + merge overlapping/touching ranges into a clean list.
+function mergeRanges(ranges) {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges].sort((a, b) => a.start - b.start);
+  const out = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = out[out.length - 1];
+    const cur = sorted[i];
+    if (cur.start <= last.end) last.end = Math.max(last.end, cur.end);
+    else out.push(cur);
+  }
+  return out;
+}
+
+// Convert a UTC Date to "minutes since LA midnight" for that day.
+function jsDateToLAMin(d) {
+  const dt = DateTime.fromJSDate(d).setZone(DEFAULT_TZ);
+  return dt.hour * 60 + dt.minute;
+}
+
+// Convert "HH:mm" string to minutes-of-day.
+function hhmmToMin(s) {
+  const [h, m] = s.split(':').map(Number);
+  return h * 60 + m;
+}
+
 // Get availability block spans for a month
 router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
   try {
@@ -294,18 +343,84 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
       query.provider = req.query.providerId;
     }
 
-    // The month calendar only needs the date of each block to render
-    // dots — none of the heavy fields (availableSlots, anchor object,
-    // start/end UTC stamps, etc.) are read client-side. Lean the
-    // query and project to just the date fields. This is the single
-    // biggest wallclock win on this endpoint: payload drops by ~95%
-    // on busy months, and Mongoose skips full document hydration.
-    const availabilityBlocks = await Availability.find(query)
-      .select('date localDate')
-      .lean()
-      .sort({ date: 1 });
+    // Without a provider scope the response is meaningless (and the
+    // booking/block queries below would otherwise fan out to every
+    // provider's data). Bail with an empty list — matches the
+    // pre-filter behavior, which also returned nothing useful here.
+    if (!query.provider) {
+      return res.json([]);
+    }
 
-    res.json(availabilityBlocks);
+    // Fetch availability + bookings + blocks for the month in parallel.
+    // Need the full window times to compute viability — projecting to
+    // just `date localDate` like the old endpoint did would force a
+    // second round-trip per row.
+    const [availabilityRows, bookingRows, blockedRows] = await Promise.all([
+      Availability.find(query)
+        .select('date localDate start end')
+        .lean()
+        .sort({ date: 1 }),
+      Booking.find({
+        provider: query.provider,
+        date: query.date,
+        status: { $ne: 'cancelled' },
+      })
+        .select('localDate startTime endTime')
+        .lean(),
+      BlockedTime.find({
+        provider: query.provider,
+        date: query.date,
+        $or: [{ overridden: { $ne: true } }, { overridden: { $exists: false } }],
+      })
+        .select('localDate start end')
+        .lean(),
+    ]);
+
+    // Group bookings + blocks by localDate as minute-of-day excluded ranges.
+    const excludedByDate = new Map();
+    const pushExcluded = (localDate, range) => {
+      if (!excludedByDate.has(localDate)) excludedByDate.set(localDate, []);
+      excludedByDate.get(localDate).push(range);
+    };
+    for (const b of bookingRows) {
+      pushExcluded(b.localDate, { start: hhmmToMin(b.startTime), end: hhmmToMin(b.endTime) });
+    }
+    for (const b of blockedRows) {
+      pushExcluded(b.localDate, { start: jsDateToLAMin(b.start), end: jsDateToLAMin(b.end) });
+    }
+
+    // Per-day viability check: extend each excluded range by SETTLE_BUFFER
+    // on each side, clamp to the availability window, merge, then subtract
+    // from the window. A booking of MIN_DURATION fits iff any resulting
+    // free interval is at least MIN_DURATION long. That captures the
+    // user's case (Friday 12-5:30 chopped into back-to-back blocks with a
+    // single 30-min gap — the gap can't fit a booking once you account
+    // for the buffer the slot generator would require around it).
+    const viableByDate = new Map();
+    for (const a of availabilityRows) {
+      if (viableByDate.get(a.localDate)) continue;  // already proven viable
+      const winStart = jsDateToLAMin(a.start);
+      const winEnd = jsDateToLAMin(a.end);
+      const raw = excludedByDate.get(a.localDate) || [];
+      const buffered = raw
+        .map(r => ({
+          start: Math.max(winStart, r.start - MONTH_SETTLE_BUFFER),
+          end: Math.min(winEnd, r.end + MONTH_SETTLE_BUFFER),
+        }))
+        .filter(r => r.start < r.end);
+      const merged = mergeRanges(buffered);
+      const free = subtractRanges({ start: winStart, end: winEnd }, merged);
+      const viable = free.some(f => (f.end - f.start) >= MONTH_MIN_DURATION);
+      if (viable) viableByDate.set(a.localDate, true);
+    }
+
+    // Return one row per viable date in the same shape the frontend was
+    // already deduping on (`{ date, localDate }`).
+    const response = availabilityRows
+      .filter(a => viableByDate.get(a.localDate))
+      .map(a => ({ date: a.date, localDate: a.localDate }));
+
+    res.json(response);
   } catch (error) {
     console.error('Error fetching monthly availability:', error);
     res.status(500).json({ message: 'Server error' });
