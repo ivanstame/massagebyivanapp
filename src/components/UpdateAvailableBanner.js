@@ -1,11 +1,17 @@
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 
-const UpdateAvailableBanner = ({ visible }) => {
+const UpdateAvailableBanner = ({ visible, onReload }) => {
   if (!visible) return null;
 
   const reload = () => {
-    // bust any intermediate caches on the way out
+    // Prefer the SW-coordinated path (skipWaiting + controllerchange
+    // reload) when one is wired in by the parent. Falls back to a hard
+    // reload for the version-poll path or when no SW is registered.
+    if (typeof onReload === 'function') {
+      onReload();
+      return;
+    }
     window.location.reload();
   };
 

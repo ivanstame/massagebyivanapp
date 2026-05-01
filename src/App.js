@@ -50,6 +50,7 @@ import ResetPassword from './components/ResetPassword';
 import ProviderSelection from './components/ProviderSelection';
 import UpdateAvailableBanner from './components/UpdateAvailableBanner';
 import { useVersionCheck } from './utils/useVersionCheck';
+import { register as registerServiceWorker, applyUpdate as applyServiceWorkerUpdate } from './serviceWorkerRegistration';
 import ProviderAssignmentRequests from './components/ProviderAssignmentRequests';
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
@@ -109,6 +110,12 @@ function App() {
   const { user, loading } = useContext(AuthContext);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const { updateAvailable } = useVersionCheck();
+  // Service-worker update flow runs alongside the version-poll one. SW
+  // detects new builds via its own install lifecycle (more reliable
+  // than polling), but the poll is kept as a fallback for users on
+  // browsers without SW support or before the SW has registered.
+  const [swRegistration, setSwRegistration] = useState(null);
+  const swUpdateAvailable = swRegistration !== null;
 
   useEffect(() => {
     loadGoogleMapsScript()
@@ -117,6 +124,20 @@ function App() {
         console.error(`[GoogleMaps] ${new Date().toISOString()} | Error loading Google Maps:`, error);
       });
   }, []);
+
+  useEffect(() => {
+    registerServiceWorker({
+      onUpdate: (registration) => setSwRegistration(registration),
+    });
+  }, []);
+
+  const handleBannerReload = () => {
+    if (swRegistration) {
+      applyServiceWorkerUpdate(swRegistration);
+      return;
+    }
+    window.location.reload();
+  };
 
   if (loading) {
     return (
@@ -129,7 +150,7 @@ function App() {
   return (
     <div className="App min-h-screen" style={{ background: 'var(--bg)' }}>
       <Header />
-      <UpdateAvailableBanner visible={updateAvailable} />
+      <UpdateAvailableBanner visible={updateAvailable || swUpdateAvailable} onReload={handleBannerReload} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Routes>
