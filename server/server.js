@@ -249,14 +249,15 @@ app.get('/api/version', (req, res) => {
   }
 });
 
-// Serve static files from public directory in all environments
-app.use(express.static(path.join(__dirname, '../public')));
-
 if (process.env.NODE_ENV === 'production') {
   // Serve React build with split cache policy:
   //   - Hashed asset files (build/static/*) get immutable long-lived caching
   //     because CRA embeds a content hash in the filename.
   //   - index.html must never be cached or users keep loading stale builds.
+  // Must come BEFORE express.static('../public') so that GET / resolves to
+  // the processed build/index.html (with the bundled <script> injected by
+  // webpack), not the raw CRA template in public/index.html which has no
+  // script tag and renders as a blank screen.
   app.use(express.static(path.join(__dirname, '../build'), {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith(path.sep + 'index.html') || filePath.endsWith('/index.html')) {
@@ -266,8 +267,19 @@ if (process.env.NODE_ENV === 'production') {
       }
     }
   }));
+}
 
-  // Handle React routing, return all requests to React app
+// Fallback static handler — serves anything in public/ that the build/
+// handler above didn't claim. CRA copies all of public/ into build/ at
+// build time, so in production this is mostly redundant, but it keeps
+// dev (no build/ dir) working: GET / hits public/index.html and the CRA
+// dev server on port 3000 takes care of bundling.
+app.use(express.static(path.join(__dirname, '../public')));
+
+if (process.env.NODE_ENV === 'production') {
+  // Catch-all for client-side routes (e.g. /login, /provider/...). MUST
+  // come after both static handlers — otherwise it would intercept
+  // legitimate static asset requests and return index.html for them.
   app.get('*', (req, res) => {
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(__dirname, '../build', 'index.html'));

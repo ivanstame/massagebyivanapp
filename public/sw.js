@@ -10,7 +10,13 @@
 // Bumping CACHE_VERSION evicts every old cache on activate. Do this if
 // you change cached-resource semantics (rare — the precache strategy
 // is content-addressed via filename hashes already).
-const CACHE_VERSION = 'avayble-v1';
+//
+// v2: existing v1 installs cached `/` from a server bug that returned
+// the unbuilt CRA template (no script tag → blank screen on PWA
+// launch). Bumping the version forces those caches to evict on next
+// activate so the freshly-served build/index.html replaces the
+// broken cached copy.
+const CACHE_VERSION = 'avayble-v2';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
