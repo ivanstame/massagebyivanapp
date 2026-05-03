@@ -36,7 +36,21 @@ const User = require('../models/User');
 const { reservePackageCredit, returnReservedCredit } = require('./packageReservation');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 
+// Default settle buffer between bookings in MINUTES, used when calling
+// the slot generator below. The slot generator now zeroes this out
+// per-pair when adjacent bookings are at the same address (couples
+// massage, family back-to-back, etc. — see timeUtils.js
+// calculateBufferBetweenBookings + validateSlotsByBoundary). Within a
+// chain itself the buffer is always 0 because a chain by construction
+// is same-address — see the cursor cascade below.
 const SETTLE_BUFFER = 15;
+// Intra-chain buffer between consecutive sessions of the same chain.
+// Zero because chain sessions share one address (the chain creator
+// takes a single `location` for all sessions). The provider stays put
+// with the next person/session — no cleanup-and-drive interval to
+// absorb. If a provider wants a deliberate gap between sessions,
+// they can space them out manually instead of using the chain feature.
+const CHAIN_INTRA_BUFFER = 0;
 const DEFAULT_TZ = 'America/Los_Angeles';
 const MAX_CHAIN_LENGTH = 6;
 
@@ -139,11 +153,11 @@ async function createChainBookings(input) {
     const start = cursor;
     const end = start.plus({ minutes: dur });
     sessionPlan.push({ start, end, duration: dur, request: s });
-    cursor = end.plus({ minutes: SETTLE_BUFFER });
+    cursor = end.plus({ minutes: CHAIN_INTRA_BUFFER });
   }
 
   const totalDurationWithBuffers = sessionPlan.reduce((acc, s, i) =>
-    acc + s.duration + (i < sessionPlan.length - 1 ? SETTLE_BUFFER : 0), 0);
+    acc + s.duration + (i < sessionPlan.length - 1 ? CHAIN_INTRA_BUFFER : 0), 0);
 
   // ─── "Does this fit?" check ──────────────────────────────────────────
   const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');

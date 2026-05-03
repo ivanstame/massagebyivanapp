@@ -25,7 +25,13 @@ import AdditionalSessionRow from './BookingFormComponents/AdditionalSessionRow';
 // Standard inter-session settle buffer. Mirrors the server-side constant
 // in routes/bookings.js so the time cascade computed on the client matches
 // what the server schedules.
-const SETTLE_BUFFER_MIN = 15;
+// Buffer in MINUTES between sessions when the user is composing a
+// back-to-back chain in the booking form. Zero because chain sessions
+// share one address — provider stays put, no cleanup-and-drive
+// interval to absorb. Mirrors CHAIN_INTRA_BUFFER on the server in
+// chainBookingService.js so the preview times the form shows match
+// what actually gets created.
+const SETTLE_BUFFER_MIN = 0;
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();

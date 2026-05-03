@@ -26,6 +26,23 @@ const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, 
   const effectiveBuffer = typeof defaultBuffer === 'number' ? defaultBuffer : 15;
   if (!booking1 || !booking2) return effectiveBuffer;
 
+  // Same-address back-to-back: skip the settle buffer entirely. The
+  // 15-min default exists for the provider to wipe down / reset / drive
+  // — none of which apply when the next booking is at the same address
+  // (couples massage, family back-to-back, "extra hands" upgrades). The
+  // provider just continues working with the next person. Per the
+  // design rule in plans/packages-v2.md, don't impose a rule the
+  // parties didn't ask for. Different-address pairs still get the
+  // default; travel time is layered on top by the boundary engine.
+  if (isSameLocation(booking1.location, booking2.location)) {
+    // Departure-buffer carrier still wins if explicitly set on a chain
+    // group's last sibling — that's a deliberate provider override.
+    if (booking1.groupId && booking1.isLastInGroup && booking1.extraDepartureBuffer) {
+      return booking1.extraDepartureBuffer;
+    }
+    return 0;
+  }
+
   // Departure-buffer carrier: when the trailing booking flagged extra
   // departure time at the end of a group (e.g. provider needs N×buffer
   // to break down equipment after the last session), preserve that
@@ -302,16 +319,29 @@ async function validateSlotsByBoundary(
     const prev = i > 0 ? commitments[i - 1] : null;
     const next = i < commitments.length ? commitments[i] : null;
 
+    // Same-address back-to-back: provider is already at the client's
+    // location, so settle + arrival buffer both collapse to 0. Travel
+    // time will also be 0 (getCachedTravelTime short-circuits same-
+    // location), so the slot can land flush against the previous
+    // booking's end. This is the "couples massage booked in two
+    // transactions" case the user asked about.
+    const prevSameAddress = prev && isSameLocation(prev.location, clientLocation);
+    const nextSameAddress = next && isSameLocation(next.location, clientLocation);
+    const bufferFromPrev = prevSameAddress ? 0 : effectiveBuffer;
+    const arrivalFromPrev = prevSameAddress ? 0 : arrivalBuffer;
+    const bufferToNext = nextSameAddress ? 0 : effectiveBuffer;
+    const arrivalToNext = nextSameAddress ? 0 : arrivalBuffer;
+
     // --- Calculate earliest start (when can provider arrive at client?) ---
     let earliestMinute;
     if (prev) {
       // Travel occurs right after previous booking ends
-      const travelMinuteOfDay = prev.endMinute + effectiveBuffer;
+      const travelMinuteOfDay = prev.endMinute + bufferFromPrev;
       const travelFromPrev = await getCachedTravelTime(
         prev.location, clientLocation, travelMinuteOfDay, slotDate, providerId, routeCache
       );
-      earliestMinute = prev.endMinute + effectiveBuffer + travelFromPrev + arrivalBuffer;
-      console.log(`[Boundary] After booking ending ${prev.endMinute}: +${effectiveBuffer}buf +${travelFromPrev}travel +${arrivalBuffer}arrival = earliest ${earliestMinute}`);
+      earliestMinute = prev.endMinute + bufferFromPrev + travelFromPrev + arrivalFromPrev;
+      console.log(`[Boundary] After booking ending ${prev.endMinute}: +${bufferFromPrev}buf +${travelFromPrev}travel +${arrivalFromPrev}arrival = earliest ${earliestMinute}${prevSameAddress ? ' (same-address, no settle/arrival)' : ''}`);
     } else if (homeBase?.lat && homeBase?.lng) {
       // First gap: provider leaves home to arrive at client
       // Availability start = earliest they're willing to begin work
@@ -341,8 +371,8 @@ async function validateSlotsByBoundary(
       const travelToNext = await getCachedTravelTime(
         clientLocation, next.location, Math.max(0, estimatedDepartureMinute), slotDate, providerId, routeCache
       );
-      latestMinute = next.startMinute - arrivalBuffer - travelToNext - effectiveBuffer - duration;
-      console.log(`[Boundary] Before booking at ${next.startMinute}: -${arrivalBuffer}arrival -${travelToNext}travel -${effectiveBuffer}buf -${duration}dur = latest ${latestMinute}`);
+      latestMinute = next.startMinute - arrivalToNext - travelToNext - bufferToNext - duration;
+      console.log(`[Boundary] Before booking at ${next.startMinute}: -${arrivalToNext}arrival -${travelToNext}travel -${bufferToNext}buf -${duration}dur = latest ${latestMinute}${nextSameAddress ? ' (same-address, no settle/arrival)' : ''}`);
     } else {
       latestMinute = toMinutes(availEnd) - duration;
       console.log(`[Boundary] End of day: avail ends ${toMinutes(availEnd)}, latest start=${latestMinute}`);
