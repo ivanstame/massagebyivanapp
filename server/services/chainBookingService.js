@@ -240,28 +240,52 @@ async function createChainBookings(input) {
       const { start, end, duration: dur, request: r } = sessionPlan[i];
       const bookingObjectId = new mongoose.Types.ObjectId();
 
-      // Optional package redemption per session.
+      // Optional package redemption per session. Same partial-redemption
+      // shape as the single-booking path: when r.packageMinutesApplied
+      // is less than the session's duration, we reserve only that many
+      // minutes from the package and the session's paymentMethod (which
+      // must be a non-package method) covers the rest.
       let packageRedemption = null;
       let paymentMethodFinal = r.paymentMethod || 'cash';
       let paymentStatusFinal = 'unpaid';
       let paidAtFinal = null;
 
       if (r.packagePurchaseId) {
+        const sessionMinutesApplied = r.packageMinutesApplied != null
+          ? Number(r.packageMinutesApplied)
+          : dur;
+        const sessionPartial = sessionMinutesApplied < dur;
+        if (sessionPartial) {
+          if (!Number.isFinite(sessionMinutesApplied) || sessionMinutesApplied <= 0) {
+            throw new Error(`Session ${i + 1}: packageMinutesApplied must be a positive number ≤ duration`);
+          }
+          if (!r.paymentMethod || r.paymentMethod === 'package') {
+            throw new Error(`Session ${i + 1}: partial package redemption requires a non-package paymentMethod`);
+          }
+        }
         const reserved = await reservePackageCredit({
           packageId: r.packagePurchaseId,
           clientId: client,
           providerId: provider,
           duration: dur,
+          minutesToApply: sessionMinutesApplied,
           bookingId: bookingObjectId,
         });
         if (!reserved) {
           throw new Error(`Session ${i + 1}: package credit unavailable`);
         }
         reservedCredits.push({ packageId: r.packagePurchaseId, bookingId: bookingObjectId });
-        packageRedemption = { packagePurchase: reserved._id, redeemedAt: new Date() };
-        paymentMethodFinal = 'package';
-        paymentStatusFinal = 'paid';
-        paidAtFinal = new Date();
+        packageRedemption = {
+          packagePurchase: reserved._id,
+          minutesApplied: sessionMinutesApplied,
+          redeemedAt: new Date(),
+        };
+        if (!sessionPartial) {
+          paymentMethodFinal = 'package';
+          paymentStatusFinal = 'paid';
+          paidAtFinal = new Date();
+        }
+        // Partial: leave paymentMethod as the secondary, status unpaid.
       }
 
       const booking = new Booking({

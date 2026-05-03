@@ -320,12 +320,29 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // duration after picking a package, we clear the selection so they don't
   // accidentally submit a mismatch (the server would reject it anyway, but
   // front-end clarity matters).
+  //
+  // Minutes-mode packages with positive but insufficient balance are also
+  // included — those qualify for PARTIAL redemption (apply the remaining
+  // minutes from the package, pay the rest via cash/card/venmo/zelle).
+  // Sessions-mode keeps the strict "duration must match exactly" filter
+  // since one session credit is one fixed-duration unit.
   const matchingPackages = redeemablePackages.filter(p => {
     if (p.kind === 'minutes') {
-      return (p.minutesRemaining || 0) >= selectedDuration;
+      return (p.minutesRemaining || 0) > 0;
     }
     return p.sessionDuration === selectedDuration;
   });
+  const selectedPackage = selectedPackageId
+    ? matchingPackages.find(p => p._id === selectedPackageId)
+    : null;
+  const isPartialRedemption = !!(
+    selectedPackage &&
+    selectedPackage.kind === 'minutes' &&
+    (selectedPackage.minutesRemaining || 0) < selectedDuration
+  );
+  const packageMinutesApplied = selectedPackage
+    ? (isPartialRedemption ? selectedPackage.minutesRemaining : selectedDuration)
+    : 0;
   useEffect(() => {
     if (selectedPackageId) {
       const stillValid = matchingPackages.some(p => p._id === selectedPackageId);
@@ -337,6 +354,16 @@ const BookingForm = ({ googleMapsLoaded }) => {
       }
     }
   }, [selectedDuration, matchingPackages, selectedPackageId, selectedPaymentMethod, acceptedPaymentMethods]);
+
+  // When the selected package is PARTIAL, the user must pick a non-
+  // package method to cover the remainder. If they had previously
+  // selected 'package' (full), demote to a real method so the form
+  // doesn't sit in an invalid state.
+  useEffect(() => {
+    if (isPartialRedemption && selectedPaymentMethod === 'package') {
+      setSelectedPaymentMethod(acceptedPaymentMethods.find(m => m !== 'package') || 'cash');
+    }
+  }, [isPartialRedemption, selectedPaymentMethod, acceptedPaymentMethods]);
 
   // Fetch available time slots
   const fetchAvailableSlots = async () => {
@@ -616,12 +643,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
           totalPrice: basePrice + addonsPrice
         },
         paymentMethod: selectedPaymentMethod,
-        // When paying via a package credit, send the package id so the
-        // server can atomically reserve the credit. The server enforces
-        // ownership / paid-status / duration-match server-side; the client
-        // value is just an intent signal.
-        ...(selectedPaymentMethod === 'package' && selectedPackageId && {
+        // Send the package id whenever one is selected — both for full
+        // package payment (selectedPaymentMethod === 'package') AND for
+        // partial redemption (paymentMethod is the secondary cash/card,
+        // packageMinutesApplied tells the server how much to debit from
+        // the package). The server reserves the credit atomically and
+        // enforces all the ownership / paid-status / capacity rules.
+        ...(selectedPackageId && {
           packagePurchaseId: selectedPackageId,
+          packageMinutesApplied,
         }),
         ...(isOnBehalf
           ? {
@@ -954,6 +984,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
             redeemablePackages={matchingPackages}
             selectedPackageId={selectedPackageId}
             onPackageSelect={setSelectedPackageId}
+            bookingDuration={selectedDuration}
+            bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+              + selectedAddons.reduce((sum, n) => {
+                  const a = availableAddons.find(x => x.name === n);
+                  return sum + (a?.price || 0);
+                }, 0)}
           />
 
           {/* 7. Booking Summary. When the picked slot is in-studio, the
@@ -974,6 +1010,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
             durationOptions={durationOptions}
             availableAddons={availableAddons}
             selectedPaymentMethod={selectedPaymentMethod}
+            packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
+            packageName={selectedPackage?.name || null}
           />
 
           {/* 7. Available Time Slots */}

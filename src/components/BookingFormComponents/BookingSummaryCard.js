@@ -13,7 +13,13 @@ const BookingSummaryCard = ({
   recipientInfo,
   durationOptions = [],
   availableAddons = [],
-  selectedPaymentMethod = null
+  selectedPaymentMethod = null,
+  // Partial-package context — when set, the booking is paid partly by
+  // a package credit and partly by selectedPaymentMethod. Showing the
+  // breakdown explicitly here so the client doesn't get a surprise at
+  // the appointment ("wait, I owe $X?").
+  packageMinutesApplied = 0,
+  packageName = null,
 }) => {
   const paymentMethodLabels = {
     cash: 'Cash',
@@ -163,9 +169,22 @@ const BookingSummaryCard = ({
                 <Banknote className="w-5 h-5 text-teal-600 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-600">Payment Method</p>
-                  <p className="text-base text-slate-900">
-                    {paymentMethodLabels[selectedPaymentMethod] || selectedPaymentMethod}
-                  </p>
+                  {packageMinutesApplied > 0 && packageMinutesApplied < durationMinutes ? (
+                    <>
+                      <p className="text-base text-slate-900">
+                        {packageMinutesApplied} min from package
+                        {packageName ? ` (${packageName})` : ''}
+                      </p>
+                      <p className="text-sm text-slate-600 mt-0.5">
+                        + {durationMinutes - packageMinutesApplied} min via{' '}
+                        {paymentMethodLabels[selectedPaymentMethod] || selectedPaymentMethod}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-base text-slate-900">
+                      {paymentMethodLabels[selectedPaymentMethod] || selectedPaymentMethod}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

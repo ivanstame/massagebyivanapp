@@ -203,8 +203,36 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     // client sends `packagePurchaseId` when they pick "Use package credit"
     // in the booking form's payment step. We reserve the credit atomically
     // BEFORE saving the booking so concurrent uses can't double-redeem.
+    //
+    // `packageMinutesApplied` (optional, minutes-mode only) supports
+    // partial redemption: a client with 30 minutes left in their package
+    // booking a 60-min session can apply 30 from the package and pay the
+    // rest via cash/card/venmo/zelle. When omitted, the full duration is
+    // applied (the original behavior). When less than `duration`, the
+    // booking's `paymentMethod` must be a non-package method to cover
+    // the difference.
     const requestedPackageId = req.body.packagePurchaseId || null;
     const usingPackage = !!requestedPackageId;
+    const requestedMinutesApplied = usingPackage
+      ? (req.body.packageMinutesApplied != null
+          ? Number(req.body.packageMinutesApplied)
+          : duration)
+      : 0;
+    const isPartialRedemption = usingPackage && requestedMinutesApplied < duration;
+
+    if (isPartialRedemption) {
+      if (!Number.isFinite(requestedMinutesApplied) || requestedMinutesApplied <= 0) {
+        return res.status(400).json({
+          message: 'packageMinutesApplied must be a positive number less than or equal to the booking duration.',
+        });
+      }
+      const secondary = req.body.paymentMethod;
+      if (!secondary || secondary === 'package') {
+        return res.status(400).json({
+          message: 'Partial package redemption requires a non-package paymentMethod (cash/zelle/venmo/card) for the remaining balance.',
+        });
+      }
+    }
 
     // Pre-allocate the booking _id so we can reference it in the package's
     // redemptions array atomically before the booking itself is persisted.
@@ -217,11 +245,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         clientId,
         providerId,
         duration,
+        minutesToApply: requestedMinutesApplied,
         bookingId: bookingObjectId,
       });
       if (!reservedRedemption) {
         return res.status(400).json({
-          message: 'That package isn\'t available — it may be paid out, cancelled, or the wrong duration for this booking.',
+          message: 'That package isn\'t available — it may be paid out, cancelled, or has insufficient remaining minutes.',
         });
       }
     }
@@ -275,15 +304,21 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           email: req.body.recipientInfo.email || ''
         }
       }),
-      // Payment method — when paid via package, treat as 'paid' immediately
-      // (the package itself was paid for at purchase) and stash the
-      // back-reference so cancellations can return / consume the credit.
-      paymentMethod: usingPackage ? 'package' : (req.body.paymentMethod || 'cash'),
-      paymentStatus: usingPackage ? 'paid' : 'unpaid',
-      paidAt: usingPackage ? new Date() : null,
+      // Payment method — when fully paid via package, mark 'package' +
+      // 'paid' immediately (the package itself was paid for at purchase).
+      // For PARTIAL redemption, the package covers some minutes and the
+      // body's paymentMethod (cash/card/venmo/zelle) covers the rest, so
+      // the booking shows that secondary method and stays 'unpaid' until
+      // the remainder is collected at the appointment.
+      paymentMethod: (usingPackage && !isPartialRedemption)
+        ? 'package'
+        : (req.body.paymentMethod || 'cash'),
+      paymentStatus: (usingPackage && !isPartialRedemption) ? 'paid' : 'unpaid',
+      paidAt: (usingPackage && !isPartialRedemption) ? new Date() : null,
       ...(usingPackage && {
         packageRedemption: {
           packagePurchase: requestedPackageId,
+          minutesApplied: requestedMinutesApplied,
           redeemedAt: new Date(),
         },
       }),

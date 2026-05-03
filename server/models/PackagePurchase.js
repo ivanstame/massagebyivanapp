@@ -187,12 +187,21 @@ PackagePurchaseSchema.virtual('minutesRemaining').get(function() {
 });
 
 // Eligible for use in a new booking of `duration` minutes?
-PackagePurchaseSchema.methods.canRedeemFor = function(duration) {
+//
+// `opts.allowPartial` (minutes-mode only) qualifies the package when it
+// has any positive remaining balance — even if less than `duration` —
+// so the caller can offer a partial redemption (apply X min from the
+// package, pay the difference via cash/card/venmo). Defaults to false
+// to preserve the original "must cover the full booking" semantics for
+// callers that don't expect partial behavior yet.
+PackagePurchaseSchema.methods.canRedeemFor = function(duration, opts = {}) {
   if (this.paymentStatus !== 'paid' || this.cancelledAt) return false;
   if (this.kind === 'minutes') {
+    if (opts.allowPartial) return this.minutesRemaining > 0;
     return this.minutesRemaining >= duration;
   }
-  // sessions-mode: duration must match AND there's at least one credit.
+  // sessions-mode: one credit is one fixed-duration session — partial
+  // isn't a coherent operation. Always require an exact duration match.
   return this.sessionDuration === duration && this.sessionsRemaining > 0;
 };
 
@@ -208,8 +217,11 @@ PackagePurchaseSchema.methods.canRedeem = function() {
 // Find all packages a client can currently redeem against a booking of
 // `duration` minutes. For sessions-mode, duration must match exactly.
 // For minutes-mode, the package qualifies when it has ≥duration minutes
-// remaining. Caller passes duration = the booking length being planned.
-PackagePurchaseSchema.statics.redeemableForClient = function(clientId, { duration, provider } = {}) {
+// remaining — OR, when `opts.allowPartial` is true, any positive
+// balance counts (the caller can apply some minutes from the package
+// and collect the rest via cash/card/venmo). Caller passes
+// duration = the booking length being planned.
+PackagePurchaseSchema.statics.redeemableForClient = function(clientId, { duration, provider, allowPartial } = {}) {
   const baseQuery = {
     client: clientId,
     paymentStatus: 'paid',
@@ -226,7 +238,7 @@ PackagePurchaseSchema.statics.redeemableForClient = function(clientId, { duratio
   // check with virtuals, so we fetch the candidate set and filter in JS.
   // Cardinality per client is tiny (handful of packages), so this is fine.
   return this.find(baseQuery).then(rows =>
-    rows.filter(p => p.canRedeemFor(duration))
+    rows.filter(p => p.canRedeemFor(duration, { allowPartial }))
   );
 };
 

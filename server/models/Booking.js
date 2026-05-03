@@ -144,12 +144,20 @@ const BookingSchema = new mongoose.Schema({
   // credit is returned to the package on in-window cancellations (per
   // provider policy) and stays consumed on late cancellations. If null,
   // this booking was paid in cash/card/venmo/zelle, not a package.
+  //
+  // `minutesApplied` is the minutes-mode portion of the booking covered
+  // by the package. When equal to `duration` the booking is fully
+  // package-paid; when less, the difference is paid via the booking's
+  // primary `paymentMethod` field (cash/card/venmo/zelle). Sessions-mode
+  // redemptions always cover the full session, so minutesApplied equals
+  // duration there too.
   packageRedemption: {
     packagePurchase: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'PackagePurchase',
       default: null,
     },
+    minutesApplied: { type: Number, default: null },
     redeemedAt: { type: Date, default: null },
   },
   // Mileage tracking (distance from previous stop to this booking's location)

@@ -16,21 +16,36 @@
 
 const PackagePurchase = require('../models/PackagePurchase');
 
-// Reserve `duration` minutes' worth of capacity on packageId. For
-// sessions-mode this becomes a 1-credit reservation gated on
-// sessionDuration === duration. For minutes-mode it's a minutes
-// debit gated on remaining ≥ duration.
+// Reserve `minutesToApply` minutes from a minutes-mode package, or one
+// full session credit from a sessions-mode package, against a booking.
+//
+// `duration` is the booking length. `minutesToApply` (optional) is the
+// portion of that duration to cover from the package; defaults to
+// `duration` (full coverage). Pass a smaller value for partial
+// redemption — e.g., a client with 30 minutes left booking a 60-min
+// session covers 30 from the package and the rest via cash/card/venmo.
+//
+// Sessions-mode does not support partial redemption: a session credit
+// is one fixed-duration unit. If `minutesToApply` is supplied for a
+// sessions-mode package, it must equal `sessionDuration` or the call
+// rejects.
 //
 // Returns the updated PackagePurchase doc on success, null on failure
-// (package not redeemable, wrong owner, capacity exceeded, etc).
+// (package not redeemable, wrong owner, capacity exceeded, partial
+// requested on a sessions-mode package with a different duration, etc).
 //
 // On success the caller MUST either persist the booking that references
 // `bookingId`, OR call returnReservedCredit({ packageId, bookingId }) so
 // the credit isn't silently consumed.
-async function reservePackageCredit({ packageId, clientId, providerId, duration, bookingId }) {
+async function reservePackageCredit({ packageId, clientId, providerId, duration, bookingId, minutesToApply }) {
+  const apply = minutesToApply == null ? duration : Number(minutesToApply);
+  if (!Number.isFinite(apply) || apply <= 0 || apply > duration) {
+    return null;
+  }
+
   // We need to know `kind` before we can pick the right $expr. One read
   // is cheap and lets us write each branch as a clean conditional.
-  const purchase = await PackagePurchase.findById(packageId).select('kind').lean();
+  const purchase = await PackagePurchase.findById(packageId).select('kind sessionDuration').lean();
   if (!purchase) return null;
 
   if (purchase.kind === 'minutes') {
@@ -65,7 +80,7 @@ async function reservePackageCredit({ packageId, clientId, providerId, duration,
                 },
               ],
             },
-            duration,
+            apply,
           ],
         },
       },
@@ -73,7 +88,7 @@ async function reservePackageCredit({ packageId, clientId, providerId, duration,
         $push: {
           redemptions: {
             booking: bookingId,
-            minutesConsumed: duration,
+            minutesConsumed: apply,
             redeemedAt: new Date(),
           },
         },
@@ -82,7 +97,12 @@ async function reservePackageCredit({ packageId, clientId, providerId, duration,
     );
   }
 
-  // sessions-mode (default).
+  // sessions-mode: one credit = one fixed-duration session. Partial isn't
+  // a coherent operation here — you can't redeem half a session credit.
+  // Reject if the caller is asking for less than the full session.
+  if (apply !== purchase.sessionDuration) {
+    return null;
+  }
   return PackagePurchase.findOneAndUpdate(
     {
       _id: packageId,
