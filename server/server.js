@@ -121,13 +121,11 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5000',
-  'http://192.168.1.26:3000', // Explicit entry for the IP
-  'http://192.168.1.26:50 00', // Explicit entry for the IP
   /^http:\/\/192\.168\.\d+\.\d+:(3000|5000)$/,
   'https://massagebyivan.com',
   'https://api.massagebyivan.com',
-  'https://massagebyivan-9420304df681.herokuapp.com',
-  /\.herokuapp\.com$/,
+  'https://avayble.app',
+  'https://www.avayble.app',
 ];
 
 app.use(cors({
@@ -135,9 +133,11 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if the origin is in the allowed list
-    if (allowedOrigins.includes(origin) ||
-        (typeof allowedOrigins[0] === 'object' && allowedOrigins[0].test(origin))) {
+    // Check if the origin is in the allowed list (string match or any regex match)
+    const allowed = allowedOrigins.some(entry =>
+      entry instanceof RegExp ? entry.test(origin) : entry === origin
+    );
+    if (allowed) {
       return callback(null, true);
     }
     
