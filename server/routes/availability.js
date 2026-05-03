@@ -1087,19 +1087,16 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // PUT only adjusts the time window. Switching kind or staticLocation
-    // mid-edit would have to go through the same anchor/static guards as
-    // template save and POST create, which this handler doesn't apply.
-    // Refuse those fields up front so a stale or malicious client can't
-    // mutate a block into an inconsistent state. Re-create a new block
-    // if the mode actually needs to change.
-    if (req.body.kind !== undefined || req.body.staticLocation !== undefined) {
-      return res.status(400).json({
-        message: 'Kind and location cannot be modified via PUT. Delete this block and create a new one with the new mode.'
-      });
-    }
-
-    // Extract and validate the updated data
+    // PUT only adjusts the time window. Anything else in the body —
+    // kind, staticLocation, anchor, source, etc. — is ignored on
+    // purpose: switching the mode of a live block requires the same
+    // anchor/static cleanup that template save and POST create apply,
+    // and we don't want to half-do that here. Mode changes should
+    // delete + recreate. (The modal's current "spread the whole block,
+    // override start/end" pattern is fine because of this — extra
+    // fields land in req.body but never get written back.)
+    //
+    // Extract and validate the updated data.
     const { start, end } = req.body;
     
     if (!start || !end) {
