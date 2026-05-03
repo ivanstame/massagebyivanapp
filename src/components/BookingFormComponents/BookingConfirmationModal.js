@@ -36,8 +36,17 @@ const BookingConfirmationModal = ({
     providerLogoUrl,
     providerPhone,
     clientName,
-    packageName
+    packageName,
+    packageMinutesApplied = 0,
   } = bookingDetails || {};
+
+  const PAYMENT_METHOD_LABELS = {
+    cash: 'Cash',
+    zelle: 'Zelle',
+    venmo: 'Venmo',
+    card: 'Card',
+    package: 'Package credit',
+  };
   const formatDate = (date) => {
     return DateTime.fromJSDate(date)
       .setZone(DEFAULT_TZ)
@@ -108,7 +117,37 @@ const BookingConfirmationModal = ({
               <div className="mt-3 pt-2 border-t border-blue-200">
                 <span className="font-medium">Total Price:</span> ${totalPrice}
               </div>
-              
+
+              {/* Payment — shows the partial split when a package
+                  covered part of the booking, single payment method
+                  otherwise. The split is the most surprise-prone part
+                  of the partial flow ("wait, I owe how much?"), so
+                  surfacing it here at confirmation time matters. */}
+              {paymentMethod && (
+                <div className="mt-3 pt-2 border-t border-blue-200">
+                  {packageMinutesApplied > 0 && packageMinutesApplied < selectedDuration ? (
+                    <>
+                      <div>
+                        <span className="font-medium">Payment:</span>
+                        {' '}{packageMinutesApplied} min from package
+                        {packageName ? ` (${packageName})` : ''}
+                      </div>
+                      <div className="text-xs text-blue-700 mt-0.5">
+                        + {selectedDuration - packageMinutesApplied} min via{' '}
+                        {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}
+                        {' '}— ${(totalPrice * (selectedDuration - packageMinutesApplied) / selectedDuration).toFixed(2)}
+                        {' '}due at appointment
+                      </div>
+                    </>
+                  ) : (
+                    <span>
+                      <span className="font-medium">Payment:</span>{' '}
+                      {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Recipient Information */}
               <div className="mt-3 pt-2 border-t border-blue-200">
                 <span className="font-medium">Recipient:</span> {recipientType === 'self' ? 'You' : recipientInfo?.name}

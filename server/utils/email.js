@@ -142,8 +142,24 @@ function bookingDetailsHtml(booking, providerName, clientName) {
     rows.push(['Total', `$${booking.pricing.totalPrice}`]);
   }
   if (booking.paymentMethod) {
-    const methods = { cash: 'Cash', zelle: 'Zelle', venmo: 'Venmo', card: 'Card' };
-    rows.push(['Payment', methods[booking.paymentMethod] || booking.paymentMethod]);
+    const methods = { cash: 'Cash', zelle: 'Zelle', venmo: 'Venmo', card: 'Card', package: 'Package credit' };
+    const minutesApplied = booking.packageRedemption?.minutesApplied || 0;
+    const isPartial =
+      minutesApplied > 0 &&
+      minutesApplied < (booking.duration || 0) &&
+      booking.paymentMethod !== 'package';
+    if (isPartial) {
+      const uncovered = booking.duration - minutesApplied;
+      const owedNote = booking.pricing?.totalPrice
+        ? ` ($${(booking.pricing.totalPrice * uncovered / booking.duration).toFixed(2)} due)`
+        : '';
+      rows.push([
+        'Payment',
+        `${minutesApplied} min from package + ${uncovered} min via ${methods[booking.paymentMethod] || booking.paymentMethod}${owedNote}`,
+      ]);
+    } else {
+      rows.push(['Payment', methods[booking.paymentMethod] || booking.paymentMethod]);
+    }
   }
   if (booking.addons?.length > 0) {
     rows.push(['Add-ons', booking.addons.map((a) => a.name).join(', ')]);

@@ -1225,7 +1225,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
               providerLogoUrl: provider?.providerProfile?.logoUrl || null,
               providerPhone: provider?.profile?.phoneNumber || null,
               clientName: user?.profile?.fullName || '',
-              packageName
+              packageName,
+              packageMinutesApplied: isPartialRedemption ? packageMinutesApplied : 0,
             };
           })()}
           onViewBookings={() => navigate('/my-bookings')}
