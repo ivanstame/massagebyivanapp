@@ -2,6 +2,7 @@ import React from 'react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../../utils/timeConstants';
 import { buildVenmoPayUrl } from '../../utils/venmo';
+import { buildStandingRequestSmsLink } from '../../utils/standingAppointmentRequest';
 
 const BookingConfirmationModal = ({
   isVisible,
@@ -194,22 +195,19 @@ const BookingConfirmationModal = ({
     );
   };
 
-  // Build a "make this recurring" SMS link. Tiny version of standing-
-  // appointment requests: provider handles it via a normal text thread,
-  // we just pre-fill enough context to skip the back-and-forth.
-  const standingSmsLink = (() => {
-    if (!providerPhone || !selectedDate || !selectedTime) return null;
-    const dt = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
-    const dayOfWeek = dt.toFormat('cccc');
-    const timeStr = selectedTime.display || selectedTime.local || dt.toFormat('h:mm a');
-    const minutes = (selectedDuration || 60) + (pricing.extraTime || 0);
-    const greetingName = providerName ? providerName.split(' ')[0] : 'there';
-    const fromLine = clientName ? ` This is ${clientName}.` : '';
-    const body =
-      `Hi ${greetingName} —${fromLine} I'd like to set up a standing appointment ` +
-      `for every ${dayOfWeek} at ${timeStr} (${minutes} min). Does that work?`;
-    return `sms:${providerPhone}?&body=${encodeURIComponent(body)}`;
-  })();
+  // "Make this recurring" SMS link — pre-fills a text to the provider
+  // so the conversation happens out-of-band per the design rule.
+  // Helper lives in src/utils/standingAppointmentRequest.js so the
+  // same prompt fires identically from /my-bookings and from the
+  // appointment detail screen.
+  const standingSmsLink = buildStandingRequestSmsLink({
+    providerPhone,
+    providerName,
+    clientName,
+    date: selectedDate,
+    time: selectedTime?.display || selectedTime?.local,
+    duration: (selectedDuration || 60) + (pricing.extraTime || 0),
+  });
 
   if (!isVisible) return null;
 

@@ -2,9 +2,10 @@ import React, { useEffect, useState, useContext } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Phone, MessageSquare, AlertCircle, ArrowRight } from 'lucide-react';
+import { Calendar, Phone, MessageSquare, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from '../utils/timeConstants';
+import { buildStandingRequestSmsLink } from '../utils/standingAppointmentRequest';
 
 const TABS = [
   { id: 'upcoming', label: 'Upcoming' },
@@ -252,6 +253,30 @@ const BookingList = () => {
           <h1 className="font-display" style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Appointments
           </h1>
+
+          {/* Page-level "ask about standing appointment" prompt — generic
+              version (no specific date/time). Opens an SMS to the
+              provider asking about a regular schedule; the conversation
+              happens out-of-band per the design rule, the provider sets
+              up the standing appointment in Avayble when they're ready.
+              Hidden when the provider has no phone on file. */}
+          {user.accountType === 'CLIENT' && (() => {
+            const link = buildStandingRequestSmsLink({
+              providerPhone: provider?.profile?.phoneNumber,
+              providerName: provider?.providerProfile?.businessName || provider?.profile?.fullName,
+              clientName: user?.profile?.fullName,
+            });
+            if (!link) return null;
+            return (
+              <a
+                href={link}
+                className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36]"
+              >
+                <CalendarClock className="w-4 h-4" />
+                Ask about a standing appointment →
+              </a>
+            );
+          })()}
         </div>
 
         {/* Tabs */}

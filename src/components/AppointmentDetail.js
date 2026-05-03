@@ -12,6 +12,7 @@ import StaticMapPreview from './StaticMapPreview';
 import NavigateButton from './NavigateButton';
 import RescheduleModal from './RescheduleModal';
 import { buildVenmoPayUrl } from '../utils/venmo';
+import { buildStandingRequestSmsLink } from '../utils/standingAppointmentRequest';
 
 const AppointmentDetail = () => {
   const { id } = useParams();
@@ -434,6 +435,45 @@ const AppointmentDetail = () => {
             })()}
           </div>
         </div>
+
+        {/* "Make this recurring?" prompt — client only, on a live
+            non-series booking. Opens an SMS to the provider with a
+            pre-filled proposal based on this booking's day/time/
+            duration. The conversation happens in the SMS thread; the
+            provider sets up the standing appointment in Avayble when
+            they're ready. Hidden when the provider has no phone or
+            this booking is already part of a series. */}
+        {!isProvider && booking.status !== 'cancelled' && !booking.series && (() => {
+          const link = buildStandingRequestSmsLink({
+            providerPhone: booking.provider?.profile?.phoneNumber,
+            providerName: booking.provider?.providerProfile?.businessName
+              || booking.provider?.profile?.fullName,
+            clientName: booking.client?.profile?.fullName || user?.profile?.fullName,
+            date: booking.localDate,
+            time: booking.startTime,
+            duration: booking.duration,
+          });
+          if (!link) return null;
+          const providerFirst = (booking.provider?.providerProfile?.businessName
+            || booking.provider?.profile?.fullName || 'your provider').split(' ')[0];
+          return (
+            <div className="mt-6 p-4 bg-paper-deep border border-line-soft rounded-lg">
+              <p className="text-sm font-medium text-slate-700 mb-1">
+                Want this on a regular schedule?
+              </p>
+              <p className="text-xs text-slate-500 mb-3">
+                Send {providerFirst} a quick text — they'll set it up on their end.
+              </p>
+              <a
+                href={link}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#B07A4E] hover:text-[#8A5D36]"
+              >
+                <CalendarClock className="w-4 h-4" />
+                Ask about a standing appointment →
+              </a>
+            </div>
+          );
+        })()}
 
         {/* Status Actions — Provider only */}
         {isProvider && booking.status !== 'cancelled' && booking.status !== 'completed' && (
