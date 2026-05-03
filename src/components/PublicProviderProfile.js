@@ -78,6 +78,15 @@ const PublicProviderProfile = () => {
           <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-paper-elev/10" />
         </div>
         <div className="relative">
+          {profile.logoUrl && (
+            <div className="mb-4 inline-flex items-center justify-center bg-white/95 rounded-xl px-4 py-3 shadow-md">
+              <img
+                src={profile.logoUrl}
+                alt={`${profile.businessName || 'Provider'} logo`}
+                className="h-16 w-auto max-w-[220px] object-contain"
+              />
+            </div>
+          )}
           <h1 className="text-3xl sm:text-4xl font-bold mb-2">
             {profile.businessName || 'Massage Services'}
           </h1>

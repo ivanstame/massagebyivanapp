@@ -51,7 +51,7 @@ router.get('/profile/:code', async (req, res) => {
     const provider = await User.findOne({
       joinCode: code,
       accountType: 'PROVIDER'
-    }).select('joinCode profile.fullName providerProfile.businessName providerProfile.basePricing providerProfile.addons providerProfile.acceptedPaymentMethods');
+    }).select('joinCode profile.fullName providerProfile.businessName providerProfile.logoUrl providerProfile.basePricing providerProfile.addons providerProfile.acceptedPaymentMethods');
 
     if (!provider) {
       return res.status(404).json({ message: 'Provider not found' });
@@ -70,6 +70,7 @@ router.get('/profile/:code', async (req, res) => {
     res.json({
       joinCode: provider.joinCode,
       businessName: provider.providerProfile?.businessName || '',
+      logoUrl: provider.providerProfile?.logoUrl || null,
       providerName: provider.profile?.fullName || '',
       basePricing: (provider.providerProfile?.basePricing || []).map(p => ({
         duration: p.duration,

@@ -807,6 +807,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
     <div className="av-paper pt-16">
       <div className="max-w-3xl mx-auto px-5 py-10 space-y-6">
         <div className="text-center mb-8 relative">
+          {provider?.providerProfile?.logoUrl && (
+            <img
+              src={provider.providerProfile.logoUrl}
+              alt={`${provider.providerProfile.businessName || 'Provider'} logo`}
+              className="h-10 w-auto max-w-[180px] object-contain mb-3"
+            />
+          )}
           <div className="av-meta mb-2">The booking</div>
           <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Choose a{' '}
@@ -1177,6 +1184,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
               paymentMethod: selectedPaymentMethod,
               venmoHandle,
               providerName: provider?.providerProfile?.businessName || null,
+              providerLogoUrl: provider?.providerProfile?.logoUrl || null,
               providerPhone: provider?.profile?.phoneNumber || null,
               clientName: user?.profile?.fullName || '',
               packageName

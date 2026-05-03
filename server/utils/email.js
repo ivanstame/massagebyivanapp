@@ -13,10 +13,20 @@ const getResendClient = () => {
 const FROM_EMAIL = () => process.env.EMAIL_FROM || 'onboarding@resend.dev';
 const BASE_URL = () => process.env.REACT_APP_API_URL || process.env.APP_URL || 'http://localhost:3000';
 
-// Platform-level fallback brand for emails with no provider context
-// (password reset, account-level mail). Booking-related mail is
-// branded with the provider's own name + optional logo.
-const PLATFORM_BRAND = { name: 'Avayble', logoUrl: null };
+// Platform-level brand for emails with no provider context (password
+// reset, account-level mail). Booking-related mail is branded with the
+// provider's own name + optional logo via brandFromProvider().
+//
+// Wordmark URL is computed lazily so a dev environment without
+// REACT_APP_API_URL/APP_URL set still gets a usable image — though if
+// the eventual recipient's mail client can't reach localhost the image
+// will broken-image-icon. Production should always have BASE_URL
+// resolving to https://avayble.app.
+const PLATFORM_NAME = 'Avayble';
+const platformBrand = () => ({
+  name: PLATFORM_NAME,
+  logoUrl: `${BASE_URL()}/avayble-wordmark.png`,
+});
 
 // Default accent color for brand chrome. Per-provider color theming
 // is a v2 thing — for now every provider uses the same atelier copper.
@@ -27,7 +37,7 @@ const BRAND_COLOR = '#B07A4E';
 // ---------------------------------------------------------------------------
 
 function brandFromProvider(provider) {
-  if (!provider) return PLATFORM_BRAND;
+  if (!provider) return platformBrand();
   const name =
     provider.providerProfile?.businessName ||
     provider.profile?.fullName ||
@@ -42,7 +52,7 @@ function brandFromProvider(provider) {
 // ---------------------------------------------------------------------------
 
 function emailWrapper(brand, title, bodyHtml) {
-  const safeBrandName = String(brand?.name || PLATFORM_BRAND.name);
+  const safeBrandName = String(brand?.name || PLATFORM_NAME);
   // Logo as <img> when set, styled-text fallback otherwise. The img
   // dimensions cap protect us from oversized files showing as huge in
   // mail clients that don't honor max-width CSS.
@@ -180,7 +190,7 @@ async function sendEmail({ to, subject, html, attachments, brand }) {
     return;
   }
 
-  const fromName = String(brand?.name || PLATFORM_BRAND.name);
+  const fromName = String(brand?.name || PLATFORM_NAME);
 
   try {
     const payload = {
@@ -212,7 +222,7 @@ const sendPasswordResetEmail = async (toEmail, resetToken) => {
   }
 
   const resetUrl = `${BASE_URL()}/reset-password/${resetToken}`;
-  const brand = PLATFORM_BRAND;
+  const brand = platformBrand();
 
   const { error } = await resend.emails.send({
     from: `${brand.name} <${FROM_EMAIL()}>`,
