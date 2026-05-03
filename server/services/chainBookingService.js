@@ -112,6 +112,12 @@ async function createChainBookings(input) {
     sessions,
     status = 'pending',
     series = null,
+    // forceBuffer: when true, opt back into the 15-min settle buffer
+    // between sibling sessions (and against any other same-address
+    // bookings on the day). Default false because chain implies same
+    // address with no transition needed; provider opts in for couples
+    // that need a sheet change between sessions.
+    forceBuffer = false,
   } = input;
 
   // ─── Input shape validation ──────────────────────────────────────────
@@ -145,6 +151,7 @@ async function createChainBookings(input) {
   const bookingDateLA = DateTime.fromISO(date, { zone: DEFAULT_TZ }).startOf('day');
   if (!bookingDateLA.isValid) throw new ChainValidationError('Invalid date');
 
+  const intraBuffer = forceBuffer ? SETTLE_BUFFER : CHAIN_INTRA_BUFFER;
   const sessionPlan = [];
   let cursor = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
   for (let i = 0; i < sessions.length; i++) {
@@ -153,11 +160,11 @@ async function createChainBookings(input) {
     const start = cursor;
     const end = start.plus({ minutes: dur });
     sessionPlan.push({ start, end, duration: dur, request: s });
-    cursor = end.plus({ minutes: CHAIN_INTRA_BUFFER });
+    cursor = end.plus({ minutes: intraBuffer });
   }
 
   const totalDurationWithBuffers = sessionPlan.reduce((acc, s, i) =>
-    acc + s.duration + (i < sessionPlan.length - 1 ? CHAIN_INTRA_BUFFER : 0), 0);
+    acc + s.duration + (i < sessionPlan.length - 1 ? intraBuffer : 0), 0);
 
   // ─── "Does this fit?" check ──────────────────────────────────────────
   const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
@@ -196,7 +203,8 @@ async function createChainBookings(input) {
       SETTLE_BUFFER,
       null, 0,
       provider, [],
-      homeBase, blockedTimes
+      homeBase, blockedTimes,
+      { forceBuffer }
     );
     chainSlots = chainSlots.concat(slots);
   }

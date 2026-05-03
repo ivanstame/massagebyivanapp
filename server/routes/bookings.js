@@ -490,9 +490,24 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 // returned. The caller sees one clean error.
 router.post('/bulk', ensureAuthenticated, async (req, res) => {
   try {
-    const bookingRequests = req.body;
-    if (!Array.isArray(bookingRequests) || bookingRequests.length === 0) {
-      return res.status(400).json({ message: 'Expected an array of booking requests' });
+    // Body shape (back-compat): either a bare array of session payloads,
+    // or an object `{ sessions: [...], forceBuffer?: bool }`. The wrapper
+    // shape is the new form — callers that need to pass chain-level
+    // options (currently just forceBuffer for the same-address turnover
+    // toggle) use it. Bare arrays still work for any caller that hasn't
+    // migrated.
+    let bookingRequests;
+    let chainForceBuffer = false;
+    if (Array.isArray(req.body)) {
+      bookingRequests = req.body;
+    } else if (req.body && Array.isArray(req.body.sessions)) {
+      bookingRequests = req.body.sessions;
+      chainForceBuffer = req.body.forceBuffer === true;
+    } else {
+      return res.status(400).json({ message: 'Expected sessions array (bare or in { sessions, forceBuffer })' });
+    }
+    if (bookingRequests.length === 0) {
+      return res.status(400).json({ message: 'Expected at least one session' });
     }
     if (bookingRequests.length === 1) {
       // Forwarding a single-session bulk call to POST /bookings would lose
@@ -545,10 +560,16 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
         pricing: r.pricing,
         paymentMethod: r.paymentMethod,
         packagePurchaseId: r.packagePurchaseId,
+        packageMinutesApplied: r.packageMinutesApplied,
         recipientType: r.recipientType,
         recipientInfo: r.recipientInfo,
       })),
       status: 'pending',
+      // Per-booking opt-in to the same-address settle buffer. Default
+      // false (chain is flush). The booking form's "add turnover"
+      // toggle sends this true when the couple needs a sheet change
+      // between sessions.
+      forceBuffer: chainForceBuffer,
     });
 
     res.status(201).json(created);

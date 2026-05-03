@@ -25,13 +25,15 @@ import AdditionalSessionRow from './BookingFormComponents/AdditionalSessionRow';
 // Standard inter-session settle buffer. Mirrors the server-side constant
 // in routes/bookings.js so the time cascade computed on the client matches
 // what the server schedules.
-// Buffer in MINUTES between sessions when the user is composing a
-// back-to-back chain in the booking form. Zero because chain sessions
+// Default buffer in MINUTES between sessions when the user is composing
+// a back-to-back chain in the booking form. Zero because chain sessions
 // share one address — provider stays put, no cleanup-and-drive
 // interval to absorb. Mirrors CHAIN_INTRA_BUFFER on the server in
 // chainBookingService.js so the preview times the form shows match
-// what actually gets created.
-const SETTLE_BUFFER_MIN = 0;
+// what actually gets created. The component overrides this to 15 when
+// the user enables the per-booking "add turnover" toggle (see
+// `intraBufferMin` derived inside the component below).
+const DEFAULT_INTRA_BUFFER_MIN = 0;
 
 const BookingForm = ({ googleMapsLoaded }) => {
   const navigate = useNavigate();
@@ -86,6 +88,16 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // cascades automatically (so no per-row time picker). When this is
   // empty (default), the form behaves as a normal single booking.
   const [additionalSessions, setAdditionalSessions] = useState([]);
+
+  // Per-booking opt-in to the 15-min settle buffer between this booking
+  // and any other same-address booking on the day (and between sibling
+  // sessions in a chain). Default OFF — the slot picker treats same-
+  // address back-to-back as flush. The toggle exists for couples that
+  // need a sheet change between sessions, "extra hands" with a kit
+  // swap, etc. Re-fetches slots on change so the picker reflects the
+  // chosen behavior.
+  const [forceTurnoverBuffer, setForceTurnoverBuffer] = useState(false);
+  const intraBufferMin = forceTurnoverBuffer ? 15 : intraBufferMin;
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -400,7 +412,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
     const totalDuration = firstSessionDuration
       + additionalDurations.reduce((acc, d) => acc + d, 0)
-      + additionalSessions.length * SETTLE_BUFFER_MIN;
+      + additionalSessions.length * intraBufferMin;
 
     try {
       const response = await api.get(`/api/availability/available/${formattedDate}`, {
@@ -408,7 +420,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
           providerId,
           duration: totalDuration,
           lat: location?.lat,
-          lng: location?.lng
+          lng: location?.lng,
+          // Forward the per-booking turnover toggle so the slot picker
+          // re-applies the 15-min same-address buffer when the provider
+          // wants it (sheet-change couples, etc.).
+          forceBuffer: forceTurnoverBuffer ? 'true' : undefined,
         }
       });
       // Slot endpoint now returns objects: { time, kind, location?, ... }.
@@ -453,7 +469,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     if (fullAddress && selectedDuration && selectedDate && (provider || user?.accountType === 'PROVIDER')) {
       fetchAvailableSlots();
     }
-  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions]);
+  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions, forceTurnoverBuffer]);
 
   // Fetch the day's availability shape so we know if it's purely
   // in-studio (no client address required) or has any mobile windows
@@ -742,7 +758,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
         // The /bulk endpoint computes times for sessions 2+. Drop the
         // unused `time` from those entries; the first session keeps its
         // explicit time (which is what the cascade pivots from).
-        const apiResp = await bookingService.createBulkBookings(sessionsPayload);
+        const apiResp = await bookingService.createBulkBookings(sessionsPayload, {
+          forceBuffer: forceTurnoverBuffer,
+        });
         if (!Array.isArray(apiResp) || apiResp.length === 0) {
           throw new Error('Invalid bulk booking response');
         }
@@ -1020,6 +1038,36 @@ const BookingForm = ({ googleMapsLoaded }) => {
             packageName={selectedPackage?.name || null}
           />
 
+          {/* Per-booking turnover opt-in. Default OFF — same-address
+              back-to-back bookings (couples, "extra hands", etc.) are
+              flush by default since the provider doesn't change context.
+              Toggle ON when this specific situation calls for the 15-min
+              cleanup window (couples that don't share sheets,
+              kit/equipment swap mid-day, etc.). Re-fetches slots when
+              toggled so the picker reflects the chosen behavior. */}
+          <div className="bg-paper-elev rounded-lg shadow-sm p-4 border border-line">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={forceTurnoverBuffer}
+                onChange={(e) => setForceTurnoverBuffer(e.target.checked)}
+                className="mt-1 w-4 h-4 accent-[#B07A4E]"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800">
+                  Add 15-minute turnover
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Inserts a 15-min gap between this booking and any other
+                  booking at the same address that day. Useful for couples
+                  that need a sheet change between sessions, or any case
+                  where the provider needs reset time even though the
+                  location doesn't change.
+                </p>
+              </div>
+            </label>
+          </div>
+
           {/* 7. Available Time Slots */}
           <AvailableTimeSlots
             availableSlots={availableSlots}
@@ -1061,14 +1109,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
                       const a = availableAddons.find(x => x.name === name);
                       return sum + (a?.extraTime || 0);
                     }, 0);
-                    let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + SETTLE_BUFFER_MIN });
+                    let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + intraBufferMin });
                     for (let j = 0; j < i; j++) {
                       const earlier = additionalSessions[j];
                       const earlierExtra = (earlier.addons || []).reduce((sum, name) => {
                         const a = availableAddons.find(x => x.name === name);
                         return sum + (a?.extraTime || 0);
                       }, 0);
-                      cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + SETTLE_BUFFER_MIN });
+                      cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + intraBufferMin });
                     }
                     const thisExtra = (session.addons || []).reduce((sum, name) => {
                       const a = availableAddons.find(x => x.name === name);

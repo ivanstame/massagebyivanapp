@@ -22,7 +22,7 @@ const { calculateTravelTime } = require('../services/mapService');
  * address pairs, which conflated travel and settle. Keep settle buffer
  * always; trust the boundary engine to zero out travel where appropriate.
  */
-const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, allBookings = []) => {
+const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, allBookings = [], opts = {}) => {
   const effectiveBuffer = typeof defaultBuffer === 'number' ? defaultBuffer : 15;
   if (!booking1 || !booking2) return effectiveBuffer;
 
@@ -30,11 +30,16 @@ const calculateBufferBetweenBookings = (booking1, booking2, defaultBuffer = 15, 
   // 15-min default exists for the provider to wipe down / reset / drive
   // — none of which apply when the next booking is at the same address
   // (couples massage, family back-to-back, "extra hands" upgrades). The
-  // provider just continues working with the next person. Per the
-  // design rule in plans/packages-v2.md, don't impose a rule the
-  // parties didn't ask for. Different-address pairs still get the
-  // default; travel time is layered on top by the boundary engine.
-  if (isSameLocation(booking1.location, booking2.location)) {
+  // provider just continues working with the next person.
+  //
+  // Caller can opt out via `opts.forceBuffer` per booking when the
+  // situation actually calls for cleanup time even at the same address
+  // (couple that doesn't share sheets, etc.). That bypasses the
+  // shortcut and uses the default buffer like a different-address pair.
+  //
+  // Different-address pairs always get the default buffer; travel time
+  // is layered on top by the boundary engine.
+  if (!opts.forceBuffer && isSameLocation(booking1.location, booking2.location)) {
     // Departure-buffer carrier still wins if explicitly set on a chain
     // group's last sibling — that's a deliberate provider override.
     if (booking1.groupId && booking1.isLastInGroup && booking1.extraDepartureBuffer) {
@@ -111,7 +116,7 @@ function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDurat
 /**
  * Remove slots that overlap with existing bookings (including buffer)
  */
-function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes = 15, requestedGroupId = null, clientLocation = null) {
+function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes = 15, requestedGroupId = null, clientLocation = null, opts = {}) {
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
   const appointmentDurationMs = (Array.isArray(appointmentDuration)
     ? Math.max(...appointmentDuration)
@@ -133,7 +138,7 @@ function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes
 
       const buffer = calculateBufferBetweenBookings(
         { groupId: requestedGroupId, location: clientLocation },
-        booking, effectiveBufferMinutes, bookings
+        booking, effectiveBufferMinutes, bookings, opts
       );
       const bufferMs = buffer * 60 * 1000;
       const occupiedStart = bookingStart.minus({ milliseconds: bufferMs });
@@ -275,7 +280,8 @@ async function validateSlotsByBoundary(
   bufferMinutes,
   availEndTime, // Date object — end of availability block
   providerId,
-  homeBase     // { lat, lng } or null
+  homeBase,    // { lat, lng } or null
+  opts = {}    // { forceBuffer?: bool } — bypass the same-address shortcut
 ) {
   const effectiveBuffer = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
   const duration = Array.isArray(appointmentDuration) ? Math.max(...appointmentDuration) : appointmentDuration;
@@ -325,8 +331,12 @@ async function validateSlotsByBoundary(
     // location), so the slot can land flush against the previous
     // booking's end. This is the "couples massage booked in two
     // transactions" case the user asked about.
-    const prevSameAddress = prev && isSameLocation(prev.location, clientLocation);
-    const nextSameAddress = next && isSameLocation(next.location, clientLocation);
+    //
+    // `opts.forceBuffer` opts back into the buffer for this specific
+    // booking (couple that needs a sheet change, etc.), bypassing the
+    // shortcut even when addresses match.
+    const prevSameAddress = !opts.forceBuffer && prev && isSameLocation(prev.location, clientLocation);
+    const nextSameAddress = !opts.forceBuffer && next && isSameLocation(next.location, clientLocation);
     const bufferFromPrev = prevSameAddress ? 0 : effectiveBuffer;
     const arrivalFromPrev = prevSameAddress ? 0 : arrivalBuffer;
     const bufferToNext = nextSameAddress ? 0 : effectiveBuffer;
@@ -412,7 +422,9 @@ async function getAvailableTimeSlots(
   providerId = null,
   addons = [],
   homeBase = null, // { lat, lng } — provider's home/anchor location
-  blockedTimes = [] // BlockedTime documents for this date
+  blockedTimes = [], // BlockedTime documents for this date
+  opts = {}        // { forceBuffer?: bool } — opt back into settle buffer
+                   // for same-address back-to-backs (sheet changes, etc.)
 ) {
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
 
@@ -468,7 +480,7 @@ async function getAvailableTimeSlots(
   // Step 2: Remove slots occupied by existing bookings
   const slotsAfterOccupied = removeOccupiedSlots(
     slots, bookings, appointmentDuration,
-    slotBuffer, requestedGroupId, clientLocation
+    slotBuffer, requestedGroupId, clientLocation, opts
   );
   console.log(`[Slots] ${slotsAfterOccupied.length} slots after removing occupied`);
 
@@ -532,7 +544,8 @@ async function getAvailableTimeSlots(
     effectiveBufferMinutes,
     endTime,
     providerId,
-    effectiveHome
+    effectiveHome,
+    opts
   );
 
   return validSlots;

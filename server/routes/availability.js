@@ -651,7 +651,12 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         providerId,
         [],   // addons
         homeBase,
-        [...blockedTimes, ...extraBoundaries]
+        [...blockedTimes, ...extraBoundaries],
+        // forceBuffer: when truthy, the slot picker re-enables the
+        // 15-min settle buffer for same-address back-to-back bookings
+        // (the booking form's "add turnover" toggle for couples that
+        // need a sheet change).
+        { forceBuffer: req.query.forceBuffer === 'true' }
       );
 
       const isStatic = availability.kind === 'static' && availability.staticLocation;
