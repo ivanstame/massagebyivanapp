@@ -613,6 +613,27 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
       settings.venmoHandle = raw.length ? raw : null;
     }
 
+    // Validate logoUrl. Must be null (clearing the logo) or an HTTPS
+    // Cloudinary URL — that's the only host the upload UI uses, and
+    // restricting it here prevents a stale or hostile client from
+    // wedging in a `javascript:` URL or a third-party image that could
+    // leak browsing data via referer when the email loads.
+    if (settings.logoUrl !== undefined) {
+      const v = settings.logoUrl;
+      if (v === null || v === '') {
+        settings.logoUrl = null;
+      } else if (typeof v !== 'string') {
+        return res.status(400).json({ message: 'logoUrl must be a string or null' });
+      } else {
+        let parsed;
+        try { parsed = new URL(v); } catch { parsed = null; }
+        if (!parsed || parsed.protocol !== 'https:' ||
+            !/(^|\.)cloudinary\.com$/i.test(parsed.hostname)) {
+          return res.status(400).json({ message: 'logoUrl must be an HTTPS Cloudinary URL' });
+        }
+      }
+    }
+
     // Update provider profile settings (businessName, scheduling, etc)
     user.providerProfile = {
       ...user.providerProfile,

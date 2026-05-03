@@ -377,18 +377,20 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       try {
         const provider = await User.findById(savedBooking.provider);
         const client = await User.findById(savedBooking.client);
-        const providerName = provider.profile?.fullName || provider.providerProfile?.businessName || provider.email;
         const clientName = savedBooking.recipientType === 'other'
           ? savedBooking.recipientInfo?.name || 'Guest'
           : (client.profile?.fullName || client.email);
 
-        // Email to client with calendar invite
+        // Email to client with calendar invite. Pass the full provider doc
+        // so the template can pull businessName + logoUrl for white-label
+        // branding rather than rendering Avayble's chrome over a stranger's
+        // appointment.
         if (client.email) {
-          sendBookingConfirmationEmail(client.email, savedBooking, providerName, clientName);
+          sendBookingConfirmationEmail(client.email, savedBooking, provider, clientName);
         }
         // Email to provider
         if (provider.email) {
-          sendBookingNotificationToProvider(provider.email, savedBooking, providerName, clientName);
+          sendBookingNotificationToProvider(provider.email, savedBooking, provider, clientName);
         }
       } catch (emailError) {
         console.error('❌ Error sending email notifications:', emailError);
@@ -1050,15 +1052,14 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     try {
       const provider = await User.findById(booking.provider);
       const client = await User.findById(booking.client);
-      const providerName = provider.profile?.fullName || provider.email;
       const clientName = booking.recipientType === 'other'
         ? booking.recipientInfo?.name || 'Guest'
         : (client.profile?.fullName || client.email);
 
       if (req.user.accountType === 'CLIENT' && provider.email) {
-        sendBookingCancellationEmail(provider.email, booking, providerName, clientName, 'CLIENT');
+        sendBookingCancellationEmail(provider.email, booking, provider, clientName, 'CLIENT');
       } else if (client.email) {
-        sendBookingCancellationEmail(client.email, booking, providerName, clientName, 'PROVIDER');
+        sendBookingCancellationEmail(client.email, booking, provider, clientName, 'PROVIDER');
       }
     } catch (emailError) {
       console.error('❌ Error sending cancellation email:', emailError);
@@ -1345,7 +1346,7 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
       // Send updated confirmation email with new calendar invite if the
       // client has an email on file.
       if (client.email) {
-        sendBookingConfirmationEmail(client.email, booking, providerName, clientName);
+        sendBookingConfirmationEmail(client.email, booking, provider, clientName);
       }
     } catch (notifyError) {
       console.error('Error sending reschedule notifications:', notifyError);
@@ -1403,13 +1404,12 @@ router.patch('/:id/status', ensureAuthenticated, async (req, res) => {
       try {
         const provider = await User.findById(booking.provider);
         const client = await User.findById(booking.client);
-        const providerName = provider.profile?.fullName || provider.providerProfile?.businessName || provider.email;
         const clientName = booking.recipientType === 'other'
           ? booking.recipientInfo?.name || 'Guest'
           : (client.profile?.fullName || client.email);
 
         if (client.email) {
-          sendBookingCompletedEmail(client.email, booking, providerName, clientName);
+          sendBookingCompletedEmail(client.email, booking, provider, clientName);
         }
       } catch (emailError) {
         console.error('❌ Error sending completion email:', emailError);

@@ -58,6 +58,12 @@ const UserSchema = new mongoose.Schema({
   },
   providerProfile: {
     businessName: String,
+    // Provider's brand logo, displayed in white-label email headers and the
+    // public provider profile. Stored as the secure_url returned from a
+    // Cloudinary unsigned upload — host validation enforced at the route
+    // layer (server/routes/users.js) so a stale or hostile client can't
+    // store a `javascript:` URL or point at an arbitrary image host.
+    logoUrl: { type: String, default: null },
     // Provider's trade — drives placeholder copy and starter packages on the Services page.
     // Kept loose (default 'other') so the flow works for providers who haven't picked one.
     trade: {

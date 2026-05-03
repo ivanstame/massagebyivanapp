@@ -12,17 +12,48 @@ const getResendClient = () => {
 
 const FROM_EMAIL = () => process.env.EMAIL_FROM || 'onboarding@resend.dev';
 const BASE_URL = () => process.env.REACT_APP_API_URL || process.env.APP_URL || 'http://localhost:3000';
-const BRAND_COLOR = '#387c7e';
+
+// Platform-level fallback brand for emails with no provider context
+// (password reset, account-level mail). Booking-related mail is
+// branded with the provider's own name + optional logo.
+const PLATFORM_BRAND = { name: 'Avayble', logoUrl: null };
+
+// Default accent color for brand chrome. Per-provider color theming
+// is a v2 thing — for now every provider uses the same atelier copper.
+const BRAND_COLOR = '#B07A4E';
+
+// ---------------------------------------------------------------------------
+// Helper: derive a brand object from a provider User doc
+// ---------------------------------------------------------------------------
+
+function brandFromProvider(provider) {
+  if (!provider) return PLATFORM_BRAND;
+  const name =
+    provider.providerProfile?.businessName ||
+    provider.profile?.fullName ||
+    provider.email ||
+    'Avayble';
+  const logoUrl = provider.providerProfile?.logoUrl || null;
+  return { name, logoUrl };
+}
 
 // ---------------------------------------------------------------------------
 // Shared email wrapper
 // ---------------------------------------------------------------------------
 
-function emailWrapper(title, bodyHtml) {
+function emailWrapper(brand, title, bodyHtml) {
+  const safeBrandName = String(brand?.name || PLATFORM_BRAND.name);
+  // Logo as <img> when set, styled-text fallback otherwise. The img
+  // dimensions cap protect us from oversized files showing as huge in
+  // mail clients that don't honor max-width CSS.
+  const headerInner = brand?.logoUrl
+    ? `<img src="${brand.logoUrl}" alt="${safeBrandName}" style="max-height: 60px; max-width: 240px; display: inline-block;" />`
+    : `<h1 style="color: white; margin: 0; font-family: Georgia, 'Times New Roman', serif;">${safeBrandName}</h1>`;
+
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background-color: ${BRAND_COLOR}; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">Massage by Ivan</h1>
+        ${headerInner}
       </div>
       <div style="padding: 30px; background-color: #f9fafb;">
         <h2 style="color: #333;">${title}</h2>
@@ -30,7 +61,7 @@ function emailWrapper(title, bodyHtml) {
       </div>
       <div style="padding: 15px; text-align: center; background-color: #f3f4f6;">
         <p style="color: #aaa; font-size: 12px; margin: 0;">
-          Massage by Ivan &mdash; <a href="${BASE_URL()}" style="color: ${BRAND_COLOR};">massagebyivan.com</a>
+          ${safeBrandName} &mdash; powered by <a href="${BASE_URL()}" style="color: ${BRAND_COLOR};">Avayble</a>
         </p>
       </div>
     </div>
@@ -49,11 +80,11 @@ function generateICS({ summary, description, location, startUTC, endUTC, uid }) 
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//MassageByIvan//EN',
+    'PRODID:-//Avayble//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:REQUEST',
     'BEGIN:VEVENT',
-    `UID:${uid}@massagebyivan.com`,
+    `UID:${uid}@avayble.app`,
     `DTSTAMP:${now}`,
     `DTSTART:${fmt(startUTC)}`,
     `DTEND:${fmt(endUTC)}`,
@@ -142,16 +173,18 @@ function bookingToUTCDates(booking) {
 // Send helper (wraps Resend with error handling)
 // ---------------------------------------------------------------------------
 
-async function sendEmail({ to, subject, html, attachments }) {
+async function sendEmail({ to, subject, html, attachments, brand }) {
   const resend = getResendClient();
   if (!resend) {
     console.warn('Email not sent (Resend not configured):', subject);
     return;
   }
 
+  const fromName = String(brand?.name || PLATFORM_BRAND.name);
+
   try {
     const payload = {
-      from: `Massage by Ivan <${FROM_EMAIL()}>`,
+      from: `${fromName} <${FROM_EMAIL()}>`,
       to,
       subject,
       html,
@@ -168,7 +201,7 @@ async function sendEmail({ to, subject, html, attachments }) {
 }
 
 // ---------------------------------------------------------------------------
-// Password Reset (existing)
+// Password Reset (account-level — uses platform Avayble branding)
 // ---------------------------------------------------------------------------
 
 const sendPasswordResetEmail = async (toEmail, resetToken) => {
@@ -179,12 +212,13 @@ const sendPasswordResetEmail = async (toEmail, resetToken) => {
   }
 
   const resetUrl = `${BASE_URL()}/reset-password/${resetToken}`;
+  const brand = PLATFORM_BRAND;
 
   const { error } = await resend.emails.send({
-    from: `Massage by Ivan <${FROM_EMAIL()}>`,
+    from: `${brand.name} <${FROM_EMAIL()}>`,
     to: toEmail,
     subject: 'Password Reset Request',
-    html: emailWrapper('Password Reset', `
+    html: emailWrapper(brand, 'Password Reset', `
       <p style="color: #555; line-height: 1.6;">
         You requested a password reset. Click the button below to set a new password.
         This link will expire in <strong>1 hour</strong>.
@@ -215,7 +249,9 @@ const sendPasswordResetEmail = async (toEmail, resetToken) => {
 // Booking Confirmation (sent to client on creation)
 // ---------------------------------------------------------------------------
 
-async function sendBookingConfirmationEmail(toEmail, booking, providerName, clientName) {
+async function sendBookingConfirmationEmail(toEmail, booking, provider, clientName) {
+  const brand = brandFromProvider(provider);
+  const providerName = brand.name;
   const { startUTC, endUTC } = bookingToUTCDates(booking);
 
   const icsContent = generateICS({
@@ -231,10 +267,11 @@ async function sendBookingConfirmationEmail(toEmail, booking, providerName, clie
 
   await sendEmail({
     to: toEmail,
+    brand,
     subject: `Booking Confirmed — ${DateTime.fromFormat(booking.localDate, 'yyyy-MM-dd').toFormat('EEE, MMM d')} at ${DateTime.fromFormat(booking.startTime, 'HH:mm').toFormat('h:mm a')}`,
-    html: emailWrapper('Booking Confirmed', `
+    html: emailWrapper(brand, 'Booking Confirmed', `
       <p style="color: #555; line-height: 1.6;">
-        Your massage appointment has been booked!
+        Your appointment with <strong>${providerName}</strong> has been booked!
       </p>
       ${bookingDetailsHtml(booking, providerName, clientName)}
       <div style="text-align: center; margin: 30px 0;">
@@ -260,13 +297,16 @@ async function sendBookingConfirmationEmail(toEmail, booking, providerName, clie
 // Booking Notification to Provider (sent when client books)
 // ---------------------------------------------------------------------------
 
-async function sendBookingNotificationToProvider(toEmail, booking, providerName, clientName) {
+async function sendBookingNotificationToProvider(toEmail, booking, provider, clientName) {
+  const brand = brandFromProvider(provider);
+  const providerName = brand.name;
   const appointmentsUrl = `${BASE_URL()}/provider/appointments`;
 
   await sendEmail({
     to: toEmail,
+    brand,
     subject: `New Booking — ${clientName} on ${DateTime.fromFormat(booking.localDate, 'yyyy-MM-dd').toFormat('EEE, MMM d')}`,
-    html: emailWrapper('New Booking', `
+    html: emailWrapper(brand, 'New Booking', `
       <p style="color: #555; line-height: 1.6;">
         You have a new appointment booked.
       </p>
@@ -284,15 +324,18 @@ async function sendBookingNotificationToProvider(toEmail, booking, providerName,
 // Booking Cancellation (sent to the OTHER party)
 // ---------------------------------------------------------------------------
 
-async function sendBookingCancellationEmail(toEmail, booking, providerName, clientName, cancelledBy) {
+async function sendBookingCancellationEmail(toEmail, booking, provider, clientName, cancelledBy) {
+  const brand = brandFromProvider(provider);
+  const providerName = brand.name;
   const cancelledByLabel = cancelledBy === 'CLIENT' ? clientName : providerName;
   const displayDate = DateTime.fromFormat(booking.localDate, 'yyyy-MM-dd').toFormat('EEEE, MMMM d, yyyy');
   const fmtTime = (t) => DateTime.fromFormat(t, 'HH:mm').toFormat('h:mm a');
 
   await sendEmail({
     to: toEmail,
+    brand,
     subject: `Booking Cancelled — ${DateTime.fromFormat(booking.localDate, 'yyyy-MM-dd').toFormat('EEE, MMM d')}`,
-    html: emailWrapper('Booking Cancelled', `
+    html: emailWrapper(brand, 'Booking Cancelled', `
       <p style="color: #555; line-height: 1.6;">
         The following appointment has been cancelled by <strong>${cancelledByLabel}</strong>.
       </p>
@@ -307,7 +350,7 @@ async function sendBookingCancellationEmail(toEmail, booking, providerName, clie
         </tr>
       </table>
       <p style="color: #888; font-size: 14px;">
-        If you'd like to rebook, please visit <a href="${BASE_URL()}" style="color: ${BRAND_COLOR};">massagebyivan.com</a>.
+        If you'd like to rebook with ${providerName}, please visit <a href="${BASE_URL()}" style="color: ${BRAND_COLOR};">your bookings page</a>.
       </p>
     `),
   });
@@ -317,17 +360,21 @@ async function sendBookingCancellationEmail(toEmail, booking, providerName, clie
 // Booking Completed (receipt sent to client)
 // ---------------------------------------------------------------------------
 
-async function sendBookingCompletedEmail(toEmail, booking, providerName, clientName) {
+async function sendBookingCompletedEmail(toEmail, booking, provider, clientName) {
+  const brand = brandFromProvider(provider);
+  const providerName = brand.name;
+
   await sendEmail({
     to: toEmail,
+    brand,
     subject: `Session Complete — Thank you, ${clientName.split(' ')[0]}!`,
-    html: emailWrapper('Session Complete', `
+    html: emailWrapper(brand, 'Session Complete', `
       <p style="color: #555; line-height: 1.6;">
-        Thanks for your session! Here's your receipt.
+        Thanks for your session with <strong>${providerName}</strong>! Here's your receipt.
       </p>
       ${bookingDetailsHtml(booking, providerName, clientName)}
       <p style="color: #888; font-size: 14px;">
-        We hope you enjoyed your massage. <a href="${BASE_URL()}/book" style="color: ${BRAND_COLOR};">Book your next session</a>.
+        We hope you enjoyed your appointment. <a href="${BASE_URL()}/book" style="color: ${BRAND_COLOR};">Book your next session</a>.
       </p>
     `),
   });

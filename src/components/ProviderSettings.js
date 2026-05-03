@@ -6,6 +6,7 @@ import axios from 'axios';
 import { handlePhoneNumberChange, isValidPhoneNumber } from '../utils/phoneUtils';
 import { TRADES, TRADE_KEYS } from '../shared/trades';
 import { describeVenmoInput, buildVenmoProfileUrl } from '../utils/venmo';
+import LogoUploader from './LogoUploader';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -45,6 +46,7 @@ const ProviderSettings = () => {
 
   const [settings, setSettings] = useState({
     businessName: '',
+    logoUrl: null,
     trade: 'other',
     venmoHandle: '',
     phoneNumber: '',
@@ -57,6 +59,7 @@ const ProviderSettings = () => {
       setSettings(prev => ({
         ...prev,
         businessName: user.providerProfile?.businessName || '',
+        logoUrl: user.providerProfile?.logoUrl || null,
         trade: user.providerProfile?.trade || 'other',
         venmoHandle: user.providerProfile?.venmoHandle || '',
         phoneNumber: user.profile?.phoneNumber || '',
@@ -393,6 +396,24 @@ const ProviderSettings = () => {
                 This name will be displayed to your clients
               </p>
             </div>
+
+            <LogoUploader
+              currentLogoUrl={settings.logoUrl}
+              onLogoChange={(url) => {
+                // Logo PUT is atomic in LogoUploader; mirror the new URL
+                // into local state so the preview + save-button-shape stay
+                // in sync without a page reload, and propagate up through
+                // setUser so AuthContext reflects it everywhere.
+                setSettings(prev => ({ ...prev, logoUrl: url }));
+                setUser(prev => prev ? {
+                  ...prev,
+                  providerProfile: {
+                    ...(prev.providerProfile || {}),
+                    logoUrl: url,
+                  },
+                } : prev);
+              }}
+            />
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
