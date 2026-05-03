@@ -421,10 +421,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
           duration: totalDuration,
           lat: location?.lat,
           lng: location?.lng,
-          // Forward the per-booking turnover toggle so the slot picker
-          // re-applies the 15-min same-address buffer when the provider
-          // wants it (sheet-change couples, etc.).
-          forceBuffer: forceTurnoverBuffer ? 'true' : undefined,
+          // No forceBuffer query — the slot picker reads the provider's
+          // sameAddressTurnoverBuffer profile setting server-side.
         }
       });
       // Slot endpoint now returns objects: { time, kind, location?, ... }.
@@ -464,12 +462,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   };
 
-  // Re-fetch slots when dependencies change
+  // Re-fetch slots when dependencies change. providerTurnoverBuffer
+  // is included so the chain duration sent to the picker matches the
+  // server's cascade (with or without the 15-min intra-chain gap).
   useEffect(() => {
     if (fullAddress && selectedDuration && selectedDate && (provider || user?.accountType === 'PROVIDER')) {
       fetchAvailableSlots();
     }
-  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions, forceTurnoverBuffer]);
+  }, [fullAddress, selectedDuration, selectedAddons, selectedDate, provider, location, additionalSessions, providerTurnoverBuffer]);
 
   // Fetch the day's availability shape so we know if it's purely
   // in-studio (no client address required) or has any mobile windows
@@ -758,9 +758,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
         // The /bulk endpoint computes times for sessions 2+. Drop the
         // unused `time` from those entries; the first session keeps its
         // explicit time (which is what the cascade pivots from).
-        const apiResp = await bookingService.createBulkBookings(sessionsPayload, {
-          forceBuffer: forceTurnoverBuffer,
-        });
+        const apiResp = await bookingService.createBulkBookings(sessionsPayload);
         if (!Array.isArray(apiResp) || apiResp.length === 0) {
           throw new Error('Invalid bulk booking response');
         }
@@ -1037,36 +1035,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
             packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
             packageName={selectedPackage?.name || null}
           />
-
-          {/* Per-booking turnover opt-in. Default OFF — same-address
-              back-to-back bookings (couples, "extra hands", etc.) are
-              flush by default since the provider doesn't change context.
-              Toggle ON when this specific situation calls for the 15-min
-              cleanup window (couples that don't share sheets,
-              kit/equipment swap mid-day, etc.). Re-fetches slots when
-              toggled so the picker reflects the chosen behavior. */}
-          <div className="bg-paper-elev rounded-lg shadow-sm p-4 border border-line">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={forceTurnoverBuffer}
-                onChange={(e) => setForceTurnoverBuffer(e.target.checked)}
-                className="mt-1 w-4 h-4 accent-[#B07A4E]"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800">
-                  Add 15-minute turnover
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Inserts a 15-min gap between this booking and any other
-                  booking at the same address that day. Useful for couples
-                  that need a sheet change between sessions, or any case
-                  where the provider needs reset time even though the
-                  location doesn't change.
-                </p>
-              </div>
-            </label>
-          </div>
 
           {/* 7. Available Time Slots */}
           <AvailableTimeSlots

@@ -12,21 +12,18 @@ export const bookingService = {
   },
 
   // Back-to-back chain: an array of session payloads, all sharing date +
-  // address. The server cascades times from the first session, applies
-  // the standard inter-session buffer (zero by default for same-address
-  // chains; 15 min when opts.forceBuffer is true — couples that need a
-  // sheet change between sessions, etc.), and creates the chain
-  // atomically (rolling back any partials on failure).
+  // address. The server cascades times from the first session and
+  // creates the chain atomically (rolling back any partials on
+  // failure). The intra-session buffer (15 min vs flush) is read from
+  // the provider's `sameAddressTurnoverBuffer` profile setting on the
+  // server — no per-call override.
   //
   // Throws an Error with .message + (when the server returned them)
   // .alternatives and .chainDurationMin so the booking form can show
   // actionable suggestions instead of a dead-end "doesn't fit" message.
-  createBulkBookings: async (sessionsPayload, opts = {}) => {
+  createBulkBookings: async (sessionsPayload) => {
     try {
-      const body = opts.forceBuffer
-        ? { sessions: sessionsPayload, forceBuffer: true }
-        : sessionsPayload;
-      const response = await api.post('/api/bookings/bulk', body);
+      const response = await api.post('/api/bookings/bulk', sessionsPayload);
       return response.data;
     } catch (error) {
       const data = error.response?.data;

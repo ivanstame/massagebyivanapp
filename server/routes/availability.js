@@ -5,6 +5,7 @@ const BlockedTime = require('../models/BlockedTime');
 const Booking = require('../models/Booking');
 const WeeklyTemplate = require('../models/WeeklyTemplate');
 const SavedLocation = require('../models/SavedLocation');
+const User = require('../models/User');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { validateAvailabilityInput } = require('../middleware/validation');
 const { DateTime } = require('luxon');
@@ -596,6 +597,20 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       }
     }
 
+    // Fetch the provider's same-address-turnover preference. Drives
+    // whether the slot picker treats same-address back-to-back as
+    // flush (false) or with a 15-min cleanup gap (true). Default is
+    // true (added in User schema) so an unset/legacy field reads as
+    // ON — matches the buffer-on convention most providers expect.
+    let forceBufferForProvider = false;
+    if (providerId) {
+      const providerForBuffer = await User.findById(providerId)
+        .select('providerProfile.sameAddressTurnoverBuffer').lean();
+      // Strict-true check so an explicitly-false setting defeats the
+      // schema default; undefined/null falls back to the schema default.
+      forceBufferForProvider = providerForBuffer?.providerProfile?.sameAddressTurnoverBuffer !== false;
+    }
+
     // Fetch blocked times for this date
     const blockedTimes = templateProviderId
       ? await BlockedTime.find({
@@ -652,11 +667,12 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
         [],   // addons
         homeBase,
         [...blockedTimes, ...extraBoundaries],
-        // forceBuffer: when truthy, the slot picker re-enables the
+        // forceBuffer: provider's per-account preference (User
+        // .providerProfile.sameAddressTurnoverBuffer). Re-enables the
         // 15-min settle buffer for same-address back-to-back bookings
-        // (the booking form's "add turnover" toggle for couples that
-        // need a sheet change).
-        { forceBuffer: req.query.forceBuffer === 'true' }
+        // when ON; leaves them flush when OFF (sheet-sharing couples,
+        // etc.).
+        { forceBuffer: forceBufferForProvider }
       );
 
       const isStatic = availability.kind === 'static' && availability.staticLocation;

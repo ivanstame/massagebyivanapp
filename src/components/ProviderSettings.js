@@ -72,6 +72,9 @@ const ProviderSettings = () => {
         },
         services: user.providerProfile?.services || [],
         homeOffice: user.providerProfile?.homeOffice || false,
+        // Strict-true read so an explicit false defeats the schema
+        // default; undefined/null falls back to ON (schema default).
+        sameAddressTurnoverBuffer: user.providerProfile?.sameAddressTurnoverBuffer !== false,
         cancellationPolicy: user.providerProfile?.cancellationPolicy || { enabled: false, windowHours: 24, lateCancelFee: 0 }
       }));
     }
@@ -539,6 +542,31 @@ const ProviderSettings = () => {
                 type="checkbox"
                 checked={settings.homeOffice || false}
                 onChange={(e) => setSettings({ ...settings, homeOffice: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper-elev after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>
+            </label>
+          </div>
+        </div>
+
+        {/* Booking Flow */}
+        <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-[#B07A4E]" />
+            <h3 className="font-medium text-slate-900">Booking Flow</h3>
+          </div>
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <p className="text-slate-800 font-medium">Turnover between same-address bookings</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                When two bookings happen at the same address back-to-back (couples massage, family bookings, in-studio sessions), leave a 15-minute gap for sheet changes, cleanup, or reset. Turn off only if you typically don't need that transition time.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer ml-4">
+              <input
+                type="checkbox"
+                checked={settings.sameAddressTurnoverBuffer !== false}
+                onChange={(e) => setSettings({ ...settings, sameAddressTurnoverBuffer: e.target.checked })}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#B07A4E]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper-elev after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#B07A4E]"></div>

@@ -122,6 +122,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 
     // Check slot availability across ALL blocks (same logic as GET /available/:date)
     const bufferMinutes = 15;
+    // Provider's per-account same-address turnover preference. Has to
+    // match what the GET /available picker used so the slot the client
+    // chose isn't silently rejected here for a buffer mismatch.
+    const providerForBuffer = await User.findById(providerId)
+      .select('providerProfile.sameAddressTurnoverBuffer').lean();
+    const forceBufferForProvider = providerForBuffer?.providerProfile?.sameAddressTurnoverBuffer !== false;
     let allSlots = [];
     for (const availability of availabilityBlocks) {
       const slots = await getAvailableTimeSlots(
@@ -135,7 +141,8 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         providerId,
         [],    // addons
         homeBase,
-        blockedTimes
+        blockedTimes,
+        { forceBuffer: forceBufferForProvider }
       );
       allSlots = allSlots.concat(slots);
     }
@@ -491,20 +498,17 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 router.post('/bulk', ensureAuthenticated, async (req, res) => {
   try {
     // Body shape (back-compat): either a bare array of session payloads,
-    // or an object `{ sessions: [...], forceBuffer?: bool }`. The wrapper
-    // shape is the new form — callers that need to pass chain-level
-    // options (currently just forceBuffer for the same-address turnover
-    // toggle) use it. Bare arrays still work for any caller that hasn't
-    // migrated.
+    // or an object `{ sessions: [...] }`. Wrapper shape kept for any
+    // caller that already adopted it; both forms work. The
+    // forceBuffer-on-the-wrapper field is no longer read — the
+    // setting moved to the provider's own profile (see below).
     let bookingRequests;
-    let chainForceBuffer = false;
     if (Array.isArray(req.body)) {
       bookingRequests = req.body;
     } else if (req.body && Array.isArray(req.body.sessions)) {
       bookingRequests = req.body.sessions;
-      chainForceBuffer = req.body.forceBuffer === true;
     } else {
-      return res.status(400).json({ message: 'Expected sessions array (bare or in { sessions, forceBuffer })' });
+      return res.status(400).json({ message: 'Expected sessions array (bare or in { sessions })' });
     }
     if (bookingRequests.length === 0) {
       return res.status(400).json({ message: 'Expected at least one session' });
@@ -546,6 +550,13 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
     // Hand off to the shared chain-booking service. It validates, fits,
     // creates atomically, and rolls back on partial failure. We just
     // surface its typed errors as appropriate HTTP responses.
+    //
+    // Read the provider's same-address-turnover preference once and
+    // pass it to the chain creator — this controls whether sibling
+    // sessions are flush (false) or have a 15-min cleanup gap (true).
+    const providerForBuffer = await User.findById(provider)
+      .select('providerProfile.sameAddressTurnoverBuffer').lean();
+    const chainForceBuffer = providerForBuffer?.providerProfile?.sameAddressTurnoverBuffer !== false;
     const created = await createChainBookings({
       provider,
       client,
@@ -565,10 +576,10 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
         recipientInfo: r.recipientInfo,
       })),
       status: 'pending',
-      // Per-booking opt-in to the same-address settle buffer. Default
-      // false (chain is flush). The booking form's "add turnover"
-      // toggle sends this true when the couple needs a sheet change
-      // between sessions.
+      // Per-provider preference (User.providerProfile.sameAddressTurnoverBuffer).
+      // True → chain siblings + adjacent same-address bookings get the
+      // 15-min cleanup buffer. False → flush (sheet-sharing couples,
+      // in-and-out modalities, etc).
       forceBuffer: chainForceBuffer,
     });
 

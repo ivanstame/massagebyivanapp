@@ -143,6 +143,15 @@ const UserSchema = new mongoose.Schema({
     }],
     // Home office designation (affects mileage deduction rules)
     homeOffice: { type: Boolean, default: false },
+    // When true, the slot picker leaves a 15-min turnover gap between
+    // same-address back-to-back bookings (couples massage with sheet
+    // changes, in-studio sessions with kit swaps, etc). When false,
+    // same-address back-to-back bookings can land flush against each
+    // other (sheet-sharing couples, "extra hands" modalities). Default
+    // true since most providers want the cleanup window. Different-
+    // address back-to-back always gets the buffer regardless of this
+    // setting (travel time is layered on top by the boundary engine).
+    sameAddressTurnoverBuffer: { type: Boolean, default: true },
     // Weekly Outreach feature: provider sends a once-a-week SMS to
     // clients summarizing the upcoming week's openings. Provider
     // controls the opening + closing lines; the day-by-day body is
