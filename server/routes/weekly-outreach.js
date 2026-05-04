@@ -156,7 +156,20 @@ async function buildAvailabilityBody(providerId, weekStart) {
     // bookings + blocked-times, then format remaining open ranges
     // with kind/location info.
     const sortedBlocks = blocks.slice().sort((a, b) => a.start - b.start);
-    const formattedParts = [];
+    // Open ranges accumulated by group key — "mobile" for in-home,
+    // "static:<location name>" for in-studio. Lets a day with two
+    // in-studio openings at Peter's render as one labeled group
+    // ("1:15pm-2:30pm, 4:15pm-5:30pm — Peter's Chiropractic")
+    // rather than repeating the parenthetical on every range.
+    const groups = []; // [{ key, label, ranges: [{start,end}] }]
+    const groupIdx = new Map();
+    const pushGroup = (key, label, range) => {
+      if (!groupIdx.has(key)) {
+        groupIdx.set(key, groups.length);
+        groups.push({ key, label, ranges: [] });
+      }
+      groups[groupIdx.get(key)].ranges.push(range);
+    };
     const dayWindows = [];
 
     // Cross-location drive buffer (minutes). When a booking sits at a
@@ -208,8 +221,14 @@ async function buildAvailabilityBody(providerId, weekStart) {
       // unbookable in practice.
       const open = openRaw.filter(r => rangeMinutes(r) >= minRangeMin);
 
-      const isStatic = block.kind === 'static' && block.staticLocation;
-      const locationName = isStatic ? block.staticLocation.name : null;
+      // In-studio is signalled either by kind='static' + staticLocation
+      // OR by a populated anchor (older hybrid blocks store the studio
+      // location on the anchor instead). Both should label as in-studio.
+      const isStatic = (block.kind === 'static' && block.staticLocation)
+        || !!block.anchor?.locationId;
+      const locationName = isStatic
+        ? (block.staticLocation?.name || block.anchor?.name || 'Studio')
+        : null;
 
       dayWindows.push({
         windowStart: window.start,
@@ -221,14 +240,32 @@ async function buildAvailabilityBody(providerId, weekStart) {
 
       if (open.length === 0) continue;
 
+      const groupKey = isStatic ? `static:${locationName}` : 'mobile';
+      const groupLabel = isStatic ? `in-studio at ${locationName}` : 'in-home';
       for (const r of open) {
-        const range = `${fmtTime(r.start)}–${fmtTime(r.end)}`;
-        formattedParts.push(
-          isStatic
-            ? `${range} (in-studio at ${locationName})`
-            : range
-        );
+        pushGroup(groupKey, groupLabel, r);
       }
+    }
+
+    // Stitch the per-day line. If the day has only one group, render
+    // its label compactly:
+    //   "12pm-3pm" (in-home only — no label, default reading)
+    //   "1:15pm-2:30pm, 4:15pm-5:30pm (in-studio at Peter's Chiropractic)"
+    // If a day has both kinds, separate with " · " so it's scannable:
+    //   "12pm-2:30pm · in-studio at Home: 5pm-6pm"
+    const formatGroup = (g, withLabel) => {
+      const ranges = g.ranges.map(r => `${fmtTime(r.start)}–${fmtTime(r.end)}`).join(', ');
+      if (!withLabel) return ranges;
+      return g.key === 'mobile' ? ranges : `${ranges} (${g.label})`;
+    };
+    let dayBody = '';
+    if (groups.length === 1) {
+      const only = groups[0];
+      dayBody = only.key === 'mobile'
+        ? formatGroup(only, false)
+        : formatGroup(only, true);
+    } else if (groups.length > 1) {
+      dayBody = groups.map(g => formatGroup(g, true)).join(' · ');
     }
 
     diagnostic.push({
@@ -245,10 +282,10 @@ async function buildAvailabilityBody(providerId, weekStart) {
       windows: dayWindows,
     });
 
-    if (formattedParts.length === 0) {
+    if (!dayBody) {
       lines.push(`${dayLabel} · booked`);
     } else {
-      lines.push(`${dayLabel} · ${formattedParts.join(', ')}`);
+      lines.push(`${dayLabel} · ${dayBody}`);
     }
   }
   return { body: lines.join('\n'), diagnostic };
