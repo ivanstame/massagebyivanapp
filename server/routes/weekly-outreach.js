@@ -302,6 +302,12 @@ async function buildAvailabilityBody(providerId, weekStart) {
   return { body, diagnostic };
 }
 
+// Fall back to these if the saved template is empty or missing —
+// every recipient should at least get a personalized greeting and
+// a booking-link CTA. Mirrors the GET /api/weekly-outreach defaults.
+const DEFAULT_OPENING = 'Hey {firstName}, quick heads-up on this week:';
+const DEFAULT_CLOSING = 'Tap to book: {bookingLink}';
+
 function assembleMessage({ template, providerName, firstName, body, bookingLink }) {
   const sub = (s) => (s || '')
     .replace(/\{firstName\}/g, firstName || 'there')
@@ -309,8 +315,12 @@ function assembleMessage({ template, providerName, firstName, body, bookingLink 
     .replace(/\{bookingLink\}/g, bookingLink || '')
     .replace(/\{weekRange\}/g, ''); // placeholder, can wire later
 
-  const opening = sub(template.openingLine || '');
-  const closing = sub(template.closingLine || '');
+  // Trim + fall back: catches empty strings, all-whitespace, and undefined.
+  const rawOpening = (template.openingLine || '').trim() || DEFAULT_OPENING;
+  const rawClosing = (template.closingLine || '').trim() || DEFAULT_CLOSING;
+
+  const opening = sub(rawOpening);
+  const closing = sub(rawClosing);
 
   // Always append TCPA STOP footer for compliance.
   return `${opening}\n\n${body}\n\n${closing}\n\nReply STOP to opt out.`;
