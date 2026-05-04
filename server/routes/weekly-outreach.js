@@ -94,6 +94,24 @@ function subtractBookings(windows, bookings) {
 async function buildAvailabilityBody(providerId, weekStart) {
   const lines = [];
   const diagnostic = [];
+
+  // Minimum useful gap between bookings — anything shorter than the
+  // provider's shortest service can't be booked, so advertising it as
+  // "open" just makes the message look broken (15-min slivers between
+  // back-to-backs, etc). Default 60 if no pricing tiers configured.
+  const provider = await User.findById(providerId).select('providerProfile.basePricing').lean();
+  const tiers = provider?.providerProfile?.basePricing || [];
+  const minDuration = tiers.length > 0
+    ? Math.min(...tiers.map(t => t.duration).filter(Number.isFinite))
+    : 60;
+  const minRangeMin = Number.isFinite(minDuration) && minDuration > 0 ? minDuration : 60;
+
+  const rangeMinutes = (r) => {
+    const [sh, sm] = r.start.split(':').map(Number);
+    const [eh, em] = r.end.split(':').map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  };
+
   for (let i = 0; i < 7; i++) {
     const dayLA = weekStart.plus({ days: i });
     const localDate = dayLA.toFormat('yyyy-MM-dd');
@@ -150,7 +168,10 @@ async function buildAvailabilityBody(providerId, weekStart) {
       const blockOccupied = occupied.filter(b =>
         b.startTime < window.end && b.endTime > window.start
       );
-      const open = subtractBookings([window], blockOccupied);
+      const openRaw = subtractBookings([window], blockOccupied);
+      // Drop slivers shorter than the provider's shortest offering —
+      // unbookable in practice.
+      const open = openRaw.filter(r => rangeMinutes(r) >= minRangeMin);
 
       const isStatic = block.kind === 'static' && block.staticLocation;
       const locationName = isStatic ? block.staticLocation.name : null;
