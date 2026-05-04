@@ -915,6 +915,15 @@ const AppointmentRow = ({ appointment, navigate, compact = false }) => {
           </div>
         </div>
       )}
+      {/* Per-session notes — surfaced inline so the provider's session
+          history doubles as a SOAP-style timeline. Empty notes don't
+          render anything (no clutter for sessions the provider didn't
+          jot down). Edit happens in AppointmentDetail. */}
+      {appointment.providerNote && (
+        <div className="mt-3 p-3 bg-paper-deep border-l-2 border-[#B07A4E]/40 rounded text-sm text-slate-700 whitespace-pre-wrap">
+          {appointment.providerNote}
+        </div>
+      )}
     </div>
   );
 };

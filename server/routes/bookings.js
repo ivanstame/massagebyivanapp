@@ -1284,6 +1284,50 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// PATCH /:id/note (Set or clear the provider's private session note)
+//
+// Optional, free-form, capped at 5000 chars by the schema. Provider-
+// only — clients can never read or write here. The provider posts
+// `{ providerNote: "..." }` to set or `{ providerNote: null }` (or
+// empty string) to clear.
+router.patch('/:id/note', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can update session notes' });
+    }
+
+    const raw = req.body?.providerNote;
+    if (raw === undefined) {
+      return res.status(400).json({ message: 'providerNote is required (string or null)' });
+    }
+    if (raw !== null && typeof raw !== 'string') {
+      return res.status(400).json({ message: 'providerNote must be a string or null' });
+    }
+
+    // Empty string normalizes to null so "no note" has one canonical
+    // representation in the DB and the client doesn't have to think
+    // about the distinction.
+    const next = raw === null ? null : (raw.trim() || null);
+    if (next && next.length > 5000) {
+      return res.status(400).json({ message: 'providerNote is capped at 5000 characters' });
+    }
+
+    booking.providerNote = next;
+    await booking.save();
+
+    res.json({ providerNote: booking.providerNote });
+  } catch (error) {
+    console.error('Error updating session note:', error);
+    res.status(500).json({ message: 'Error updating session note' });
+  }
+});
+
 // PUT /:id/reschedule (Reschedule a booking to a new date/time)
 router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
   try {

@@ -140,6 +140,18 @@ const BookingSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Provider's private notes for this session — free-form, optional.
+  // What the provider wants to remember about how the session went.
+  // Visible only to the provider on this booking; the client never sees
+  // it. No structure imposed: SOAP-using providers can format it
+  // themselves; narrative-style providers can write paragraphs; no-note
+  // providers leave it blank. Capped at 5000 chars to keep the doc
+  // bounded and the index payloads sane.
+  providerNote: {
+    type: String,
+    default: null,
+    maxlength: 5000,
+  },
   // Set when this booking consumed a credit from a PackagePurchase. The
   // credit is returned to the package on in-window cancellations (per
   // provider policy) and stays consumed on late cancellations. If null,

@@ -30,12 +30,20 @@ const AppointmentDetail = () => {
   const [cancelScope, setCancelScope] = useState('one');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
+  // Provider's private session note. Free-form, optional, capped at
+  // 5000 chars by the schema. Local edit state keeps the textarea
+  // responsive; commit on blur or explicit save.
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSavedFlash, setNoteSavedFlash] = useState(false);
+  const [noteError, setNoteError] = useState(null);
 
   useEffect(() => {
     const fetchBooking = async () => {
       try {
         const res = await axios.get(`/api/bookings/${id}`, { withCredentials: true });
         setBooking(res.data);
+        setNoteDraft(res.data?.providerNote || '');
       } catch (err) {
         console.error('Error fetching booking:', err);
         setError(err.response?.data?.message || 'Failed to load appointment');
@@ -45,6 +53,30 @@ const AppointmentDetail = () => {
     };
     fetchBooking();
   }, [id]);
+
+  const handleSaveNote = async () => {
+    setNoteSaving(true);
+    setNoteError(null);
+    try {
+      const next = noteDraft.trim() || null;
+      const res = await axios.patch(
+        `/api/bookings/${id}/note`,
+        { providerNote: next },
+        { withCredentials: true }
+      );
+      setBooking(prev => prev ? { ...prev, providerNote: res.data.providerNote } : prev);
+      setNoteSavedFlash(true);
+      setTimeout(() => setNoteSavedFlash(false), 2500);
+    } catch (err) {
+      setNoteError(err.response?.data?.message || 'Failed to save note');
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const noteIsDirty = booking
+    ? (noteDraft.trim() || null) !== ((booking.providerNote || '').trim() || null)
+    : false;
 
   const handleCancel = async () => {
     try {
@@ -435,6 +467,46 @@ const AppointmentDetail = () => {
             })()}
           </div>
         </div>
+
+        {/* Session notes — provider only. Free-form, optional. The
+            provider can write whatever format they prefer (SOAP,
+            narrative, bullets, nothing); shows up in this client's
+            session timeline at /provider/clients/:id. Save is explicit
+            so an in-progress edit doesn't post on every keystroke. */}
+        {isProvider && (
+          <div className="mt-6 bg-paper-elev border border-line rounded-lg p-5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium text-slate-800">Session notes</h3>
+              <span className="text-xs text-slate-400">
+                {noteDraft.length}/5000 · private to you
+              </span>
+            </div>
+            <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value.slice(0, 5000))}
+              placeholder="What you want to remember about this session — pressure, focus areas, follow-up notes, whatever helps. Free-form. Only you can see this."
+              rows={5}
+              className="w-full p-3 border border-line rounded text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+            />
+            <div className="flex items-center justify-between mt-2">
+              <div className="text-xs">
+                {noteError && <span className="text-red-600">{noteError}</span>}
+                {noteSavedFlash && <span className="text-green-700">Saved.</span>}
+              </div>
+              <button
+                onClick={handleSaveNote}
+                disabled={!noteIsDirty || noteSaving}
+                className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
+                  noteIsDirty && !noteSaving
+                    ? 'bg-[#B07A4E] text-white hover:bg-[#8A5D36]'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                {noteSaving ? 'Saving…' : 'Save note'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* "Make this recurring?" prompt — client only, on a live
             non-series booking. Opens an SMS to the provider with a
