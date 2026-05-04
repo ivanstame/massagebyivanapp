@@ -9,7 +9,7 @@ import axios from 'axios';
 import { AuthContext } from '../AuthContext';
 import {
   Megaphone, Send, AlertCircle, CheckCircle, Loader2, Edit2, X,
-  Users, Clock
+  Users, Clock, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 
@@ -30,6 +30,7 @@ const ProviderWeeklyOutreach = () => {
 
   // Settings editor
   const [showSettings, setShowSettings] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [draft, setDraft] = useState({ openingLine: '', closingLine: '' });
   const [savingTemplate, setSavingTemplate] = useState(false);
 
@@ -357,9 +358,29 @@ const ProviderWeeklyOutreach = () => {
                   <Loader2 className="w-5 h-5 text-[#B07A4E] animate-spin" />
                 </div>
               ) : preview ? (
-                <pre className="text-sm text-slate-800 bg-paper-deep border border-line-soft rounded-lg p-4 whitespace-pre-wrap font-sans">
-                  {preview.message}
-                </pre>
+                <>
+                  <pre className="text-sm text-slate-800 bg-paper-deep border border-line-soft rounded-lg p-4 whitespace-pre-wrap font-sans">
+                    {preview.message}
+                  </pre>
+                  {Array.isArray(preview.diagnostic) && preview.diagnostic.length > 0 && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => setShowDiagnostic(s => !s)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        {showDiagnostic ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        {showDiagnostic ? 'Hide details' : 'Show details — what was subtracted from each window'}
+                      </button>
+                      {showDiagnostic && (
+                        <div className="mt-2 space-y-3 bg-paper-deep border border-line-soft rounded-lg p-3 text-xs">
+                          {preview.diagnostic.map(d => (
+                            <DiagnosticDay key={d.localDate} day={d} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : null}
             </div>
 
@@ -503,6 +524,84 @@ const ProviderWeeklyOutreach = () => {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Per-day breakdown panel — shows what bookings + blocked times were
+// found and how each availability window was reduced. Helps the
+// provider verify reality matches the SMS body. If a real booking
+// shows up in this list but the open window above doesn't reflect it,
+// something is broken upstream and we want to see it.
+const DiagnosticDay = ({ day }) => {
+  const fmt = (hhmm) => {
+    if (!hhmm) return '';
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'pm' : 'am';
+    const display = h % 12 || 12;
+    return m === 0 ? `${display}${period}` : `${display}:${String(m).padStart(2, '0')}${period}`;
+  };
+
+  if (!day.hasAvailability) {
+    return (
+      <div className="text-slate-500">
+        <strong className="text-slate-700">{day.dayLabel}</strong> — no availability set
+      </div>
+    );
+  }
+
+  const bookings = day.bookings || [];
+  const blocks = day.blockedTimes || [];
+
+  return (
+    <div>
+      <div className="font-medium text-slate-800">{day.dayLabel}</div>
+      <div className="mt-1 ml-3 space-y-1">
+        {bookings.length === 0 && blocks.length === 0 && (
+          <div className="text-slate-500">No bookings or blocked times found for this day.</div>
+        )}
+        {bookings.length > 0 && (
+          <div>
+            <span className="text-slate-500">Bookings ({bookings.length}):</span>
+            <ul className="ml-3 list-disc list-inside text-slate-700">
+              {bookings.map((b, i) => (
+                <li key={`b-${i}`}>
+                  {fmt(b.startTime)}–{fmt(b.endTime)} · {b.clientName}
+                  {b.status !== 'confirmed' && (
+                    <span className="text-slate-500 ml-1">({b.status})</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {blocks.length > 0 && (
+          <div>
+            <span className="text-slate-500">Blocked time ({blocks.length}):</span>
+            <ul className="ml-3 list-disc list-inside text-slate-700">
+              {blocks.map((b, i) => (
+                <li key={`x-${i}`}>
+                  {fmt(b.startTime)}–{fmt(b.endTime)}
+                  {b.source === 'google_calendar' ? ' · GCal' : ''}
+                  {b.reason ? ` · ${b.reason}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(day.windows || []).map((w, i) => (
+          <div key={`w-${i}`} className="text-slate-700">
+            <span className="text-slate-500">Window:</span> {fmt(w.windowStart)}–{fmt(w.windowEnd)}
+            {w.kind === 'static' && w.locationName && (
+              <span className="text-slate-500"> (in-studio at {w.locationName})</span>
+            )}
+            {' → '}
+            {w.openRanges.length === 0
+              ? <span className="text-red-600">fully booked</span>
+              : <span>{w.openRanges.map(r => `${fmt(r.start)}–${fmt(r.end)}`).join(', ')}</span>}
+          </div>
+        ))}
       </div>
     </div>
   );

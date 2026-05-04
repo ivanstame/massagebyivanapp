@@ -85,8 +85,14 @@ function subtractBookings(windows, bookings) {
 // in-studio) and we can label in-studio openings with the location
 // name in the SMS — clients need to know they're being invited to
 // a different location than the usual mobile visit.
+//
+// Returns { body, diagnostic } — the SMS text plus a per-day
+// breakdown of what was found and what was subtracted. The frontend
+// surfaces the diagnostic in a "Show details" panel so the provider
+// can verify their bookings are being reflected.
 async function buildAvailabilityBody(providerId, weekStart) {
   const lines = [];
+  const diagnostic = [];
   for (let i = 0; i < 7; i++) {
     const dayLA = weekStart.plus({ days: i });
     const localDate = dayLA.toFormat('yyyy-MM-dd');
@@ -94,13 +100,19 @@ async function buildAvailabilityBody(providerId, weekStart) {
 
     const blocks = await Availability.find({ provider: providerId, localDate })
       .populate('staticLocation', 'name');
-    if (blocks.length === 0) continue;  // skip days with no availability
+    if (blocks.length === 0) {
+      diagnostic.push({ localDate, dayLabel, hasAvailability: false });
+      continue;  // skip days with no availability
+    }
 
     const dayBookings = await Booking.find({
       provider: providerId,
       localDate,
       status: { $nin: ['cancelled'] }
-    }).select('startTime endTime').lean();
+    })
+      .select('startTime endTime status client')
+      .populate('client', 'profile.fullName email')
+      .lean();
 
     // BlockedTime rows include manually-blocked time AND Google-Calendar-
     // synced events (which is how the provider's Peters/Jane appointments
@@ -110,11 +122,16 @@ async function buildAvailabilityBody(providerId, weekStart) {
       provider: providerId,
       localDate,
       overridden: { $ne: true }
-    }).select('start end').lean();
+    }).select('start end source reason').lean();
     const blockedRanges = dayBlocks.map(bt => {
       const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
       const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-      return { startTime: sLA.toFormat('HH:mm'), endTime: eLA.toFormat('HH:mm') };
+      return {
+        startTime: sLA.toFormat('HH:mm'),
+        endTime: eLA.toFormat('HH:mm'),
+        source: bt.source || 'manual',
+        reason: bt.reason || '',
+      };
     });
     const occupied = [...dayBookings, ...blockedRanges];
 
@@ -123,6 +140,7 @@ async function buildAvailabilityBody(providerId, weekStart) {
     // with kind/location info.
     const sortedBlocks = blocks.slice().sort((a, b) => a.start - b.start);
     const formattedParts = [];
+    const dayWindows = [];
     for (const block of sortedBlocks) {
       const sLA = DateTime.fromJSDate(block.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
       const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
@@ -132,10 +150,19 @@ async function buildAvailabilityBody(providerId, weekStart) {
         b.startTime < window.end && b.endTime > window.start
       );
       const open = subtractBookings([window], blockOccupied);
-      if (open.length === 0) continue;
 
       const isStatic = block.kind === 'static' && block.staticLocation;
       const locationName = isStatic ? block.staticLocation.name : null;
+
+      dayWindows.push({
+        windowStart: window.start,
+        windowEnd: window.end,
+        kind: isStatic ? 'static' : 'mobile',
+        locationName,
+        openRanges: open.map(o => ({ start: o.start, end: o.end })),
+      });
+
+      if (open.length === 0) continue;
 
       for (const r of open) {
         const range = `${fmtTime(r.start)}–${fmtTime(r.end)}`;
@@ -147,13 +174,27 @@ async function buildAvailabilityBody(providerId, weekStart) {
       }
     }
 
+    diagnostic.push({
+      localDate,
+      dayLabel,
+      hasAvailability: true,
+      bookings: dayBookings.map(b => ({
+        startTime: b.startTime,
+        endTime: b.endTime,
+        status: b.status,
+        clientName: b.client?.profile?.fullName || b.client?.email || 'Unknown',
+      })),
+      blockedTimes: blockedRanges,
+      windows: dayWindows,
+    });
+
     if (formattedParts.length === 0) {
       lines.push(`${dayLabel} · booked`);
     } else {
       lines.push(`${dayLabel} · ${formattedParts.join(', ')}`);
     }
   }
-  return lines.join('\n');
+  return { body: lines.join('\n'), diagnostic };
 }
 
 function assembleMessage({ template, providerName, firstName, body, bookingLink }) {
@@ -304,7 +345,7 @@ router.post('/preview', ensureAuthenticated, async (req, res) => {
     const sample = recipients[0] || allRecipients[0] || null;
     const sampleName = sample?.firstName || 'Sarah';
 
-    const body = await buildAvailabilityBody(req.user._id, weekStart);
+    const { body, diagnostic } = await buildAvailabilityBody(req.user._id, weekStart);
     const bookingLink = `${BASE_URL()}/book`;
     const providerName = provider.providerProfile?.businessName || provider.profile?.fullName || '';
 
@@ -322,6 +363,7 @@ router.post('/preview', ensureAuthenticated, async (req, res) => {
       weekStart: weekStart.toFormat('yyyy-MM-dd'),
       weekEnd: weekStart.plus({ days: 6 }).toFormat('yyyy-MM-dd'),
       recipientCount: recipients.length,
+      diagnostic,
     });
   } catch (err) {
     console.error('Weekly outreach preview error:', err);
@@ -360,7 +402,7 @@ router.post('/send', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'No recipients selected.' });
     }
 
-    const body = await buildAvailabilityBody(req.user._id, weekStart);
+    const { body } = await buildAvailabilityBody(req.user._id, weekStart);
     if (!body || body.trim().length === 0) {
       return res.status(400).json({ message: 'No availability set for that week — nothing to share.' });
     }
