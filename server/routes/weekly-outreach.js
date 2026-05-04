@@ -129,7 +129,7 @@ async function buildAvailabilityBody(providerId, weekStart) {
       localDate,
       status: { $nin: ['cancelled'] }
     })
-      .select('startTime endTime status client')
+      .select('startTime endTime status client location')
       .populate('client', 'profile.fullName email')
       .lean();
 
@@ -152,20 +152,55 @@ async function buildAvailabilityBody(providerId, weekStart) {
         reason: bt.reason || '',
       };
     });
-    const occupied = [...dayBookings, ...blockedRanges];
-
     // For each availability block, subtract overlapping
     // bookings + blocked-times, then format remaining open ranges
     // with kind/location info.
     const sortedBlocks = blocks.slice().sort((a, b) => a.start - b.start);
     const formattedParts = [];
     const dayWindows = [];
+
+    // Cross-location drive buffer (minutes). When a booking sits at a
+    // different address than the block's anchor / static location, the
+    // provider needs travel time before AND after — otherwise the
+    // outreach claims openings that require teleporting.
+    const CROSS_LOCATION_BUFFER_MIN = 30;
+
+    // Add minutes to an HH:mm string (clamped to [00:00, 23:59]).
+    const shiftHHMM = (hhmm, deltaMin) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      const t = Math.max(0, Math.min(24 * 60 - 1, h * 60 + m + deltaMin));
+      return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    };
+
     for (const block of sortedBlocks) {
       const sLA = DateTime.fromJSDate(block.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
       const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
       const window = { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
 
-      const blockOccupied = occupied.filter(b =>
+      // Anchor location for this block — Home/Studio if static, anchor
+      // SavedLocation if mobile-with-anchor. Used to decide which
+      // bookings need a cross-location drive buffer.
+      const anchorLat = block.staticLocation?.lat ?? block.anchor?.lat ?? null;
+      const anchorLng = block.staticLocation?.lng ?? block.anchor?.lng ?? null;
+      const hasAnchor = Number.isFinite(anchorLat) && Number.isFinite(anchorLng);
+
+      const isCrossLocation = (b) => {
+        if (!hasAnchor) return false;
+        if (!Number.isFinite(b.location?.lat) || !Number.isFinite(b.location?.lng)) return false;
+        // ~110m tolerance — same-building / GPS variance counts as same.
+        const dLat = Math.abs(b.location.lat - anchorLat);
+        const dLng = Math.abs(b.location.lng - anchorLng);
+        return dLat > 0.001 || dLng > 0.001;
+      };
+
+      // Build occupancy list specific to this block: bookings with
+      // cross-location buffers applied where needed, plus blocked-times.
+      const blockBookingsOccupied = dayBookings.map(b => ({
+        startTime: isCrossLocation(b) ? shiftHHMM(b.startTime, -CROSS_LOCATION_BUFFER_MIN) : b.startTime,
+        endTime: isCrossLocation(b) ? shiftHHMM(b.endTime, CROSS_LOCATION_BUFFER_MIN) : b.endTime,
+      }));
+      const occupiedForBlock = [...blockBookingsOccupied, ...blockedRanges];
+      const blockOccupied = occupiedForBlock.filter(b =>
         b.startTime < window.end && b.endTime > window.start
       );
       const openRaw = subtractBookings([window], blockOccupied);
