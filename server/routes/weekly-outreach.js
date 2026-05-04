@@ -92,8 +92,15 @@ function subtractBookings(windows, bookings) {
 // surfaces the diagnostic in a "Show details" panel so the provider
 // can verify their bookings are being reflected.
 async function buildAvailabilityBody(providerId, weekStart) {
-  const lines = [];
   const diagnostic = [];
+  // Cross-day section accumulator. Keys: 'mobile' or 'static:<name>'.
+  // Each section keeps its own ordered list of day entries and a
+  // header label for rendering.
+  const sections = new Map();
+  const ensureSection = (key, header) => {
+    if (!sections.has(key)) sections.set(key, { header, days: [] });
+    return sections.get(key);
+  };
 
   // Minimum useful gap between bookings — anything shorter than the
   // provider's shortest service can't be booked, so advertising it as
@@ -241,31 +248,21 @@ async function buildAvailabilityBody(providerId, weekStart) {
       if (open.length === 0) continue;
 
       const groupKey = isStatic ? `static:${locationName}` : 'mobile';
-      const groupLabel = isStatic ? `in-studio at ${locationName}` : 'in-home';
       for (const r of open) {
-        pushGroup(groupKey, groupLabel, r);
+        pushGroup(groupKey, isStatic ? `in-studio at ${locationName}` : 'in-home', r);
       }
     }
 
-    // Stitch the per-day line. If the day has only one group, render
-    // its label compactly:
-    //   "12pm-3pm" (in-home only — no label, default reading)
-    //   "1:15pm-2:30pm, 4:15pm-5:30pm (in-studio at Peter's Chiropractic)"
-    // If a day has both kinds, separate with " · " so it's scannable:
-    //   "12pm-2:30pm · in-studio at Home: 5pm-6pm"
-    const formatGroup = (g, withLabel) => {
-      const ranges = g.ranges.map(r => `${fmtTime(r.start)}–${fmtTime(r.end)}`).join(', ');
-      if (!withLabel) return ranges;
-      return g.key === 'mobile' ? ranges : `${ranges} (${g.label})`;
-    };
-    let dayBody = '';
-    if (groups.length === 1) {
-      const only = groups[0];
-      dayBody = only.key === 'mobile'
-        ? formatGroup(only, false)
-        : formatGroup(only, true);
-    } else if (groups.length > 1) {
-      dayBody = groups.map(g => formatGroup(g, true)).join(' · ');
+    // Push this day's per-section data into the cross-day accumulator.
+    // Each group becomes a `{ dayLabel, ranges }` entry under its
+    // section key.
+    for (const g of groups) {
+      const header = g.key === 'mobile' ? 'In-home (mobile):' : `In-studio at ${g.label.replace(/^in-studio at /, '')}:`;
+      const sec = ensureSection(g.key, header);
+      sec.days.push({
+        dayLabel,
+        ranges: g.ranges.map(r => `${fmtTime(r.start)}–${fmtTime(r.end)}`).join(', '),
+      });
     }
 
     diagnostic.push({
@@ -282,13 +279,28 @@ async function buildAvailabilityBody(providerId, weekStart) {
       windows: dayWindows,
     });
 
-    if (!dayBody) {
-      lines.push(`${dayLabel} · booked`);
-    } else {
-      lines.push(`${dayLabel} · ${dayBody}`);
-    }
   }
-  return { body: lines.join('\n'), diagnostic };
+
+  // Assemble the SMS body from sections. Mobile (in-home) first since
+  // that's the default service for most clients, then in-studio
+  // sections alphabetically by location. Each section gets a header
+  // and a blank line before the next.
+  const orderedSections = [];
+  if (sections.has('mobile')) orderedSections.push(sections.get('mobile'));
+  const staticKeys = [...sections.keys()].filter(k => k !== 'mobile').sort();
+  for (const k of staticKeys) orderedSections.push(sections.get(k));
+
+  const sectionTexts = orderedSections.map(sec => {
+    const dayLines = sec.days.map(d => `${d.dayLabel} · ${d.ranges}`).join('\n');
+    return `${sec.header}\n${dayLines}`;
+  });
+
+  // If nothing across the week is bookable, return a single line so
+  // the send route can short-circuit ("nothing to share").
+  const body = sectionTexts.length > 0
+    ? sectionTexts.join('\n\n')
+    : '';
+  return { body, diagnostic };
 }
 
 function assembleMessage({ template, providerName, firstName, body, bookingLink }) {
