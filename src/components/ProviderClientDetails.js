@@ -6,12 +6,14 @@ import {
   AlertCircle, MessageSquare, FileText,
   MoreHorizontal, Trash2, Edit, DollarSign,
   CheckCircle, Clock8, BarChart2, StickyNote, CalendarPlus,
-  Send, Copy, Loader2, ChevronDown, ChevronRight, Repeat
+  Send, Copy, Loader2, ChevronDown, ChevronRight, Repeat,
+  CalendarClock
 } from 'lucide-react';
 import axios from 'axios';
 import moment from 'moment-timezone';
 import ClientPackagesSection from './ClientPackagesSection';
 import StandingAppointmentsSection from './StandingAppointmentsSection';
+import RescheduleModal from './RescheduleModal';
 
 const ProviderClientDetails = () => {
   console.log('NEW ProviderClientDetails loaded');
@@ -681,6 +683,7 @@ const ProviderClientDetails = () => {
           appointments={appointments}
           clientId={clientId}
           navigate={navigate}
+          onAppointmentChanged={fetchClientAppointments}
         />
       </div>
 
@@ -700,9 +703,12 @@ const ProviderClientDetails = () => {
 //
 // Industry-standard "keep the trail" without sacrificing readability:
 // the data's still here, just not in your face.
-const AppointmentHistorySection = ({ appointments, clientId, navigate }) => {
+const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppointmentChanged }) => {
   const [showCancelled, setShowCancelled] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState({});
+  // Inline reschedule — opens RescheduleModal without leaving this page.
+  // Provider's most common move when running late: bump the appt 15 min.
+  const [reschedulingAppt, setReschedulingAppt] = useState(null);
 
   const active = appointments.filter(a => a.status !== 'cancelled');
   const cancelled = appointments.filter(a => a.status === 'cancelled');
@@ -765,7 +771,7 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate }) => {
           {active.length > 0 ? (
             <div className="space-y-4">
               {active.map(appt => (
-                <AppointmentRow key={appt._id} appointment={appt} navigate={navigate} />
+                <AppointmentRow key={appt._id} appointment={appt} navigate={navigate} onReschedule={setReschedulingAppt} />
               ))}
             </div>
           ) : (
@@ -852,13 +858,30 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate }) => {
           )}
         </>
       )}
+
+      {reschedulingAppt && (
+        <RescheduleModal
+          booking={reschedulingAppt}
+          onSuccess={() => {
+            setReschedulingAppt(null);
+            onAppointmentChanged && onAppointmentChanged();
+          }}
+          onClose={() => setReschedulingAppt(null)}
+        />
+      )}
     </div>
   );
 };
 
 // Single appointment card. `compact` strips the duration/price/location row
 // so series-expansion lists stay scannable.
-const AppointmentRow = ({ appointment, navigate, compact = false }) => {
+const AppointmentRow = ({ appointment, navigate, compact = false, onReschedule }) => {
+  // Show inline reschedule for upcoming bookings only. Server enforces
+  // the same gate; this just hides a dead-click affordance.
+  const canReschedule = !compact
+    && onReschedule
+    && ['pending', 'confirmed'].includes(appointment.status);
+
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ${
       appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -887,9 +910,19 @@ const AppointmentRow = ({ appointment, navigate, compact = false }) => {
         </div>
         <div className="flex items-center space-x-2">
           {statusBadge}
+          {canReschedule && (
+            <button
+              onClick={() => onReschedule(appointment)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded border border-[#B07A4E]/30 hover:bg-[#B07A4E]/5"
+              title="Reschedule this appointment"
+            >
+              <CalendarClock className="w-3.5 h-3.5" /> Reschedule
+            </button>
+          )}
           <button
             onClick={() => navigate(`/provider/appointments/${appointment._id}`)}
             className="text-slate-600 hover:text-slate-900"
+            title="View details"
           >
             <FileText className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
           </button>
