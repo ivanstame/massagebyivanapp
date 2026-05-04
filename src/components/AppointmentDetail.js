@@ -4,7 +4,7 @@ import axios from 'axios';
 import { AuthContext } from '../AuthContext';
 import { DateTime } from 'luxon';
 import {
-  ArrowLeft, Calendar, Clock, MapPin, User, Phone,
+  ArrowLeft, Calendar, Clock, MapPin, User, Phone, ChevronDown,
   DollarSign, Trash2, AlertCircle, Tag, Plus, Banknote, CheckCircle,
   PlayCircle, CircleCheck, Loader2, CalendarClock
 } from 'lucide-react';
@@ -30,6 +30,12 @@ const AppointmentDetail = () => {
   const [cancelScope, setCancelScope] = useState('one');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
+  // Quick-push: bumps start time by N minutes via the same /reschedule
+  // endpoint. Server validates against drive time and adjacent bookings;
+  // refusal is surfaced inline as a transient error.
+  const [pushMenuOpen, setPushMenuOpen] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState(null);
   // Provider's private session note. Free-form, optional, capped at
   // 5000 chars by the schema. Local edit state keeps the textarea
   // responsive; commit on blur or explicit save.
@@ -207,13 +213,7 @@ const AppointmentDetail = () => {
             </h1>
             <span className={`av-meta px-2.5 py-1 rounded-full border border-line text-ink-2 ${statusColor(booking.status)}`}
               style={{ fontSize: 10 }}>
-              {(() => {
-                // Schema-level enum is still "pending"; the user-facing
-                // label reads "Tentative" since "pending" is ambiguous
-                // ("pending what — payment? approval?").
-                const label = booking.status === 'pending' ? 'tentative' : booking.status;
-                return label.charAt(0).toUpperCase() + label.slice(1);
-              })()}
+              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </span>
           </div>
           <div className="text-sm text-ink-2 mt-1">
@@ -550,16 +550,6 @@ const AppointmentDetail = () => {
         {/* Status Actions — Provider only */}
         {isProvider && booking.status !== 'cancelled' && booking.status !== 'completed' && (
           <div className="mt-6 flex gap-3">
-            {booking.status === 'pending' && (
-              <button
-                onClick={() => handleStatusUpdate('confirmed')}
-                disabled={updatingStatus}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-[#B07A4E] text-white rounded-lg font-medium hover:bg-[#8A5D36] disabled:opacity-50 transition-colors"
-              >
-                {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Confirm
-              </button>
-            )}
             {booking.status === 'confirmed' && (
               <>
                 <button
@@ -593,18 +583,71 @@ const AppointmentDetail = () => {
           </div>
         )}
 
-        {/* Reschedule button — only when the appointment is still in
-            pending/confirmed status. The server endpoint enforces this
-            too; we hide the affordance to avoid a dead-click. */}
-        {['pending', 'confirmed'].includes(booking.status) && (
-          <div className="mt-6">
-            <button
-              onClick={() => setShowReschedule(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-[#B07A4E]/40 text-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/5 transition-colors font-medium"
-            >
-              <CalendarClock className="w-4 h-4" />
-              Reschedule
-            </button>
+        {/* Reschedule + Push — only when the appointment isn't done.
+            Server enforces the same gate; this just hides a dead-click. */}
+        {!['cancelled', 'completed'].includes(booking.status) && (
+          <div className="mt-6 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setShowReschedule(true)}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 border border-[#B07A4E]/40 text-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/5 transition-colors font-medium"
+              >
+                <CalendarClock className="w-4 h-4" />
+                Reschedule
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setPushMenuOpen(o => !o)}
+                  disabled={pushBusy}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-[#B07A4E]/40 text-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/5 transition-colors font-medium disabled:opacity-60"
+                >
+                  {pushBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                  Push
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                {pushMenuOpen && !pushBusy && (
+                  <div className="absolute right-0 left-0 top-full mt-1 z-20 bg-paper-elev border border-line rounded-lg shadow-lg py-1">
+                    {[15, 30, 45, 60].map(min => (
+                      <button
+                        key={min}
+                        onClick={async () => {
+                          setPushMenuOpen(false);
+                          setPushBusy(true);
+                          setPushError(null);
+                          try {
+                            const [h, m] = (booking.startTime || '00:00').split(':').map(Number);
+                            const total = h * 60 + m + min;
+                            if (total >= 24 * 60) throw new Error('Would push past midnight.');
+                            const newTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+                            const res = await axios.put(
+                              `/api/bookings/${booking._id}/reschedule`,
+                              { date: booking.localDate, time: newTime },
+                              { withCredentials: true }
+                            );
+                            const refresh = await axios.get(`/api/bookings/${booking._id}`, { withCredentials: true });
+                            setBooking(refresh.data || res.data);
+                          } catch (err) {
+                            setPushError(err.response?.data?.message || err.message || 'Could not push this appointment.');
+                            setTimeout(() => setPushError(null), 6000);
+                          } finally {
+                            setPushBusy(false);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-paper-deep"
+                      >
+                        Push by {min === 60 ? '1 hour' : `${min} min`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {pushError && (
+              <div className="p-2 bg-red-50 border-l-2 border-red-400 rounded text-xs text-red-700 flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <span>{pushError}</span>
+              </div>
+            )}
           </div>
         )}
 

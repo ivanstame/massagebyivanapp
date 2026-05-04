@@ -575,7 +575,7 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
         recipientType: r.recipientType,
         recipientInfo: r.recipientInfo,
       })),
-      status: 'pending',
+      status: 'confirmed',
       // Per-provider preference (User.providerProfile.sameAddressTurnoverBuffer).
       // True → chain siblings + adjacent same-address bookings get the
       // 15-min cleanup buffer. False → flush (sheet-sharing couples,

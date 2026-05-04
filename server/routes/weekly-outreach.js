@@ -32,11 +32,12 @@ const BASE_URL = () => process.env.REACT_APP_API_URL || process.env.APP_URL || '
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function startOfNextWeekLA() {
-  const now = DateTime.now().setZone(DEFAULT_TZ);
-  // Find next Monday (or today if already Monday)
-  const daysUntilMon = (8 - now.weekday) % 7 || 7;
-  return now.plus({ days: daysUntilMon }).startOf('day');
+// Default outreach window: today + next 6 days. Provider's mental
+// model when sending on a Monday is "this week's openings", not "next
+// week's" — and on later weekdays it naturally rolls forward into
+// next week. Always 7 days from today.
+function startOfWeekLA() {
+  return DateTime.now().setZone(DEFAULT_TZ).startOf('day');
 }
 
 function fmtTime(hhmm) {
@@ -289,7 +290,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 
     res.json({
       template: {
-        openingLine: template.openingLine || 'Hey {firstName}, quick heads-up on next week:',
+        openingLine: template.openingLine || 'Hey {firstName}, quick heads-up on this week:',
         closingLine: template.closingLine || 'Tap to book: {bookingLink}',
       },
       lastSentAt,
@@ -338,7 +339,7 @@ router.post('/preview', ensureAuthenticated, async (req, res) => {
 
     const weekStart = req.body.weekStart
       ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
-      : startOfNextWeekLA();
+      : startOfWeekLA();
 
     const allRecipients = await getRecipients(req.user._id);
     const recipients = selectRecipients(allRecipients, req.body);
@@ -394,7 +395,7 @@ router.post('/send', ensureAuthenticated, async (req, res) => {
 
     const weekStart = req.body.weekStart
       ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
-      : startOfNextWeekLA();
+      : startOfWeekLA();
 
     const allRecipients = await getRecipients(req.user._id);
     const recipients = selectRecipients(allRecipients, req.body);

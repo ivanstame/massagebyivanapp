@@ -196,8 +196,12 @@ const BookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
+    // 'pending' is retained in the enum for legacy rows only — no
+    // new code path should set it. Bookings start as 'confirmed':
+    // once it's on the books, it's on the books until cancelled or
+    // rescheduled.
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
-    default: 'pending'
+    default: 'confirmed'
   },
   cancelledAt: { type: Date, default: null },
   cancelledBy: { type: String, enum: ['CLIENT', 'PROVIDER', null], default: null },

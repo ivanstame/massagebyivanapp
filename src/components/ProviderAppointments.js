@@ -96,8 +96,6 @@ const ProviderAppointments = () => {
 
   // Apply filters + search. Search hits recipient name and address.
   const matchesFilters = (a) => {
-    if (filter === 'pending' && a.status !== 'pending') return false;
-    if (filter === 'confirmed' && a.status !== 'confirmed') return false;
     if (filter === 'unpaid' && a.paymentStatus === 'paid') return false;
     if (search.trim()) {
       const needle = search.trim().toLowerCase();
@@ -110,7 +108,7 @@ const ProviderAppointments = () => {
     return true;
   };
 
-  const { upcomingGroups, pastGroups, upcomingCount, pastCount, pendingCount, unpaidUpcomingCount } = useMemo(() => {
+  const { upcomingGroups, pastGroups, upcomingCount, pastCount, unpaidUpcomingCount } = useMemo(() => {
     const filtered = appointments.filter(matchesFilters);
     const upcoming = filtered.filter(a => !isPast(a))
       .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)) ||
@@ -157,11 +155,7 @@ const ProviderAppointments = () => {
       else pastBuckets['Earlier'].push(a);
     }
 
-    // Filter-aware counters for the chip badges (computed off the
-    // unfiltered set so the badges show "what's pending in the world,"
-    // not "what's pending after I narrowed the view").
     const allUpcoming = appointments.filter(a => !isPast(a));
-    const pending = allUpcoming.filter(a => a.status === 'pending').length;
     const unpaidUpcoming = allUpcoming.filter(a =>
       a.paymentStatus !== 'paid' && (a.pricing?.totalPrice || 0) > 0
     ).length;
@@ -171,7 +165,6 @@ const ProviderAppointments = () => {
       pastGroups: pastBuckets,
       upcomingCount: upcoming.length,
       pastCount: past.length,
-      pendingCount: pending,
       unpaidUpcomingCount: unpaidUpcoming,
     };
   }, [appointments, filter, search]);
@@ -214,10 +207,8 @@ const ProviderAppointments = () => {
 
         {/* Filter chips */}
         <div className="mb-6 flex flex-wrap gap-2">
-          <FilterChip active={filter === 'all'}      onClick={() => setFilter('all')}      label="All" />
-          <FilterChip active={filter === 'pending'}  onClick={() => setFilter('pending')}  label="Tentative" badge={pendingCount} accent="amber" />
-          <FilterChip active={filter === 'confirmed'} onClick={() => setFilter('confirmed')} label="Confirmed" />
-          <FilterChip active={filter === 'unpaid'}   onClick={() => setFilter('unpaid')}   label="Unpaid" badge={unpaidUpcomingCount} accent="amber" />
+          <FilterChip active={filter === 'all'}    onClick={() => setFilter('all')}    label="All" />
+          <FilterChip active={filter === 'unpaid'} onClick={() => setFilter('unpaid')} label="Unpaid" badge={unpaidUpcomingCount} accent="amber" />
         </div>
 
         {isLoading ? (
@@ -324,7 +315,6 @@ const AppointmentRow = ({ booking }) => {
   const neighborhood = booking.location?.address?.split(',')[0] || '';
   const isCancelled = booking.status === 'cancelled';
   const isCompleted = booking.status === 'completed';
-  const isPending = booking.status === 'pending';
   const hasPrice = (booking.pricing?.totalPrice || 0) > 0;
   const isUnpaid = hasPrice && booking.paymentStatus !== 'paid';
   const isChain = !!booking.groupId;
@@ -367,11 +357,6 @@ const AppointmentRow = ({ booking }) => {
 
       {/* Status indicators column */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {isPending && (
-          <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-            Tentative
-          </span>
-        )}
         {isCompleted && (
           <CheckCircle className="w-4 h-4 text-green-600" title="Completed" />
         )}

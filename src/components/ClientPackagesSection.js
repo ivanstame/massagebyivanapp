@@ -255,7 +255,7 @@ const PackageRow = ({ pkg, onCancel, onReinstate, working }) => {
                       )}
                       {status && (
                         <span className={`text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded border ${statusColors[status] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                          {status === 'pending' ? 'tentative' : status}
+                          {status}
                         </span>
                       )}
                     </div>

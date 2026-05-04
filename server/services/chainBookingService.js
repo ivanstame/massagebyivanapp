@@ -90,7 +90,7 @@ class ChainDoesntFitError extends Error {
  * @param {string}   input.startTime       - 'HH:mm' first session start
  * @param {Object}   input.location        - { lat, lng, address } shared by all sessions
  * @param {Array}    input.sessions        - per-session configs, see below
- * @param {string}   [input.status]        - default 'pending'; recurring uses 'confirmed'
+ * @param {string}   [input.status]        - default 'confirmed'
  * @param {ObjectId} [input.series]        - optional ref to a RecurringSeries
  * @param {Object}   [input.providerConfig] - { addons: [{name, isActive}] } if pre-fetched
  *
@@ -110,7 +110,7 @@ async function createChainBookings(input) {
     startTime,
     location,
     sessions,
-    status = 'pending',
+    status = 'confirmed',
     series = null,
     // forceBuffer: when true, opt back into the 15-min settle buffer
     // between sibling sessions (and against any other same-address
