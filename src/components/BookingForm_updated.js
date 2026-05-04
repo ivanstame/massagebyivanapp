@@ -1043,6 +1043,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             selectedPaymentMethod={selectedPaymentMethod}
             packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
             packageName={selectedPackage?.name || null}
+            additionalSessions={additionalSessions}
           />
 
           {/* 7. Available Time Slots */}
@@ -1234,13 +1235,65 @@ const BookingForm = ({ googleMapsLoaded }) => {
               .filter(Boolean);
             const addonsPrice = selectedAddonDetails.reduce((s, a) => s + (a.price || 0), 0);
             const extraTime = selectedAddonDetails.reduce((s, a) => s + (a.extraTime || 0), 0);
+
+            // Chain payload for the multi-session modal branch. The
+            // server creates these atomically as a single chain — the
+            // modal previously only showed session 1 because numSessions
+            // was hardcoded. Build per-session arrays so the modal
+            // renders the full chain with each recipient + duration +
+            // pricing line.
+            const numSessions = 1 + additionalSessions.length;
+            const firstRecipientLabel = recipientType === 'self'
+              ? (user?.profile?.fullName || 'You')
+              : (recipientInfo?.name || 'Other recipient');
+            const sessionList = [
+              {
+                recipient: firstRecipientLabel,
+                duration: selectedDuration + extraTime,
+                price: basePrice + addonsPrice,
+                paymentMethod: selectedPaymentMethod,
+                packageName: selectedPackage?.name || null,
+                packageMinutesApplied: isPartialRedemption ? packageMinutesApplied : 0,
+              },
+              ...additionalSessions.map(s => {
+                const sTier = durationOptions.find(p => p.duration === s.duration);
+                const sBase = sTier?.price || 0;
+                const sAddonDetails = (s.addons || [])
+                  .map(name => availableAddons.find(a => a.name === name))
+                  .filter(Boolean);
+                const sAddonsPrice = sAddonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
+                const sExtraTime = sAddonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
+                const recipientLabel = s.recipientType === 'self'
+                  ? firstRecipientLabel
+                  : (s.recipientInfo?.name || 'Other recipient');
+                return {
+                  recipient: recipientLabel,
+                  duration: s.duration + sExtraTime,
+                  price: sBase + sAddonsPrice,
+                  // v1: chain shares the first session's payment method;
+                  // per-session payment is a v2 deferred item per
+                  // plans/packages-v2.md.
+                  paymentMethod: selectedPaymentMethod,
+                  packageName: null,
+                  packageMinutesApplied: 0,
+                };
+              }),
+            ];
+            const sessionDurations = sessionList.map(s => s.duration);
+            const sessionNames = sessionList.map(s => s.recipient);
+            const chainTotalPrice = sessionList.reduce((sum, s) => sum + s.price, 0);
+
             return {
               selectedTime,
               selectedDate,
               fullAddress: selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
                 ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
                 : fullAddress,
-              numSessions: 1,
+              numSessions,
+              sessionDurations,
+              sessionNames,
+              sessions: sessionList,
+              chainTotalPrice,
               bookingId: newBookingId,
               selectedDuration,
               selectedAddons,

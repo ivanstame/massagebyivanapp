@@ -39,6 +39,12 @@ const BookingConfirmationModal = ({
     clientName,
     packageName,
     packageMinutesApplied = 0,
+    // Chain payload (optional — only present for back-to-back chain
+    // bookings). Each entry: { recipient, duration, price, paymentMethod,
+    // packageName, packageMinutesApplied }. Falls back to the legacy
+    // sessionDurations/sessionNames arrays if a caller hasn't migrated.
+    sessions = [],
+    chainTotalPrice = 0,
   } = bookingDetails || {};
 
   const PAYMENT_METHOD_LABELS = {
@@ -171,19 +177,58 @@ const BookingConfirmationModal = ({
             <div className="bg-blue-50 p-4 rounded-lg mb-4 text-left">
               <p className="font-medium text-blue-800 mb-2">
                 Your {numSessions} back-to-back sessions have been scheduled for
-                {' '}{formatDate(selectedDate)} at {selectedTime.display || selectedTime.local}.
+                {' '}{formatDate(selectedDate)} starting at {selectedTime.display || selectedTime.local}.
               </p>
-              
-              <div className="mt-2">
-                {sessionDurations.map((dur, i) => (
-                  <div key={i} className="mt-1 pl-4 border-l-2 border-blue-200">
-                    <div className="font-medium">
-                      Session {i + 1}: {sessionNames[i] || 'No Name'} ({dur} minutes)
+
+              <div className="mt-2 space-y-2">
+                {/* Prefer the rich `sessions` payload if present (each
+                    session carries recipient + duration + price +
+                    payment method + partial-redemption breakdown).
+                    Falls back to the legacy sessionDurations/Names
+                    arrays for callers that haven't migrated. */}
+                {(sessions.length > 0 ? sessions : sessionDurations.map((d, i) => ({
+                  recipient: sessionNames[i] || `Session ${i + 1}`,
+                  duration: d,
+                  price: 0,
+                  paymentMethod: paymentMethod,
+                  packageMinutesApplied: 0,
+                  packageName: null,
+                }))).map((s, i) => {
+                  const partial = s.packageMinutesApplied > 0
+                    && s.packageMinutesApplied < s.duration;
+                  return (
+                    <div key={i} className="pl-3 border-l-2 border-blue-200">
+                      <div className="font-medium text-blue-900">
+                        Session {i + 1}: {s.recipient} · {s.duration} min
+                        {s.price ? <span className="text-slate-700 font-normal"> · ${s.price}</span> : null}
+                      </div>
+                      {s.paymentMethod && (
+                        <div className="text-xs text-slate-700 mt-0.5">
+                          {partial ? (
+                            <>
+                              {s.packageMinutesApplied} min from package
+                              {s.packageName ? ` (${s.packageName})` : ''}
+                              {' + '}{s.duration - s.packageMinutesApplied} min via{' '}
+                              {PAYMENT_METHOD_LABELS[s.paymentMethod] || s.paymentMethod}
+                              {' '}— ${(s.price * (s.duration - s.packageMinutesApplied) / s.duration).toFixed(2)}
+                              {' '}due
+                            </>
+                          ) : (
+                            <>Payment: {PAYMENT_METHOD_LABELS[s.paymentMethod] || s.paymentMethod}</>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              
+
+              {chainTotalPrice > 0 && (
+                <div className="mt-3 pt-2 border-t border-blue-200 font-medium">
+                  Chain total: ${chainTotalPrice}
+                </div>
+              )}
+
               {/* Address */}
               <div className="mt-3 pt-2 border-t border-blue-200">
                 <span className="font-medium">Address:</span> {fullAddress}

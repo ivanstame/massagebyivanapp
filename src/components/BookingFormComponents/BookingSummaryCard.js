@@ -20,6 +20,12 @@ const BookingSummaryCard = ({
   // the appointment ("wait, I owe $X?").
   packageMinutesApplied = 0,
   packageName = null,
+  // Chain context — when the user has stacked back-to-back sessions,
+  // pass the additional sessions in so the summary reflects the full
+  // chain (each session's recipient + duration + price) rather than
+  // showing only the first booking. Empty array = single-session,
+  // current behavior unchanged.
+  additionalSessions = [],
 }) => {
   const paymentMethodLabels = {
     cash: 'Cash',
@@ -50,6 +56,40 @@ const BookingSummaryCard = ({
   const extraTime = selectedAddonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
   const totalPrice = basePrice + addonsPrice;
   const totalDuration = durationMinutes + extraTime;
+
+  // Per-session breakdown for back-to-back chains. Each entry mirrors
+  // the shape the form already keeps in `additionalSessions`, plus
+  // derived price/duration/recipient label so this view doesn't
+  // recompute it inline. The first session is the main form fields.
+  const isChain = additionalSessions.length > 0;
+  const chainSessions = isChain ? [
+    {
+      recipient: recipientType === 'self'
+        ? 'Yourself'
+        : (recipientInfo?.name || 'Other recipient'),
+      duration: totalDuration,
+      price: totalPrice,
+    },
+    ...additionalSessions.map(s => {
+      const sTier = durationOptions.find(p => p.duration === s.duration);
+      const sBase = sTier?.price || 0;
+      const sAddonDetails = (s.addons || [])
+        .map(name => availableAddons.find(a => a.name === name))
+        .filter(Boolean);
+      const sAddonsPrice = sAddonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
+      const sExtraTime = sAddonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
+      const recipientLabel = s.recipientType === 'self'
+        ? 'Yourself'
+        : (s.recipientInfo?.name || 'Other recipient');
+      return {
+        recipient: recipientLabel,
+        duration: s.duration + sExtraTime,
+        price: sBase + sAddonsPrice,
+      };
+    }),
+  ] : [];
+  const chainTotalPrice = chainSessions.reduce((sum, s) => sum + s.price, 0);
+  const chainTotalDuration = chainSessions.reduce((sum, s) => sum + s.duration, 0);
 
   const hasSelections = selectedDate || selectedTime || fullAddress || selectedDuration;
 
@@ -190,8 +230,39 @@ const BookingSummaryCard = ({
             </div>
           )}
 
-          {/* Pricing */}
-          {selectedDuration && basePrice > 0 && (
+          {/* Chain breakdown — only renders for back-to-back chains.
+              Lists each session with its recipient + duration + price
+              so the user sees the FULL booking, not just session 1. */}
+          {isChain && (
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <p className="font-medium text-blue-900 mb-2">
+                Back-to-back chain · {chainSessions.length} sessions
+              </p>
+              <div className="space-y-2">
+                {chainSessions.map((s, i) => (
+                  <div key={i} className="flex justify-between items-baseline border-l-2 border-blue-200 pl-3">
+                    <div>
+                      <div className="text-sm font-medium text-blue-900">
+                        Session {i + 1}: {s.recipient}
+                      </div>
+                      <div className="text-xs text-slate-600">{s.duration} min</div>
+                    </div>
+                    <div className="text-sm font-medium text-slate-700">${s.price}</div>
+                  </div>
+                ))}
+                <div className="pt-2 mt-1 border-t border-blue-200 flex justify-between items-baseline">
+                  <span className="text-sm font-semibold text-blue-900">
+                    Chain total · {chainTotalDuration} min
+                  </span>
+                  <span className="text-base font-bold text-blue-900">${chainTotalPrice}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pricing — single-session view. Suppressed for chains since
+              the chain breakdown above already lists every session. */}
+          {!isChain && selectedDuration && basePrice > 0 && (
             <div className="bg-teal-50 rounded-lg p-4">
               <div className="flex items-center space-x-3 mb-3">
                 <DollarSign className="w-5 h-5 text-teal-700" />
