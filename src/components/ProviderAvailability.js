@@ -9,10 +9,11 @@ import ModifyAvailabilityModal from './ModifyAvailabilityModal';
 import BlockOffTimeModal from './BlockOffTimeModal';
 import GoogleCalendarConflictModal from './GoogleCalendarConflictModal';
 import AvailabilityList from './AvailabilityList';
-import { Clock, Ban, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown } from 'lucide-react';
+import { Clock, Ban, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown, Share2 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS, DEFAULT_TZ } from '../utils/timeConstants';
 import PinDropMap from './PinDropMap';
+import ScheduleShareSheet from './ScheduleShareSheet';
 
 
 const DepartureEditor = ({ savedLocations, homeBase, currentAnchor, onSave, onCancel }) => {
@@ -118,6 +119,7 @@ const ProviderAvailability = () => {
   const [deleteConfirmBlock, setDeleteConfirmBlock] = useState(null);
   const [activeTab, setActiveTab] = useState('timeline'); // 'timeline' or 'list'
   const [showDepartureEditor, setShowDepartureEditor] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   // Bumped after any mutation that affects month-level calendar dots
   // (add/modify/delete availability, block off time, delete a block).
   // Pipes into ResponsiveCalendar's refreshKey to force a re-fetch.
@@ -669,6 +671,19 @@ const formatTime = useCallback((time) => {
                   <List className="w-4 h-4 mr-2" />
                   List View
                 </button>
+                {/* Share schedule — opens a sheet that formats the
+                    selected day's bookings for sending to a spouse,
+                    family, accountant, etc. Out-of-band recipient,
+                    not in-app. Tucked into the tab row so it sits
+                    next to the day controls without crowding the
+                    primary actions. */}
+                <button
+                  onClick={() => setShowShareSheet(true)}
+                  className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] py-4 px-2"
+                  title="Share today's schedule"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Share schedule
+                </button>
               </nav>
             </div>
 
@@ -765,6 +780,14 @@ const formatTime = useCallback((time) => {
                 }`}
               >
                 List
+              </button>
+              <button
+                onClick={() => setShowShareSheet(true)}
+                className="flex-shrink-0 px-3 py-2 text-[#B07A4E]"
+                title="Share today's schedule"
+                aria-label="Share schedule"
+              >
+                <Share2 className="w-4 h-4" />
               </button>
           </div>
 
@@ -893,6 +916,14 @@ const formatTime = useCallback((time) => {
             conflicts={gcalConflicts}
             onConfirm={handleGcalModalConfirm}
             onCancel={handleGcalModalCancel}
+          />
+        )}
+
+        {showShareSheet && (
+          <ScheduleShareSheet
+            bookings={bookings}
+            date={selectedDate}
+            onClose={() => setShowShareSheet(false)}
           />
         )}
 
