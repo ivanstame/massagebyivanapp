@@ -115,7 +115,13 @@ const ProviderAppointments = () => {
   };
 
   const { upcomingGroups, pastGroups, upcomingCount, pastCount, pastCountAll, unpaidUpcomingCount } = useMemo(() => {
-    const filtered = appointments.filter(matchesFilters);
+    // Cancelled bookings are hidden everywhere in this view — provider
+    // explicitly flagged them as visual noise. They still exist in the
+    // DB and remain visible inside a specific client's history page if
+    // ever needed.
+    const filtered = appointments
+      .filter(a => a.status !== 'cancelled')
+      .filter(matchesFilters);
     const upcoming = filtered.filter(a => !isPast(a))
       .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)) ||
                       a.startTime.localeCompare(b.startTime));
@@ -180,9 +186,10 @@ const ProviderAppointments = () => {
     const unpaidUpcoming = allUpcoming.filter(a =>
       a.paymentStatus !== 'paid' && (a.pricing?.totalPrice || 0) > 0
     ).length;
-    // Total past count over the full set so the chip badge shows
-    // "23 past" even when filter='all' (badge isn't gated on filter).
-    const pastCountAll = appointments.filter(isPast).length;
+    // Past chip badge counts non-cancelled past only — the chip would
+    // lie otherwise (clicking "Past 23" then seeing 11 rows because
+    // cancelled aren't rendered).
+    const pastCountAll = appointments.filter(a => a.status !== 'cancelled' && isPast(a)).length;
 
     return {
       upcomingGroups: upcomingOrdered,
