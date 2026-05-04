@@ -1370,48 +1370,64 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
     const bookingDateLA = DateTime.fromISO(date, { zone: 'America/Los_Angeles' }).startOf('day');
     const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
 
-    // Validate the new slot is available (same logic as POST /)
-    const availabilityBlocks = await Availability.find({
-      provider: providerId,
-      localDate: localDateStr
-    }).sort({ start: 1 });
-
-    if (availabilityBlocks.length === 0) {
-      return res.status(400).json({ message: 'No availability for the selected date' });
+    // Direct conflict check (not slot-list membership). Reschedule is
+    // a corrective action, not a fresh booking. Common case: provider
+    // started 15 min late and wants the record to match reality. The
+    // booking might already be outside declared availability (booked
+    // on-behalf, or availability changed after the fact). Refusing
+    // because "8:45 isn't in your 12pm-8pm availability" is wrong here.
+    //
+    // What we DO refuse: overlap with another non-cancelled booking,
+    // or with a non-overridden BlockedTime (Google Calendar event,
+    // manual block). Those are real, hard conflicts.
+    const newStartMin = (() => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    })();
+    const newEndMin = newStartMin + duration;
+    if (newEndMin > 24 * 60) {
+      return res.status(400).json({ message: 'Appointment would extend past midnight.' });
     }
 
     const startOfDay = bookingDateLA.startOf('day').toUTC().toJSDate();
     const endOfDay = bookingDateLA.endOf('day').toUTC().toJSDate();
 
-    // Exclude the current booking from conflict checks
-    const existingBookings = await Booking.find({
+    const otherBookings = await Booking.find({
       provider: providerId,
       date: { $gte: startOfDay, $lt: endOfDay },
       status: { $ne: 'cancelled' },
       _id: { $ne: booking._id }
-    }).sort({ startTime: 1 });
+    }).populate('client', 'profile.fullName email').sort({ startTime: 1 });
 
-    let homeBase = null;
-    const homeLoc = await SavedLocation.findOne({ provider: providerId, isHomeBase: true });
-    if (homeLoc) {
-      homeBase = { lat: homeLoc.lat, lng: homeLoc.lng };
-    }
-
-    let allSlots = [];
-    for (const availability of availabilityBlocks) {
-      const slots = await getAvailableTimeSlots(
-        availability, existingBookings, location, duration,
-        15, null, 0, providerId, [], homeBase
-      );
-      allSlots = allSlots.concat(slots);
-    }
-
-    const availableTimeStrings = allSlots.map(slot =>
-      DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toFormat('HH:mm')
+    const toMin = (hhmm) => {
+      const [h, m] = hhmm.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const overlapBooking = otherBookings.find(b =>
+      newStartMin < toMin(b.endTime) && newEndMin > toMin(b.startTime)
     );
+    if (overlapBooking) {
+      const who = overlapBooking.client?.profile?.fullName || overlapBooking.client?.email || 'another booking';
+      return res.status(400).json({
+        message: `That time overlaps with ${who} at ${overlapBooking.startTime}.`
+      });
+    }
 
-    if (!availableTimeStrings.includes(time)) {
-      return res.status(400).json({ message: 'This time slot is not available' });
+    const dayBlocks = await BlockedTime.find({
+      provider: providerId,
+      localDate: localDateStr,
+      overridden: { $ne: true }
+    }).select('start end source reason');
+    const overlapBlock = dayBlocks.find(bt => {
+      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone('America/Los_Angeles');
+      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone('America/Los_Angeles');
+      const btStart = sLA.hour * 60 + sLA.minute;
+      const btEnd = eLA.hour * 60 + eLA.minute;
+      return newStartMin < btEnd && newEndMin > btStart;
+    });
+    if (overlapBlock) {
+      const reason = overlapBlock.reason || (overlapBlock.source === 'google_calendar' ? 'a Google Calendar event' : 'blocked time');
+      return res.status(400).json({ message: `That time overlaps with ${reason}.` });
     }
 
     // Store old details for notification
