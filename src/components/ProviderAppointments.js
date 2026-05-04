@@ -438,7 +438,10 @@ const AppointmentRow = ({ booking }) => {
         )}
       </div>
 
-      {/* Status indicators column */}
+      {/* Status indicators column. Price replaces the old $ icon — at
+          a glance the provider sees what each session is worth.
+          Unpaid appointments get an amber pill so they still stand
+          out; paid/no-price appointments render plain.  */}
       <div className="flex items-center gap-2 flex-shrink-0">
         {isCompleted && (
           <CheckCircle className="w-4 h-4 text-green-600" title="Completed" />
@@ -448,8 +451,19 @@ const AppointmentRow = ({ booking }) => {
             Cancelled
           </span>
         )}
-        {isUnpaid && !isCancelled && (
-          <CircleDollarSign className="w-4 h-4 text-amber-600" title="Unpaid" />
+        {hasPrice && !isCancelled && (
+          isUnpaid ? (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200"
+              title="Unpaid"
+            >
+              ${booking.pricing.totalPrice}
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-ink-2">
+              ${booking.pricing.totalPrice}
+            </span>
+          )
         )}
       </div>
 
