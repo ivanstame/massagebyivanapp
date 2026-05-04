@@ -39,6 +39,10 @@ const ProviderAppointments = () => {
   const [showPast, setShowPast] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  // Per-month accordion state. Map<groupKey, isOpen>. Defaults are
+  // computed at render time (this/next week + nearest month open;
+  // older months collapsed) but the user can toggle anything.
+  const [openGroups, setOpenGroups] = useState({});
   const { user } = useContext(AuthContext);
 
   useEffect(() => { fetchAppointments(); }, []);
@@ -119,42 +123,57 @@ const ProviderAppointments = () => {
       .sort((a, b) => moment.utc(b.date).diff(moment.utc(a.date)) ||
                       b.startTime.localeCompare(a.startTime));
 
-    // Group upcoming by relative date.
+    // Build ordered, named groups for both directions. Groups beyond
+    // the immediate Today/Tomorrow/This week/Next week (or Last week)
+    // bucket roll up by month so the list stays scannable instead of
+    // dumping years' worth of data into a single "Earlier" pile.
     const today = moment.tz('America/Los_Angeles').startOf('day');
     const tomorrow = today.clone().add(1, 'day');
-    const endOfThisWeek = today.clone().endOf('week'); // Saturday-end
+    const endOfThisWeek = today.clone().endOf('week');
     const endOfNextWeek = endOfThisWeek.clone().add(7, 'days');
+    const startOfLastWeek = today.clone().subtract(7, 'days');
 
-    const upcomingBuckets = {
-      Today: [],
-      Tomorrow: [],
-      'This Week': [],
-      'Next Week': [],
-      Later: [],
+    const buildGroup = (key, label) => ({ key, label, list: [] });
+    // Stable keys keep the openGroups map valid across renders. Use
+    // YYYY-MM for month keys.
+    const monthKey = (d) => d.format('YYYY-MM');
+    const monthLabel = (d) => d.format('MMMM YYYY');
+
+    // ─── Upcoming ────────────────────────────────────────────────
+    const upcomingOrdered = []; // [{key,label,list}]
+    const upcomingMap = new Map();
+    const ensureUp = (key, label) => {
+      if (!upcomingMap.has(key)) {
+        const g = buildGroup(key, label);
+        upcomingMap.set(key, g);
+        upcomingOrdered.push(g);
+      }
+      return upcomingMap.get(key);
     };
     for (const a of upcoming) {
       const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
-      if (d.isSame(today, 'day')) upcomingBuckets['Today'].push(a);
-      else if (d.isSame(tomorrow, 'day')) upcomingBuckets['Tomorrow'].push(a);
-      else if (d.isSameOrBefore(endOfThisWeek)) upcomingBuckets['This Week'].push(a);
-      else if (d.isSameOrBefore(endOfNextWeek)) upcomingBuckets['Next Week'].push(a);
-      else upcomingBuckets['Later'].push(a);
+      if (d.isSame(today, 'day')) ensureUp('today', 'Today').list.push(a);
+      else if (d.isSame(tomorrow, 'day')) ensureUp('tomorrow', 'Tomorrow').list.push(a);
+      else if (d.isSameOrBefore(endOfThisWeek)) ensureUp('this-week', 'This week').list.push(a);
+      else if (d.isSameOrBefore(endOfNextWeek)) ensureUp('next-week', 'Next week').list.push(a);
+      else ensureUp(`m-${monthKey(d)}`, monthLabel(d)).list.push(a);
     }
 
-    // Past buckets are simpler — provider scans for "last few" in practice.
-    const startOfThisMonth = today.clone().startOf('month');
-    const startOfLastWeek = today.clone().subtract(7, 'days');
-
-    const pastBuckets = {
-      'Last week': [],
-      'This month': [],
-      'Earlier': [],
+    // ─── Past ────────────────────────────────────────────────────
+    const pastOrdered = [];
+    const pastMap = new Map();
+    const ensurePast = (key, label) => {
+      if (!pastMap.has(key)) {
+        const g = buildGroup(key, label);
+        pastMap.set(key, g);
+        pastOrdered.push(g);
+      }
+      return pastMap.get(key);
     };
     for (const a of past) {
       const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
-      if (d.isSameOrAfter(startOfLastWeek)) pastBuckets['Last week'].push(a);
-      else if (d.isSameOrAfter(startOfThisMonth)) pastBuckets['This month'].push(a);
-      else pastBuckets['Earlier'].push(a);
+      if (d.isSameOrAfter(startOfLastWeek)) ensurePast('last-week', 'Last week').list.push(a);
+      else ensurePast(`m-${monthKey(d)}`, monthLabel(d)).list.push(a);
     }
 
     const allUpcoming = appointments.filter(a => !isPast(a));
@@ -166,8 +185,8 @@ const ProviderAppointments = () => {
     const pastCountAll = appointments.filter(isPast).length;
 
     return {
-      upcomingGroups: upcomingBuckets,
-      pastGroups: pastBuckets,
+      upcomingGroups: upcomingOrdered,
+      pastGroups: pastOrdered,
       upcomingCount: upcoming.length,
       pastCount: past.length,
       pastCountAll,
@@ -223,27 +242,20 @@ const ProviderAppointments = () => {
         ) : upcomingCount === 0 && pastCount === 0 ? (
           <EmptyState filter={filter} search={search} />
         ) : filter === 'past' ? (
-          /* Past-only view: skip the upcoming section + accordion, render
-             past groups expanded so a user clicking Past sees real content
-             immediately rather than an empty page + a collapsed bottom row. */
           pastCount === 0 ? (
             <p className="text-sm text-ink-2 text-center py-8">
               {search.trim() ? 'Nothing matches that filter.' : 'No past appointments.'}
             </p>
           ) : (
-            <div className="space-y-6">
-              {Object.entries(pastGroups).map(([label, list]) =>
-                list.length === 0 ? null : (
-                  <DateGroup key={label} label={label} count={list.length}>
-                    {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
-                  </DateGroup>
-                )
-              )}
-            </div>
+            <CollapsibleGroups
+              groups={pastGroups}
+              openGroups={openGroups}
+              setOpenGroups={setOpenGroups}
+              defaultOpenKeys={['last-week', pastGroups[1]?.key].filter(Boolean)}
+            />
           )
         ) : (
           <>
-            {/* Upcoming groups */}
             {upcomingCount === 0 ? (
               <p className="text-sm text-ink-2 text-center py-8">
                 {filter === 'all' && !search.trim()
@@ -251,19 +263,14 @@ const ProviderAppointments = () => {
                   : 'Nothing matches that filter.'}
               </p>
             ) : (
-              <div className="space-y-6">
-                {Object.entries(upcomingGroups).map(([label, list]) =>
-                  list.length === 0 ? null : (
-                    <DateGroup key={label} label={label} count={list.length}>
-                      {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
-                    </DateGroup>
-                  )
-                )}
-              </div>
+              <CollapsibleGroups
+                groups={upcomingGroups}
+                openGroups={openGroups}
+                setOpenGroups={setOpenGroups}
+                defaultOpenKeys={['today', 'tomorrow', 'this-week', 'next-week']}
+              />
             )}
 
-            {/* Past — collapsed accordion (legacy access path; tap the
-                Past chip up top for a dedicated view). */}
             {pastCount > 0 && (
               <div className="mt-10 pt-6 border-t border-line">
                 <button
@@ -274,14 +281,13 @@ const ProviderAppointments = () => {
                   {pastCount} past appointment{pastCount === 1 ? '' : 's'}
                 </button>
                 {showPast && (
-                  <div className="mt-4 space-y-6">
-                    {Object.entries(pastGroups).map(([label, list]) =>
-                      list.length === 0 ? null : (
-                        <DateGroup key={label} label={label} count={list.length}>
-                          {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
-                        </DateGroup>
-                      )
-                    )}
+                  <div className="mt-4">
+                    <CollapsibleGroups
+                      groups={pastGroups}
+                      openGroups={openGroups}
+                      setOpenGroups={setOpenGroups}
+                      defaultOpenKeys={['last-week', pastGroups[1]?.key].filter(Boolean)}
+                    />
                   </div>
                 )}
               </div>
@@ -329,6 +335,44 @@ const DateGroup = ({ label, count, children }) => (
     <div className="space-y-2">{children}</div>
   </div>
 );
+
+// Stack of collapsible date groups. Each group has its own toggle so
+// the user can keep "This week" open and "April 2026" closed
+// independently. Default-open keys (e.g. today/tomorrow/this-week)
+// are honored on first render; user toggles win after that.
+const CollapsibleGroups = ({ groups, openGroups, setOpenGroups, defaultOpenKeys = [] }) => {
+  const isOpen = (key) =>
+    openGroups[key] === undefined ? defaultOpenKeys.includes(key) : openGroups[key];
+  const toggle = (key) =>
+    setOpenGroups(prev => ({ ...prev, [key]: !isOpen(key) }));
+
+  return (
+    <div className="space-y-3">
+      {groups.map((g) => {
+        if (!g.list || g.list.length === 0) return null;
+        const open = isOpen(g.key);
+        return (
+          <div key={g.key} className="border border-line rounded-card bg-paper-elev/50">
+            <button
+              type="button"
+              onClick={() => toggle(g.key)}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-paper-deep rounded-card"
+            >
+              {open ? <ChevronDown className="w-4 h-4 text-ink-3" /> : <ChevronRight className="w-4 h-4 text-ink-3" />}
+              <span className="av-eyebrow text-ink-2">{g.label}</span>
+              <span className="text-[11px] text-ink-3">{g.list.length}</span>
+            </button>
+            {open && (
+              <div className="px-3 pb-3 space-y-2">
+                {g.list.map(a => <AppointmentRow key={a._id} booking={a} />)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // Single appointment row — the only renderer in this view. Tap → detail.
 // Mirrors the dashboard's TimelineRow visual rhythm so the two views feel
