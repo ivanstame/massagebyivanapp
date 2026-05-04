@@ -89,15 +89,24 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // empty (default), the form behaves as a normal single booking.
   const [additionalSessions, setAdditionalSessions] = useState([]);
 
-  // Per-booking opt-in to the 15-min settle buffer between this booking
-  // and any other same-address booking on the day (and between sibling
-  // sessions in a chain). Default OFF — the slot picker treats same-
-  // address back-to-back as flush. The toggle exists for couples that
-  // need a sheet change between sessions, "extra hands" with a kit
-  // swap, etc. Re-fetches slots on change so the picker reflects the
-  // chosen behavior.
-  const [forceTurnoverBuffer, setForceTurnoverBuffer] = useState(false);
-  const intraBufferMin = forceTurnoverBuffer ? 15 : intraBufferMin;
+  // Same-address turnover buffer between sibling chain sessions. The
+  // server-side authoritative value lives on the provider's profile
+  // (User.providerProfile.sameAddressTurnoverBuffer); the form mirrors
+  // it locally only so the chain time-cascade preview matches the
+  // server's eventual cascade. Defaults to ON (matches the schema
+  // default); the effect below syncs from the loaded provider doc.
+  const [providerTurnoverBuffer, setProviderTurnoverBuffer] = useState(true);
+  const intraBufferMin = providerTurnoverBuffer ? 15 : DEFAULT_INTRA_BUFFER_MIN;
+  // Sync the local mirror from the loaded provider doc. Strict-true
+  // check so an explicit false defeats the schema default; undefined/
+  // null falls back to ON (the schema default).
+  useEffect(() => {
+    if (provider?.providerProfile) {
+      setProviderTurnoverBuffer(
+        provider.providerProfile.sameAddressTurnoverBuffer !== false
+      );
+    }
+  }, [provider?.providerProfile?.sameAddressTurnoverBuffer]);
 
   // UI state
   const [loading, setLoading] = useState(false);
