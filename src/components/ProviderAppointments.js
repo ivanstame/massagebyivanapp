@@ -97,6 +97,8 @@ const ProviderAppointments = () => {
   // Apply filters + search. Search hits recipient name and address.
   const matchesFilters = (a) => {
     if (filter === 'unpaid' && a.paymentStatus === 'paid') return false;
+    // 'past' filter is handled separately in the render (it flips the
+    // upcoming/past split, not just narrows the matching set).
     if (search.trim()) {
       const needle = search.trim().toLowerCase();
       const haystack = [
@@ -108,7 +110,7 @@ const ProviderAppointments = () => {
     return true;
   };
 
-  const { upcomingGroups, pastGroups, upcomingCount, pastCount, unpaidUpcomingCount } = useMemo(() => {
+  const { upcomingGroups, pastGroups, upcomingCount, pastCount, pastCountAll, unpaidUpcomingCount } = useMemo(() => {
     const filtered = appointments.filter(matchesFilters);
     const upcoming = filtered.filter(a => !isPast(a))
       .sort((a, b) => moment.utc(a.date).diff(moment.utc(b.date)) ||
@@ -159,12 +161,16 @@ const ProviderAppointments = () => {
     const unpaidUpcoming = allUpcoming.filter(a =>
       a.paymentStatus !== 'paid' && (a.pricing?.totalPrice || 0) > 0
     ).length;
+    // Total past count over the full set so the chip badge shows
+    // "23 past" even when filter='all' (badge isn't gated on filter).
+    const pastCountAll = appointments.filter(isPast).length;
 
     return {
       upcomingGroups: upcomingBuckets,
       pastGroups: pastBuckets,
       upcomingCount: upcoming.length,
       pastCount: past.length,
+      pastCountAll,
       unpaidUpcomingCount: unpaidUpcoming,
     };
   }, [appointments, filter, search]);
@@ -208,6 +214,7 @@ const ProviderAppointments = () => {
         {/* Filter chips */}
         <div className="mb-6 flex flex-wrap gap-2">
           <FilterChip active={filter === 'all'}    onClick={() => setFilter('all')}    label="All" />
+          <FilterChip active={filter === 'past'}   onClick={() => setFilter('past')}   label="Past" badge={pastCountAll} />
           <FilterChip active={filter === 'unpaid'} onClick={() => setFilter('unpaid')} label="Unpaid" badge={unpaidUpcomingCount} accent="amber" />
         </div>
 
@@ -215,6 +222,25 @@ const ProviderAppointments = () => {
           <p className="text-sm text-ink-2 text-center py-12">Loading…</p>
         ) : upcomingCount === 0 && pastCount === 0 ? (
           <EmptyState filter={filter} search={search} />
+        ) : filter === 'past' ? (
+          /* Past-only view: skip the upcoming section + accordion, render
+             past groups expanded so a user clicking Past sees real content
+             immediately rather than an empty page + a collapsed bottom row. */
+          pastCount === 0 ? (
+            <p className="text-sm text-ink-2 text-center py-8">
+              {search.trim() ? 'Nothing matches that filter.' : 'No past appointments.'}
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(pastGroups).map(([label, list]) =>
+                list.length === 0 ? null : (
+                  <DateGroup key={label} label={label} count={list.length}>
+                    {list.map(a => <AppointmentRow key={a._id} booking={a} />)}
+                  </DateGroup>
+                )
+              )}
+            </div>
+          )
         ) : (
           <>
             {/* Upcoming groups */}
@@ -236,7 +262,8 @@ const ProviderAppointments = () => {
               </div>
             )}
 
-            {/* Past — collapsed accordion */}
+            {/* Past — collapsed accordion (legacy access path; tap the
+                Past chip up top for a dedicated view). */}
             {pastCount > 0 && (
               <div className="mt-10 pt-6 border-t border-line">
                 <button
