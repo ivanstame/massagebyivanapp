@@ -228,14 +228,13 @@ async function buildAvailabilityBody(providerId, weekStart) {
       // unbookable in practice.
       const open = openRaw.filter(r => rangeMinutes(r) >= minRangeMin);
 
-      // In-studio is signalled either by kind='static' + staticLocation
-      // OR by a populated anchor (older hybrid blocks store the studio
-      // location on the anchor instead). Both should label as in-studio.
-      const isStatic = (block.kind === 'static' && block.staticLocation)
-        || !!block.anchor?.locationId;
-      const locationName = isStatic
-        ? (block.staticLocation?.name || block.anchor?.name || 'Studio')
-        : null;
+      // In-studio strictly means kind='static' with a populated
+      // staticLocation. An `anchor` is just the departure point for
+      // mobile blocks (Home, etc.) and does NOT make the block
+      // in-studio — earlier I conflated the two and labeled mobile
+      // days as "in-studio at Home". Don't.
+      const isStatic = block.kind === 'static' && !!block.staticLocation;
+      const locationName = isStatic ? block.staticLocation.name : null;
 
       dayWindows.push({
         windowStart: window.start,
