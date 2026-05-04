@@ -397,9 +397,14 @@ const AppointmentRow = ({ booking }) => {
         hover:shadow-atelier-sm transition ${isCancelled ? 'opacity-60' : ''}`}
       style={!isCancelled && !isCompleted ? { borderLeft: '3px solid #B07A4E' } : undefined}
     >
-      {/* Time column */}
-      <div className="flex flex-col items-start" style={{ width: 64 }}>
-        <span className={`av-meta ${isCancelled || isCompleted ? 'text-ink-3' : 'text-accent'}`}>
+      {/* Date + Time column. Date is the dominant line so a row scanned
+          inside "May 2026" or "This week" still tells you Tue 5/12 vs
+          Thu 5/14 at a glance. */}
+      <div className="flex flex-col items-start" style={{ width: 78 }}>
+        <span className={`text-[11px] font-semibold uppercase tracking-wide ${isCancelled || isCompleted ? 'text-ink-3' : 'text-ink'}`}>
+          {moment.utc(booking.date).tz('America/Los_Angeles').format('ddd M/D')}
+        </span>
+        <span className={`av-meta mt-0.5 ${isCancelled || isCompleted ? 'text-ink-3' : 'text-accent'}`}>
           {formatTime(booking.startTime)}
         </span>
         <span className="text-[10px] text-ink-3 mt-0.5">{booking.duration}m</span>
