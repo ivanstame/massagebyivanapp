@@ -709,6 +709,47 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppoint
   // Inline reschedule — opens RescheduleModal without leaving this page.
   // Provider's most common move when running late: bump the appt 15 min.
   const [reschedulingAppt, setReschedulingAppt] = useState(null);
+  // Quick-push state — running late and need to bump by N minutes. We
+  // hit the same /reschedule endpoint, which validates against drive
+  // time + adjacent bookings. On refusal we surface the server's
+  // reason on the row itself.
+  const [pushBusyId, setPushBusyId] = useState(null);
+  const [pushErrorByApptId, setPushErrorByApptId] = useState({});
+
+  const handleQuickPush = async (appt, minutes) => {
+    setPushBusyId(appt._id);
+    setPushErrorByApptId(prev => ({ ...prev, [appt._id]: null }));
+    try {
+      const [h, m] = (appt.startTime || '00:00').split(':').map(Number);
+      const total = h * 60 + m + minutes;
+      if (total >= 24 * 60) {
+        throw new Error('Would push past midnight — pick a new time instead.');
+      }
+      const newH = Math.floor(total / 60);
+      const newM = total % 60;
+      const newTime = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+      await axios.put(
+        `/api/bookings/${appt._id}/reschedule`,
+        { date: appt.localDate, time: newTime },
+        { withCredentials: true }
+      );
+      onAppointmentChanged && onAppointmentChanged();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Could not push this appointment.';
+      setPushErrorByApptId(prev => ({ ...prev, [appt._id]: msg }));
+      // Auto-clear after 6s so the row doesn't carry a stale error forever.
+      setTimeout(() => {
+        setPushErrorByApptId(prev => {
+          if (!prev[appt._id]) return prev;
+          const next = { ...prev };
+          delete next[appt._id];
+          return next;
+        });
+      }, 6000);
+    } finally {
+      setPushBusyId(null);
+    }
+  };
 
   const active = appointments.filter(a => a.status !== 'cancelled');
   const cancelled = appointments.filter(a => a.status === 'cancelled');
@@ -771,7 +812,15 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppoint
           {active.length > 0 ? (
             <div className="space-y-4">
               {active.map(appt => (
-                <AppointmentRow key={appt._id} appointment={appt} navigate={navigate} onReschedule={setReschedulingAppt} />
+                <AppointmentRow
+                  key={appt._id}
+                  appointment={appt}
+                  navigate={navigate}
+                  onReschedule={setReschedulingAppt}
+                  onQuickPush={handleQuickPush}
+                  pushBusy={pushBusyId === appt._id}
+                  pushError={pushErrorByApptId[appt._id]}
+                />
               ))}
             </div>
           ) : (
@@ -875,12 +924,24 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppoint
 
 // Single appointment card. `compact` strips the duration/price/location row
 // so series-expansion lists stay scannable.
-const AppointmentRow = ({ appointment, navigate, compact = false, onReschedule }) => {
+const AppointmentRow = ({
+  appointment,
+  navigate,
+  compact = false,
+  onReschedule,
+  onQuickPush,
+  pushBusy = false,
+  pushError = null,
+}) => {
   // Show inline reschedule for upcoming bookings only. Server enforces
   // the same gate; this just hides a dead-click affordance.
   const canReschedule = !compact
     && onReschedule
     && ['pending', 'confirmed'].includes(appointment.status);
+  const canQuickPush = !compact
+    && onQuickPush
+    && ['pending', 'confirmed'].includes(appointment.status);
+  const [pushMenuOpen, setPushMenuOpen] = useState(false);
 
   const statusBadge = (
     <span className={`px-2 py-1 text-xs rounded-full ${
@@ -910,11 +971,43 @@ const AppointmentRow = ({ appointment, navigate, compact = false, onReschedule }
         </div>
         <div className="flex items-center space-x-2">
           {statusBadge}
+          {canQuickPush && (
+            <div className="relative">
+              <button
+                onClick={() => setPushMenuOpen(o => !o)}
+                disabled={pushBusy}
+                className="inline-flex items-center gap-1 text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded border border-[#B07A4E]/30 hover:bg-[#B07A4E]/5 disabled:opacity-60"
+                title="Push start time later"
+              >
+                {pushBusy
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Clock className="w-3.5 h-3.5" />}
+                Push
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {pushMenuOpen && !pushBusy && (
+                <div className="absolute right-0 top-full mt-1 z-20 bg-paper-elev border border-line rounded-lg shadow-lg py-1 min-w-[10rem]">
+                  {[15, 30, 45, 60].map(min => (
+                    <button
+                      key={min}
+                      onClick={() => {
+                        setPushMenuOpen(false);
+                        onQuickPush(appointment, min);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-paper-deep"
+                    >
+                      Push by {min === 60 ? '1 hour' : `${min} min`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {canReschedule && (
             <button
               onClick={() => onReschedule(appointment)}
               className="inline-flex items-center gap-1 text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded border border-[#B07A4E]/30 hover:bg-[#B07A4E]/5"
-              title="Reschedule this appointment"
+              title="Reschedule to another time"
             >
               <CalendarClock className="w-3.5 h-3.5" /> Reschedule
             </button>
@@ -928,6 +1021,12 @@ const AppointmentRow = ({ appointment, navigate, compact = false, onReschedule }
           </button>
         </div>
       </div>
+      {pushError && (
+        <div className="mb-2 p-2 bg-red-50 border-l-2 border-red-400 rounded text-xs text-red-700 flex items-start gap-1.5">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>{pushError}</span>
+        </div>
+      )}
       {!compact && (
         <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
           <div>
