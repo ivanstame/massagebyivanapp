@@ -259,6 +259,7 @@ const ProviderAppointments = () => {
               openGroups={openGroups}
               setOpenGroups={setOpenGroups}
               defaultOpenKeys={['last-week', pastGroups[1]?.key].filter(Boolean)}
+              provider={user}
             />
           )
         ) : (
@@ -275,6 +276,7 @@ const ProviderAppointments = () => {
                 openGroups={openGroups}
                 setOpenGroups={setOpenGroups}
                 defaultOpenKeys={['today', 'tomorrow', 'this-week', 'next-week']}
+                provider={user}
               />
             )}
 
@@ -294,6 +296,7 @@ const ProviderAppointments = () => {
                       openGroups={openGroups}
                       setOpenGroups={setOpenGroups}
                       defaultOpenKeys={['last-week', pastGroups[1]?.key].filter(Boolean)}
+                      provider={user}
                     />
                   </div>
                 )}
@@ -343,11 +346,36 @@ const DateGroup = ({ label, count, children }) => (
   </div>
 );
 
+// Compute the live price for a booking using the provider's CURRENT
+// pricing config + the client's CURRENT pricingTier. The booking's
+// stored pricing.totalPrice reflects what was charged at booking time
+// — outdated as soon as the client gets moved to a different tier or
+// the provider raises their rates. Provider explicitly wants the row
+// to read the up-to-date number, not historical ledger data.
+function computeLivePrice(booking, provider) {
+  if (!provider?.providerProfile) return null;
+  const tierId = booking.client?.clientProfile?.pricingTierId;
+  let pricing = provider.providerProfile.basePricing || [];
+  if (tierId) {
+    const tier = (provider.providerProfile.pricingTiers || [])
+      .find(t => String(t._id) === String(tierId));
+    if (tier?.pricing?.length) pricing = tier.pricing;
+  }
+  const tierEntry = pricing.find(p => p.duration === booking.duration);
+  if (!tierEntry) return null;
+  const addonDefs = provider.providerProfile.addons || [];
+  const addonsTotal = (booking.addons || [])
+    .map(name => addonDefs.find(a => a.name === name))
+    .filter(Boolean)
+    .reduce((sum, a) => sum + (a.price || 0), 0);
+  return tierEntry.price + addonsTotal;
+}
+
 // Stack of collapsible date groups. Each group has its own toggle so
 // the user can keep "This week" open and "April 2026" closed
 // independently. Default-open keys (e.g. today/tomorrow/this-week)
 // are honored on first render; user toggles win after that.
-const CollapsibleGroups = ({ groups, openGroups, setOpenGroups, defaultOpenKeys = [] }) => {
+const CollapsibleGroups = ({ groups, openGroups, setOpenGroups, defaultOpenKeys = [], provider }) => {
   const isOpen = (key) =>
     openGroups[key] === undefined ? defaultOpenKeys.includes(key) : openGroups[key];
   const toggle = (key) =>
@@ -371,7 +399,7 @@ const CollapsibleGroups = ({ groups, openGroups, setOpenGroups, defaultOpenKeys 
             </button>
             {open && (
               <div className="px-3 pb-3 space-y-2">
-                {g.list.map(a => <AppointmentRow key={a._id} booking={a} />)}
+                {g.list.map(a => <AppointmentRow key={a._id} booking={a} provider={provider} />)}
               </div>
             )}
           </div>
@@ -384,7 +412,13 @@ const CollapsibleGroups = ({ groups, openGroups, setOpenGroups, defaultOpenKeys 
 // Single appointment row — the only renderer in this view. Tap → detail.
 // Mirrors the dashboard's TimelineRow visual rhythm so the two views feel
 // like one product instead of two competing pages.
-const AppointmentRow = ({ booking }) => {
+const AppointmentRow = ({ booking, provider }) => {
+  // Live price = recompute from provider's current pricing tiers +
+  // client's current tier. Falls back to the booking's stored
+  // pricing.totalPrice only if we can't compute live (missing
+  // duration in tier, etc) — better to show old data than nothing.
+  const livePrice = computeLivePrice(booking, provider);
+  const displayPrice = livePrice != null ? livePrice : (booking.pricing?.totalPrice || 0);
   const formatTime = (hhmm) => moment(hhmm, 'HH:mm').format('h:mm A');
   const recipient = booking.recipientType === 'other' && booking.recipientInfo?.name
     ? booking.recipientInfo.name
@@ -393,7 +427,7 @@ const AppointmentRow = ({ booking }) => {
   const neighborhood = booking.location?.address?.split(',')[0] || '';
   const isCancelled = booking.status === 'cancelled';
   const isCompleted = booking.status === 'completed';
-  const hasPrice = (booking.pricing?.totalPrice || 0) > 0;
+  const hasPrice = displayPrice > 0;
   const isUnpaid = hasPrice && booking.paymentStatus !== 'paid';
   const isChain = !!booking.groupId;
 
@@ -457,11 +491,11 @@ const AppointmentRow = ({ booking }) => {
               className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200"
               title="Unpaid"
             >
-              ${booking.pricing.totalPrice}
+              ${displayPrice}
             </span>
           ) : (
             <span className="text-xs font-medium text-ink-2">
-              ${booking.pricing.totalPrice}
+              ${displayPrice}
             </span>
           )
         )}

@@ -682,7 +682,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
             provider: req.user._id,
             ...dateFilter
           })
-          .populate('client', 'email profile.fullName')
+          .populate('client', 'email profile.fullName clientProfile.pricingTierId')
           .sort({ startTime: 1 });
           
           console.log('Fetching bookings for specific date:', req.query.date);
@@ -696,7 +696,7 @@ router.get('/', ensureAuthenticated, async (req, res) => {
           console.log('Date range: from', new Date(0), 'to', futureDate);
           
           bookings = await Booking.findForProvider(req.user._id, new Date(0), futureDate)
-            .populate('client', 'email profile.fullName')
+            .populate('client', 'email profile.fullName clientProfile.pricingTierId')
             .exec();
             
           console.log('Found bookings:', bookings.length);
