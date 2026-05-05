@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { packageHeadline } from '../utils/packageDisplay';
+import { BonusComposer, BonusHistory } from './PackageBonusComposer';
 
 // Provider-facing view of one client's packages. Lives on the
 // ProviderClientDetails page. Lets the provider:
@@ -88,6 +89,22 @@ const ClientPackagesSection = ({ clientId, clientName }) => {
     }
   };
 
+  const handleAddBonus = async (pkg, payload) => {
+    try {
+      setWorking(`bonus:${pkg._id}`);
+      await axios.post(
+        `/api/packages/${pkg._id}/bonus`,
+        payload,
+        { withCredentials: true }
+      );
+      await fetchAll();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to add bonus time');
+    } finally {
+      setWorking(null);
+    }
+  };
+
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
       <div className="flex items-center justify-between mb-3">
@@ -133,6 +150,7 @@ const ClientPackagesSection = ({ clientId, clientName }) => {
               pkg={pkg}
               onCancel={() => handleCancel(pkg)}
               onReinstate={(redemptionId) => handleReinstate(pkg, redemptionId)}
+              onAddBonus={(payload) => handleAddBonus(pkg, payload)}
               working={working}
             />
           ))}
@@ -142,7 +160,7 @@ const ClientPackagesSection = ({ clientId, clientName }) => {
   );
 };
 
-const PackageRow = ({ pkg, onCancel, onReinstate, working }) => {
+const PackageRow = ({ pkg, onCancel, onReinstate, onAddBonus, working }) => {
   const isMinutes = pkg.kind === 'minutes';
   const total = isMinutes ? (pkg.minutesTotal || 0) : (pkg.sessionsTotal || 0);
   const liveRedemptions = (pkg.redemptions || []).filter(r => !r.returnedAt);
@@ -284,6 +302,16 @@ const PackageRow = ({ pkg, onCancel, onReinstate, working }) => {
             })}
           </ul>
         </details>
+      )}
+
+      <BonusHistory pkg={pkg} />
+
+      {!isCancelled && pkg.paymentStatus === 'paid' && onAddBonus && (
+        <BonusComposer
+          pkg={pkg}
+          onSubmit={onAddBonus}
+          busy={working === `bonus:${pkg._id}`}
+        />
       )}
     </div>
   );

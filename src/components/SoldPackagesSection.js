@@ -4,9 +4,10 @@ import { Link } from 'react-router-dom';
 import { DateTime } from 'luxon';
 import {
   Layers, Search, Loader2, AlertCircle, ChevronDown, ChevronUp,
-  Calendar, RotateCcw, ExternalLink, X, DollarSign, Filter, Gift,
+  Calendar, RotateCcw, ExternalLink, X, DollarSign, Filter,
 } from 'lucide-react';
 import { packageHeadline } from '../utils/packageDisplay';
+import { BonusComposer, BonusHistory } from './PackageBonusComposer';
 
 // Provider's master list of every package they've sold/comped, across all
 // clients. Three tabs (Active / Fulfilled / Cancelled), search by client
@@ -600,38 +601,8 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
             </ul>
           )}
 
-          {/* Bonus history (provider gifts) — visible only if any exist
-              so we don't clutter packages that haven't received comps. */}
-          {(pkg.bonuses || []).length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-xs uppercase tracking-wide font-medium text-slate-500 mb-2">
-                Bonus time gifted ({pkg.bonuses.length})
-              </h4>
-              <ul className="space-y-1.5">
-                {[...pkg.bonuses]
-                  .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
-                  .map(b => (
-                    <li key={b._id} className="flex items-start gap-2 p-2 rounded bg-[#B07A4E]/5">
-                      <Gift className="w-3.5 h-3.5 text-[#B07A4E] mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0 text-sm">
-                        <div className="text-slate-900">
-                          +{isMinutes ? `${b.minutes} min` : `${b.sessions} session${b.sessions === 1 ? '' : 's'}`}
-                          {b.reason && <span className="text-slate-600 font-normal"> — {b.reason}</span>}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {DateTime.fromISO(b.addedAt).toFormat('MMM d, yyyy h:mm a')}
-                          {b.addedBy && ` · by ${b.addedBy}`}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
+          <BonusHistory pkg={pkg} />
 
-          {/* Comp-time form — visible only on active packages so the
-              provider can grant goodwill minutes/sessions on the fly
-              without leaving the page. */}
           {!isCancelled && pkg.paymentStatus === 'paid' && onAddBonus && (
             <BonusComposer
               pkg={pkg}
@@ -642,89 +613,6 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
         </div>
       )}
     </div>
-  );
-};
-
-// Inline composer for granting bonus time. Collapsed to a "Comp time"
-// button by default; expands to a single-line form (amount + reason +
-// submit) so the provider can grant a make-good in seconds without a
-// modal interrupting their flow.
-const BonusComposer = ({ pkg, onSubmit, busy }) => {
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState(pkg.kind === 'minutes' ? '30' : '1');
-  const [reason, setReason] = useState('');
-
-  const isMinutes = pkg.kind === 'minutes';
-  const submit = async (e) => {
-    e.preventDefault();
-    const n = Number(amount);
-    if (!Number.isFinite(n) || n <= 0) return;
-    const payload = isMinutes
-      ? { minutes: Math.round(n), reason }
-      : { sessions: Math.round(n), reason };
-    await onSubmit(payload);
-    setReason('');
-    setOpen(false);
-  };
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded border border-[#B07A4E]/30 hover:bg-[#B07A4E]/5"
-      >
-        <Gift className="w-3.5 h-3.5" /> Comp time
-      </button>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className="mt-4 p-3 bg-[#B07A4E]/5 border border-[#B07A4E]/20 rounded-lg space-y-2">
-      <div className="flex items-center gap-2">
-        <Gift className="w-4 h-4 text-[#B07A4E]" />
-        <span className="text-sm font-medium text-slate-900">
-          Add {isMinutes ? 'minutes' : 'sessions'} as a thank-you
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min="1"
-          max={isMinutes ? 600 : 20}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-20 px-2 py-1.5 text-sm border border-line rounded focus:outline-none focus:ring-2 focus:ring-[#B07A4E]/40"
-        />
-        <span className="text-xs text-slate-500">{isMinutes ? 'min' : 'session(s)'}</span>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason (optional, e.g. last-minute cancellation)"
-          maxLength={200}
-          className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-line rounded focus:outline-none focus:ring-2 focus:ring-[#B07A4E]/40"
-        />
-      </div>
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          disabled={busy}
-          className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={busy || !amount}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#B07A4E] text-white rounded hover:bg-[#8A5D36] disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Gift className="w-3 h-3" />}
-          Add
-        </button>
-      </div>
-    </form>
   );
 };
 
