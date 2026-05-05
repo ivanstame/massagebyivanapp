@@ -111,14 +111,18 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
   // ─── Active-route detection (matches Header.js conventions) ────────
   const isActive = (href) => location.pathname === href;
 
-  // ─── Sheet style: combines slide-in transform with active drag offset ─
+  // Sheet animates with two intermediate states so the open
+  // transition actually slides instead of cutting in:
+  //   1. mounted=true & open=false → sheet rendered at translateY(100%)
+  //   2. on the next frame, open flips → CSS transitions translateY to 0
+  // Returning null when closed used to skip step 1 entirely, so the
+  // first frame after `open=true` was already at translateY(0) with no
+  // "from" state to animate from. Now we keep the component mounted
+  // (with pointer-events: none on the scrim when closed so it doesn't
+  // intercept taps) and let the transform animate naturally.
   const sheetTransform = open
     ? `translateY(${dragY}px)`
     : 'translateY(100%)';
-
-  // Don't render at all when closed so we don't ship an invisible
-  // fixed-positioned div over the page.
-  if (!open && dragY === 0) return null;
 
   return (
     <div
@@ -126,12 +130,19 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
       aria-modal="true"
       aria-label="Navigation menu"
       className="sm:hidden"
+      aria-hidden={!open}
     >
-      {/* Scrim */}
+      {/* Scrim — pointer-events disabled when closed so the page
+          underneath stays tappable. Opacity transitions independently
+          of the sheet for a slightly faster fade-in (220ms) so it
+          grounds the layered surface before the sheet finishes. */}
       <div
         onClick={onClose}
         className="fixed inset-0 z-40 bg-black transition-opacity duration-200"
-        style={{ opacity: open ? 0.4 : 0 }}
+        style={{
+          opacity: open ? 0.4 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+        }}
       />
 
       {/* Sheet */}
@@ -143,6 +154,7 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
           transition: dragState.current.dragging
             ? 'none'
             : 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)',
+          pointerEvents: open ? 'auto' : 'none',
         }}
       >
         {/* Drag handle row — touch zone for swipe-to-dismiss */}

@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ChevronUp } from 'lucide-react';
 import { AuthContext } from '../../AuthContext';
 import MobileMenu from './MobileMenu';
 
@@ -123,22 +124,23 @@ const Header = () => {
       </div>
 
       {/* Mobile menu trigger — persistent peek-bar pinned to the
-          bottom edge instead of a top-right hamburger. The drag
-          handle pill is the universal "this opens" affordance, and
-          its physical proximity to where the sheet emerges from
-          keeps the cause-and-effect immediate. Tap (or drag the
-          sheet itself) to expand. iPhone home-indicator safe-area
-          padding included so we don't sit under it on notched
-          devices. */}
+          bottom edge. We're a web app so users don't have iOS-style
+          swipe-up muscle memory; the bar has to read as a button at
+          a glance. Chevron + "Open Menu" label + subtle bounce on
+          first paint makes the tappability obvious. iPhone home-
+          indicator safe-area padding included. */}
       <button
         type="button"
         onClick={() => setMobileMenuOpen(true)}
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper-elev border-t border-line shadow-[0_-2px_10px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper-elev border-t border-line shadow-[0_-2px_12px_rgba(0,0,0,0.06)] active:bg-paper-deep transition-colors pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         aria-label="Open menu"
       >
-        <span className="block w-10 h-1 rounded-full bg-slate-300 mb-1" />
-        <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">
-          Menu
+        <span className="block w-10 h-1 rounded-full bg-slate-300 mx-auto mt-1.5 mb-1" />
+        <span className="flex items-center justify-center gap-1.5 pb-1">
+          <ChevronUp className="w-4 h-4 text-[#B07A4E]" />
+          <span className="text-sm font-semibold text-[#B07A4E] tracking-wide">
+            Open Menu
+          </span>
         </span>
       </button>
 
