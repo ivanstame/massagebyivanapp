@@ -12,20 +12,6 @@ const PERIODS = [
   { key: 'Late',      icon: Moon,    startHour: 21, endHour: 30 }, // up to 6 AM next day
 ];
 
-// Adaptive density threshold. When a period has more than this many slots,
-// hide the off-grid (`:15`/`:45`) ones by default and surface them via a
-// "Show all times" toggle. Below the threshold, show everything — there's
-// no clutter risk to manage.
-const DENSITY_THRESHOLD = 5;
-
-// A slot is "on-grid" if its minute is on the canonical :00 or :30 marks.
-// Off-grid (:15, :45) slots only exist when the day's bookings have shifted
-// the available start times off the half-hour cadence.
-const isOnGrid = (slot) => {
-  const m = DateTime.fromISO(slot.iso, { zone: DEFAULT_TZ }).minute;
-  return m === 0 || m === 30;
-};
-
 const AvailableTimeSlots = ({
   availableSlots,
   selectedTime,
@@ -76,38 +62,10 @@ const AvailableTimeSlots = ({
     }
   }, [defaultPeriod, slotsByPeriod, selectedPeriod]);
 
-  // "Show all times" toggle, per period — densifies the visible grid when
-  // the user wants finer-grained control.
-  const [expandedPeriods, setExpandedPeriods] = useState({});
-  const isExpanded = (period) => !!expandedPeriods[period];
-  const toggleExpanded = (period) =>
-    setExpandedPeriods(prev => ({ ...prev, [period]: !prev[period] }));
-
-  // For the active period, decide which slots to show.
-  // - If total slots ≤ threshold, show everything (no clutter risk).
-  // - If on-grid slots exist and total > threshold, default to on-grid only;
-  //   user can expand to see off-grid via the toggle.
-  // - If no on-grid slots exist (off-grid fallback), show whatever's available
-  //   so the user never gets a false "no times" impression.
-  const visibleSlotsFor = (period) => {
-    const all = slotsByPeriod[period];
-    if (!all || all.length === 0) return { shown: [], hidden: [] };
-    const onGrid = all.filter(isOnGrid);
-    const offGrid = all.filter(s => !isOnGrid(s));
-
-    if (all.length <= DENSITY_THRESHOLD) {
-      return { shown: all, hidden: [] };
-    }
-    if (onGrid.length === 0) {
-      // Pure off-grid fallback: bookings shifted the day, only :15/:45
-      // options exist. Show them — never hide the only options.
-      return { shown: offGrid, hidden: [] };
-    }
-    if (isExpanded(period)) {
-      return { shown: all, hidden: [] };
-    }
-    return { shown: onGrid, hidden: offGrid };
-  };
+  // Show every slot in the active period. Earlier versions hid off-grid
+  // (:15/:45) slots behind a "Show more" toggle to reduce visual density,
+  // but users were missing valid times that happened to fall there —
+  // dropping the gating so the picker is always exhaustive.
 
   const formatDate = (date) => {
     if (!date) return '';
@@ -130,7 +88,7 @@ const AvailableTimeSlots = ({
     );
   }
 
-  const { shown, hidden } = visibleSlotsFor(selectedPeriod);
+  const shown = slotsByPeriod[selectedPeriod] || [];
 
   // Render the period tabs. Suppress the "Late" tab when there are no late
   // slots — it would just be dead UI for the typical evening-only provider.
@@ -244,20 +202,6 @@ const AvailableTimeSlots = ({
               })
             )}
           </div>
-
-          {/* Density toggle: only render when there are off-grid slots
-              actually being held back. Quiet otherwise. */}
-          {hidden.length > 0 && (
-            <button
-              type="button"
-              onClick={() => toggleExpanded(selectedPeriod)}
-              className="mt-4 text-sm text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-1"
-            >
-              {isExpanded(selectedPeriod)
-                ? 'Show fewer times'
-                : `Show ${hidden.length} more time${hidden.length === 1 ? '' : 's'}`}
-            </button>
-          )}
 
           {selectedTime && selectedDate && (
             <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">

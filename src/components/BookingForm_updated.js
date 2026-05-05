@@ -119,6 +119,21 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // the green dot should clear.
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
+  // Progressive-reveal wizard. Each Continue tap reveals the next
+  // section below the active one — completed sections stay as their
+  // full components (NOT collapsed summaries) so users can scroll up
+  // to fix anything. By the time the last step is reached, the page
+  // is fully populated like the pre-wizard layout. The wizard exists
+  // to focus attention on one decision at a time, not to hide work
+  // already done.
+  //
+  // Step IDs (in order):
+  //   date → recipient (skip for provider) → address (skip for static
+  //   in-studio days) → service → payment → time
+  // The back-to-back "add another at this address" prompt is part of
+  // the time step's footer.
+  const [revealedStepCount, setRevealedStepCount] = useState(1);
+
   // Get provider info and services
   useEffect(() => {
     const fetchProviderInfo = async () => {
@@ -808,6 +823,61 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   };
 
+  // Wizard step list, computed on each render. Order matches the
+  // original booking page (so the populated form ends up identical
+  // to the pre-wizard layout). Provider-on-behalf bookings skip the
+  // Recipient step (the picked client IS the recipient). In-studio-
+  // only days skip the Address step for clients (the studio is the
+  // location; asking the client for an address would be misleading).
+  const stepIds = ['date'];
+  if (!isProviderBooking) stepIds.push('recipient');
+  const showAddressStep = !(dayIsPurelyStatic && studioForDay && !isProviderBooking);
+  if (showAddressStep) stepIds.push('address');
+  stepIds.push('service', 'payment', 'time');
+
+  const isStepRevealed = (id) => {
+    const idx = stepIds.indexOf(id);
+    return idx >= 0 && idx < revealedStepCount;
+  };
+
+  // Validation per step — drives whether the Continue button is
+  // enabled at the bottom of the latest revealed section.
+  const isStepValid = (id) => {
+    switch (id) {
+      case 'date':
+        return !!selectedDate;
+      case 'recipient':
+        return recipientType === 'self'
+          || (recipientType === 'other' && !!recipientInfo.name && !!recipientInfo.phone);
+      case 'address':
+        return !!fullAddress && !!location;
+      case 'service':
+        return !!selectedDuration;
+      case 'payment':
+        return !!selectedPaymentMethod
+          && (!isPartialRedemption || selectedPaymentMethod !== 'package');
+      case 'time':
+        return !!selectedTime;
+      default:
+        return true;
+    }
+  };
+
+  // The latest revealed step's id — Continue button anchors to this
+  // step's validity.
+  const activeStepId = stepIds[Math.min(revealedStepCount - 1, stepIds.length - 1)];
+  const onLastStep = revealedStepCount >= stepIds.length;
+
+  // Clamp revealed count when the step list shrinks (e.g. day flips
+  // from has-mobile to purely-static, dropping the address step).
+  // Without this the user could be parked on a step that no longer
+  // exists, which freezes the wizard.
+  useEffect(() => {
+    if (revealedStepCount > stepIds.length) {
+      setRevealedStepCount(stepIds.length);
+    }
+  }, [stepIds.length, revealedStepCount]);
+
   const isBookingComplete = () => {
     const isOnBehalf = isProviderBooking && targetClient?._id;
     const isRecipientComplete = isOnBehalf
@@ -922,8 +992,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
           {/* 2. Recipient — only for client self-bookings. When a provider
               books on behalf, the target client IS the recipient, shown in
-              the banner above. */}
-          {!isProviderBooking && (
+              the banner above. Gated on the wizard so the user sees one
+              decision at a time; once revealed it stays as the full
+              picker (not a collapsed summary) so users can scroll up
+              to fix anything. */}
+          {isStepRevealed('recipient') && !isProviderBooking && (
             <RecipientSection
               recipientType={recipientType}
               recipientInfo={recipientInfo}
@@ -943,116 +1016,152 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   even on a normally-in-studio day. The provider's intent
                   in the form wins.
                 - Otherwise: ask for the client's address (existing flow). */}
-          {dayIsPurelyStatic && studioForDay && !isProviderBooking ? (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-900">
-                    In-studio appointment
-                  </p>
-                  <p className="text-sm text-slate-700 mt-0.5">
-                    {studioForDay.name}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {studioForDay.address}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    No address needed — clients come to this location on this day.
-                  </p>
+          {isStepRevealed('address') && (
+            dayIsPurelyStatic && studioForDay && !isProviderBooking ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-blue-900">
+                      In-studio appointment
+                    </p>
+                    <p className="text-sm text-slate-700 mt-0.5">
+                      {studioForDay.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {studioForDay.address}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-2">
+                      No address needed — clients come to this location on this day.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <AddressSection
-              savedAddress={(() => {
-                const addrSource = isProviderBooking ? targetClient : user;
-                const addr = addrSource?.profile?.address;
-                if (!addr) return null;
-                const fullAddr = addr.formatted ||
-                  (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
-                if (!fullAddr) return null;
-                return { fullAddress: fullAddr };
-              })()}
-              currentAddress={location}
-              onAddressChange={handleAddressConfirmed}
-              isComplete={fullAddress !== ''}
-            />
+            ) : (
+              <AddressSection
+                savedAddress={(() => {
+                  const addrSource = isProviderBooking ? targetClient : user;
+                  const addr = addrSource?.profile?.address;
+                  if (!addr) return null;
+                  const fullAddr = addr.formatted ||
+                    (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
+                  if (!fullAddr) return null;
+                  return { fullAddress: fullAddr };
+                })()}
+                currentAddress={location}
+                onAddressChange={handleAddressConfirmed}
+                isComplete={fullAddress !== ''}
+              />
+            )
           )}
 
           {/* 4. Duration — from provider's pricing */}
-          <SimpleDurationSelector
-            selectedDuration={selectedDuration}
-            onDurationChange={setSelectedDuration}
-            isComplete={selectedDuration !== null}
-            durationOptions={durationOptions}
-          />
+          {isStepRevealed('service') && (
+            <SimpleDurationSelector
+              selectedDuration={selectedDuration}
+              onDurationChange={setSelectedDuration}
+              isComplete={selectedDuration !== null}
+              durationOptions={durationOptions}
+            />
+          )}
 
-          {/* 5. Add-ons — from provider's services */}
-          <AddOnsSelector
-            selectedAddons={selectedAddons}
-            onAddonsChange={setSelectedAddons}
-            isComplete={true}
-            availableAddons={availableAddons}
-          />
+          {/* 5. Add-ons — from provider's services. Bundled with the
+              service step rather than its own wizard rung; many
+              providers run zero addons and a separate Continue tap
+              for an empty list reads as friction. */}
+          {isStepRevealed('service') && availableAddons.length > 0 && (
+            <AddOnsSelector
+              selectedAddons={selectedAddons}
+              onAddonsChange={setSelectedAddons}
+              isComplete={true}
+              availableAddons={availableAddons}
+            />
+          )}
 
           {/* 6. Payment Method (incl. package-credit options when eligible) */}
-          <PaymentMethodSelector
-            selectedMethod={selectedPaymentMethod}
-            onMethodChange={setSelectedPaymentMethod}
-            acceptedMethods={acceptedPaymentMethods}
-            isComplete={selectedPaymentMethod !== null}
-            redeemablePackages={matchingPackages}
-            selectedPackageId={selectedPackageId}
-            onPackageSelect={setSelectedPackageId}
-            bookingDuration={selectedDuration}
-            bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
-              + selectedAddons.reduce((sum, n) => {
-                  const a = availableAddons.find(x => x.name === n);
-                  return sum + (a?.price || 0);
-                }, 0)}
-          />
+          {isStepRevealed('payment') && (
+            <PaymentMethodSelector
+              selectedMethod={selectedPaymentMethod}
+              onMethodChange={setSelectedPaymentMethod}
+              acceptedMethods={acceptedPaymentMethods}
+              isComplete={selectedPaymentMethod !== null}
+              redeemablePackages={matchingPackages}
+              selectedPackageId={selectedPackageId}
+              onPackageSelect={setSelectedPackageId}
+              bookingDuration={selectedDuration}
+              bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+                + selectedAddons.reduce((sum, n) => {
+                    const a = availableAddons.find(x => x.name === n);
+                    return sum + (a?.price || 0);
+                  }, 0)}
+            />
+          )}
 
           {/* 7. Booking Summary. When the picked slot is in-studio, the
               location is the studio — surface that explicitly so the
               client doesn't think they're getting an in-home visit. */}
-          <BookingSummaryCard
-            selectedDuration={selectedDuration}
-            selectedDate={selectedDate}
-            selectedTime={selectedTime}
-            fullAddress={
-              selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
-                ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
-                : (location?.fullAddress || fullAddress)
-            }
-            selectedAddons={selectedAddons}
-            recipientType={recipientType}
-            recipientInfo={recipientInfo}
-            durationOptions={durationOptions}
-            availableAddons={availableAddons}
-            selectedPaymentMethod={selectedPaymentMethod}
-            packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
-            packageName={selectedPackage?.name || null}
-            additionalSessions={additionalSessions}
-          />
+          {isStepRevealed('time') && (
+            <BookingSummaryCard
+              selectedDuration={selectedDuration}
+              selectedDate={selectedDate}
+              selectedTime={selectedTime}
+              fullAddress={
+                selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
+                  ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
+                  : (location?.fullAddress || fullAddress)
+              }
+              selectedAddons={selectedAddons}
+              recipientType={recipientType}
+              recipientInfo={recipientInfo}
+              durationOptions={durationOptions}
+              availableAddons={availableAddons}
+              selectedPaymentMethod={selectedPaymentMethod}
+              packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
+              packageName={selectedPackage?.name || null}
+              additionalSessions={additionalSessions}
+            />
+          )}
 
-          {/* 7. Available Time Slots */}
-          <AvailableTimeSlots
-            availableSlots={availableSlots}
-            selectedTime={selectedTime}
-            onTimeSelected={setSelectedTime}
-            hasValidDuration={selectedDuration !== null}
-            isComplete={selectedTime !== null}
-            selectedDate={selectedDate}
-          />
+          {/* 8. Available Time Slots */}
+          {isStepRevealed('time') && (
+            <AvailableTimeSlots
+              availableSlots={availableSlots}
+              selectedTime={selectedTime}
+              onTimeSelected={setSelectedTime}
+              hasValidDuration={selectedDuration !== null}
+              isComplete={selectedTime !== null}
+              selectedDate={selectedDate}
+            />
+          )}
 
           {/* Surfaces when the chain expanded (added session, added addon,
               or server rejected the picked time with a list of fits) and
               the user's previous time pick is no longer valid. */}
-          {staleTimeNotice && (
+          {isStepRevealed('time') && staleTimeNotice && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-800">
               {staleTimeNotice}
             </div>
+          )}
+
+          {/* Continue button: anchors to whatever the latest-revealed
+              step is (date → recipient → address → service → payment).
+              Disabled until that step's data is valid. The 'time' step
+              has no Continue — it's the last rung, and the Confirm
+              button below handles submission directly. */}
+          {!onLastStep && (
+            <button
+              type="button"
+              onClick={() => setRevealedStepCount(c => Math.min(c + 1, stepIds.length))}
+              disabled={!isStepValid(activeStepId)}
+              className={`w-full inline-flex items-center justify-center gap-2
+                px-5 py-3 rounded-btn text-[15px] font-medium transition
+                ${isStepValid(activeStepId)
+                  ? 'bg-accent text-white hover:bg-accent-ink shadow-sm'
+                  : 'bg-paper-deep text-ink-3 cursor-not-allowed'}`}
+            >
+              <span>Continue</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           )}
 
           {/* Back-to-back chain — only surfaced after a time is picked, so
@@ -1060,7 +1169,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
               after this one" decision rather than clutter at first sight.
               Each additional session inherits the address; the time
               auto-cascades from the first session + standard buffer. */}
-          {selectedTime && selectedDuration && (
+          {isStepRevealed('time') && selectedTime && selectedDuration && (
             <div className="space-y-3">
               {additionalSessions.length > 0 && (
                 <div className="bg-paper-deep border border-line rounded-lg p-4 space-y-3">
