@@ -19,10 +19,15 @@ const requireStripe = (req, res, next) => {
   next();
 };
 
-// Base URL for redirects
+// Base URL for Stripe redirects (account-onboarding return URL,
+// dashboard login link target, etc.). Reads from APP_URL when set so
+// you can flip domains as the DBA → custom domain transition lands.
+// Falls back to the Heroku app URL in production and localhost in
+// development.
 const getBaseUrl = () => {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
   return process.env.NODE_ENV === 'production'
-    ? 'https://massagebyivan.com'
+    ? 'https://massagebyivan-9420304df681.herokuapp.com'
     : 'http://localhost:3000';
 };
 
