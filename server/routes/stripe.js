@@ -199,21 +199,50 @@ router.post('/create-payment-intent', ensureAuthenticated, requireStripe, async 
 
 // ─── Webhook: Handle Stripe events ──────────────────────────────────────
 // NOTE: This route uses express.raw() body parser — registered separately in server.js
+//
+// One endpoint serves two Stripe webhook destinations:
+//   STRIPE_WEBHOOK_SECRET           → "Your account" events (platform-side
+//                                     stuff like account.updated for the
+//                                     platform itself, or destination
+//                                     charges fired on the platform)
+//   STRIPE_CONNECT_WEBHOOK_SECRET   → "Connected accounts" events
+//                                     (direct charges fired on each
+//                                     provider's connected account, plus
+//                                     account.updated for connected
+//                                     accounts during onboarding)
+//
+// Each destination has its own signing secret. We try both during
+// verification — whichever matches wins.
 router.post('/webhook', requireStripe, async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+  ].filter(Boolean);
 
   let event;
-  try {
-    if (endpointSecret) {
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-    } else {
-      // In development without webhook secret, parse the body directly
+  let lastErr;
+  if (secrets.length === 0) {
+    // Dev fallback: no secret configured, just parse and trust.
+    try {
       event = JSON.parse(req.body.toString());
+    } catch (err) {
+      console.error('Webhook body parse failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  } else {
+    for (const secret of secrets) {
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, secret);
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (!event) {
+      console.error('Webhook signature verification failed against all configured secrets:', lastErr?.message);
+      return res.status(400).send(`Webhook Error: ${lastErr?.message || 'invalid signature'}`);
+    }
   }
 
   // Handle the event
