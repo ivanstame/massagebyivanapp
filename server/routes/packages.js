@@ -292,20 +292,21 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
     // If price is 0 (free package — provider could in principle define one),
     // we short-circuit to 'paid' since Stripe rejects $0 intents.
     const materialized = materializeFromTemplate(template);
-    const purchase = await PackagePurchase.create({
-      template: template._id,
-      provider: template.provider,
-      client: req.user._id,
-      name: template.name,
-      ...materialized,
-      price: template.price,
-      paymentMethod: 'stripe',
-      paymentStatus: template.price > 0 ? 'pending' : 'paid',
-      purchasedAt: template.price > 0 ? null : new Date(),
-    });
 
+    // Free packages: no Stripe call needed, save the purchase as paid
+    // and return early.
     if (template.price <= 0) {
-      // Free package — no Stripe call needed.
+      const purchase = await PackagePurchase.create({
+        template: template._id,
+        provider: template.provider,
+        client: req.user._id,
+        name: template.name,
+        ...materialized,
+        price: template.price,
+        paymentMethod: 'comped',
+        paymentStatus: 'paid',
+        purchasedAt: new Date(),
+      });
       return res.status(201).json({
         purchase,
         clientSecret: null,
@@ -314,23 +315,58 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
       });
     }
 
+    // For paid packages, create the Stripe intent FIRST so a failure
+    // (venmo error, account misconfig, etc.) doesn't leave a pending
+    // zombie purchase behind. Only after Stripe confirms the intent
+    // do we persist the PackagePurchase doc with the intent id.
+    //
     // payment_method_types limited to 'card' for now. Venmo requires
     // explicit activation in the Stripe dashboard (and is US-only) —
     // we'll add it back as opt-in once a provider has it enabled and
     // the dashboard activation is part of the provider onboarding flow.
-    const intent = await stripe.paymentIntents.create({
-      amount: Math.round(template.price * 100),
-      currency: 'usd',
-      payment_method_types: ['card'],
-      metadata: {
-        packagePurchaseId: purchase._id.toString(),
-        clientId: req.user._id.toString(),
-        providerId: template.provider.toString(),
-      },
-    }, { stripeAccount: accountId });
+    let intent;
+    try {
+      intent = await stripe.paymentIntents.create({
+        amount: Math.round(template.price * 100),
+        currency: 'usd',
+        payment_method_types: ['card'],
+        metadata: {
+          clientId: req.user._id.toString(),
+          providerId: template.provider.toString(),
+          templateId: template._id.toString(),
+        },
+      }, { stripeAccount: accountId });
+    } catch (stripeErr) {
+      console.error('Stripe intent create failed:', stripeErr.message);
+      return res.status(500).json({
+        message: stripeErr.message || 'Failed to start package purchase',
+      });
+    }
 
-    purchase.stripePaymentIntentId = intent.id;
-    await purchase.save();
+    // Now persist the purchase with the intent already linked.
+    const purchase = await PackagePurchase.create({
+      template: template._id,
+      provider: template.provider,
+      client: req.user._id,
+      name: template.name,
+      ...materialized,
+      price: template.price,
+      paymentMethod: 'stripe',
+      paymentStatus: 'pending',
+      stripePaymentIntentId: intent.id,
+    });
+
+    // Backfill the intent metadata with the purchase id so the webhook
+    // can flip the right doc to paid on success.
+    try {
+      await stripe.paymentIntents.update(
+        intent.id,
+        { metadata: { ...intent.metadata, packagePurchaseId: purchase._id.toString() } },
+        { stripeAccount: accountId }
+      );
+    } catch (e) {
+      console.warn('Could not backfill packagePurchaseId on Stripe intent metadata:', e.message);
+    }
 
     res.status(201).json({
       purchase,
