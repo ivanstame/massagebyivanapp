@@ -168,8 +168,7 @@ router.post('/create-payment-intent', ensureAuthenticated, requireStripe, async 
       return res.status(400).json({ message: 'Invalid booking price' });
     }
 
-    // Create payment intent on the connected account (direct charge)
-    // Enable both card and Venmo as payment methods
+    // Create payment intent on the connected account (direct charge).
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalPrice * 100), // cents
       currency: 'usd',

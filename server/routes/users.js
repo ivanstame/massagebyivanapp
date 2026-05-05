@@ -542,61 +542,6 @@ router.delete('/provider/clients/:clientId', ensureAuthenticated, async (req, re
   }
 });
 
-// Update just the Venmo handle. Split from the full settings PUT so the
-// settings UI can have an inline Save button next to the Venmo field rather
-// than making the provider scroll down to the global Save.
-router.patch('/provider/venmo-handle', ensureAuthenticated, async (req, res) => {
-  try {
-    if (req.user.accountType !== 'PROVIDER') {
-      return res.status(403).json({ message: 'Provider access required' });
-    }
-
-    const user = await User.findById(req.user._id);
-
-    // Normalize: trim, strip leading @, empty -> null so the Mongoose sparse
-    // unique index stays happy.
-    const raw = String(req.body.venmoHandle || '').trim().replace(/^@+/, '');
-    const next = raw.length ? raw : null;
-
-    if (next !== null && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/.test(next)) {
-      return res.status(400).json({
-        message: 'Venmo handle may only contain letters, numbers, dashes, and underscores (max 30).'
-      });
-    }
-    // Pure-numeric "handles" are almost always a user ID pasted from a QR
-    // share link — reject so the provider sees an error instead of saving
-    // something that won't resolve on Venmo.
-    if (next !== null && /^\d+$/.test(next)) {
-      return res.status(400).json({
-        message: 'That looks like a Venmo user ID, not a handle. Copy your @handle from your Venmo profile instead of the share link.'
-      });
-    }
-
-    user.providerProfile.venmoHandle = next;
-
-    // Keep acceptedPaymentMethods in sync so clients only see Venmo as an
-    // option when a handle is actually on file. Mirror of the global
-    // settings PUT's behavior.
-    const methods = new Set(user.providerProfile.acceptedPaymentMethods || ['cash']);
-    if (next) {
-      methods.add('venmo');
-    } else {
-      methods.delete('venmo');
-    }
-    user.providerProfile.acceptedPaymentMethods = Array.from(methods);
-
-    await user.save();
-
-    res.json({
-      venmoHandle: user.providerProfile.venmoHandle,
-      acceptedPaymentMethods: user.providerProfile.acceptedPaymentMethods,
-    });
-  } catch (err) {
-    console.error('Error updating Venmo handle:', err);
-    res.status(500).json({ message: 'Failed to update Venmo handle' });
-  }
-});
-
 // Update provider profile settings
 router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
   try {
@@ -606,12 +551,6 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     const { settings } = req.body;
-
-    // Normalize venmoHandle: strip leading '@' and whitespace; empty => null
-    if (settings.venmoHandle !== undefined) {
-      const raw = String(settings.venmoHandle || '').trim().replace(/^@+/, '');
-      settings.venmoHandle = raw.length ? raw : null;
-    }
 
     // Validate logoUrl. Must be null (clearing the logo) or an HTTPS
     // Cloudinary URL — that's the only host the upload UI uses, and
@@ -648,15 +587,17 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
     // Remove address from providerProfile — it belongs in profile.address
     delete user.providerProfile.address;
 
-    // Sync acceptedPaymentMethods with venmoHandle presence so clients see Venmo
-    // as an option exactly when the provider has a handle configured.
-    const currentMethods = new Set(user.providerProfile.acceptedPaymentMethods || ['cash']);
-    if (user.providerProfile.venmoHandle) {
-      currentMethods.add('venmo');
-    } else {
-      currentMethods.delete('venmo');
+    // Strip 'venmo' from acceptedPaymentMethods if it somehow snuck in
+    // (legacy data). Venmo was removed from the platform; this guards
+    // against any client UI that hasn't been redeployed yet.
+    if (Array.isArray(user.providerProfile.acceptedPaymentMethods)) {
+      user.providerProfile.acceptedPaymentMethods =
+        user.providerProfile.acceptedPaymentMethods.filter(m => m !== 'venmo');
     }
-    user.providerProfile.acceptedPaymentMethods = Array.from(currentMethods);
+    // Drop the legacy venmoHandle field if present so it's tombstoned.
+    if (user.providerProfile.venmoHandle !== undefined) {
+      user.providerProfile.venmoHandle = undefined;
+    }
 
     // Update phone number if provided
     if (settings.phoneNumber !== undefined) {
@@ -808,8 +749,8 @@ router.get('/provider/:providerId/services', async (req, res) => {
       basePricing: resolvedPricing,
       pricingTierName: resolvedTierName, // null = Standard / no tier applied
       addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
-      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash'],
-      venmoHandle: provider.providerProfile?.venmoHandle || null
+      acceptedPaymentMethods: (provider.providerProfile?.acceptedPaymentMethods || ['cash'])
+        .filter(m => m !== 'venmo')
     });
   } catch (error) {
     console.error('Error fetching provider services:', error);
@@ -887,7 +828,7 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
     }
 
     if (acceptedPaymentMethods) {
-      const validMethods = ['cash', 'zelle', 'venmo', 'card'];
+      const validMethods = ['cash', 'zelle', 'card'];
       const filtered = acceptedPaymentMethods.filter(m => validMethods.includes(m));
       if (filtered.length === 0) {
         return res.status(400).json({ message: 'At least one valid payment method is required' });

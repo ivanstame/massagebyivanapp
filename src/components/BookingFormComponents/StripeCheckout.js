@@ -3,9 +3,11 @@ import axios from 'axios';
 import { CreditCard, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 
 /**
- * StripeCheckout - Handles card + Venmo payment after a booking is created.
+ * StripeCheckout - Handles card payment after a booking is created.
  *
- * Uses Stripe Payment Element (supports card, Venmo, and other methods).
+ * Uses Stripe Payment Element (card only — Venmo was removed for
+ * compliance reasons; bouncing into the Venmo app violates their TOS
+ * for commercial transactions).
  * Payment goes directly to the provider's connected Stripe account.
  *
  * Props:
@@ -55,7 +57,7 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
         );
         setStripe(stripeInstance);
 
-        // Create Payment Element (supports card + Venmo + more)
+        // Create Payment Element (card only)
         const elementsInstance = stripeInstance.elements({
           clientSecret,
           appearance: {
@@ -155,7 +157,7 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
                 <p className="text-3xl font-bold text-slate-900">${totalPrice?.toFixed(2)}</p>
               </div>
 
-              {/* Payment Element (card + Venmo tabs) */}
+              {/* Payment Element (card) */}
               <div className="mb-4">
                 <div
                   id="stripe-payment-element"

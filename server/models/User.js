@@ -84,21 +84,14 @@ const UserSchema = new mongoose.Schema({
       },
       expiresAt: Date
     },
-    // Provider-accepted payment methods
+    // Provider-accepted payment methods. Venmo was removed because
+    // bouncing the client into the Venmo app violated Venmo's TOS for
+    // commercial transactions and created a compliance exposure; all
+    // card payments flow through Stripe Connect instead.
     acceptedPaymentMethods: {
       type: [String],
-      enum: ['cash', 'zelle', 'venmo', 'card'],
+      enum: ['cash', 'zelle', 'card'],
       default: ['cash']
-    },
-    // Direct Venmo handle (e.g. "ivan-stame"). When present, Venmo bookings
-    // skip Stripe and surface a pay-on-Venmo deep link instead. Storage is
-    // without the leading @; validation trims and lowercases the prefix.
-    venmoHandle: {
-      type: String,
-      default: null,
-      trim: true,
-      maxlength: 30,
-      match: [/^[A-Za-z0-9][A-Za-z0-9_-]{0,29}$/, 'Venmo handle may only contain letters, numbers, dashes, and underscores']
     },
     // Provider-configured pricing by duration. displayOrder lets the
     // provider override the default duration-ascending sort with a

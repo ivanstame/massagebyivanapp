@@ -236,7 +236,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       const secondary = req.body.paymentMethod;
       if (!secondary || secondary === 'package') {
         return res.status(400).json({
-          message: 'Partial package redemption requires a non-package paymentMethod (cash/zelle/venmo/card) for the remaining balance.',
+          message: 'Partial package redemption requires a non-package paymentMethod (cash/zelle/card) for the remaining balance.',
         });
       }
     }
@@ -969,7 +969,7 @@ router.get('/:id', ensureAuthenticated, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
       .populate('client', 'email profile.fullName profile.phoneNumber')
-      .populate('provider', 'email profile.fullName profile.phoneNumber providerProfile.businessName providerProfile.venmoHandle');
+      .populate('provider', 'email profile.fullName profile.phoneNumber providerProfile.businessName');
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });

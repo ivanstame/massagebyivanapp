@@ -59,13 +59,11 @@ const PublicProviderProfile = () => {
   const paymentIcons = {
     cash: '💵',
     zelle: '⚡',
-    venmo: '🔵',
     card: '💳'
   };
   const paymentLabels = {
     cash: 'Cash',
     zelle: 'Zelle',
-    venmo: 'Venmo',
     card: 'Card'
   };
 

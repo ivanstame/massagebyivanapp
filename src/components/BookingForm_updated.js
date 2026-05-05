@@ -54,7 +54,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [durationOptions, setDurationOptions] = useState([]);
   const [availableAddons, setAvailableAddons] = useState([]);
   const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState(['cash']);
-  const [venmoHandle, setVenmoHandle] = useState(null);
 
   // Booking flow state with sensible defaults
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -154,12 +153,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             basePricing,
             addons,
             acceptedPaymentMethods: providerMethods,
-            venmoHandle: providerVenmoHandle
           } = servicesRes.data;
-
-          if (providerVenmoHandle) {
-            setVenmoHandle(providerVenmoHandle);
-          }
 
           if (providerMethods && providerMethods.length > 0) {
             setAcceptedPaymentMethods(providerMethods);
@@ -778,15 +772,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
       setNewBookingId(response._id);
 
-      // If card or venmo payment, show Stripe checkout (Venmo is handled via Stripe)
-      // Route to Stripe for cards, and for Venmo only when the provider hasn't
-      // configured a direct handle. Venmo-with-handle falls through to the
-      // success screen where the client sees a "Pay on Venmo" deep link.
-      const stripeRouted =
-        selectedPaymentMethod === 'card' ||
-        (selectedPaymentMethod === 'venmo' && !venmoHandle);
-
-      if (stripeRouted) {
+      // Card payments route through Stripe Checkout (Connect direct
+      // charge on the provider's connected account). Cash + Zelle
+      // skip Stripe entirely — settled in person, recorded by the
+      // provider after the fact.
+      if (selectedPaymentMethod === 'card') {
         setPendingBookingPrice(bookingData.pricing.totalPrice);
         setShowStripeCheckout(true);
       } else {
@@ -1304,7 +1294,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
               recipientType,
               recipientInfo,
               paymentMethod: selectedPaymentMethod,
-              venmoHandle,
               providerName: provider?.providerProfile?.businessName || null,
               providerLogoUrl: provider?.providerProfile?.logoUrl || null,
               providerPhone: provider?.profile?.phoneNumber || null,

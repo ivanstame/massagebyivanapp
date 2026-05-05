@@ -40,8 +40,8 @@ const StandingAppointmentsSection = ({ client, clientId }) => {
     }
   }, [clientId]);
 
-  // Provider services (basePricing + addons + accepted payment methods +
-  // venmoHandle) — needed to power the create-form defaults.
+  // Provider services (basePricing + addons + accepted payment methods)
+  // — needed to power the create-form defaults.
   const fetchProviderServices = useCallback(async () => {
     if (!client?.providerId) return;
     try {

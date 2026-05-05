@@ -4,7 +4,6 @@ import { Banknote, CreditCard, Smartphone, Layers } from 'lucide-react';
 const PAYMENT_METHOD_CONFIG = {
   cash: { label: 'Cash', icon: Banknote, description: 'Pay in person' },
   zelle: { label: 'Zelle', icon: Smartphone, description: 'Bank transfer' },
-  venmo: { label: 'Venmo', icon: Smartphone, description: 'Venmo payment' },
   card: { label: 'Card', icon: CreditCard, description: 'Credit/Debit card' },
 };
 

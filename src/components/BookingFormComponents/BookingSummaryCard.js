@@ -30,7 +30,6 @@ const BookingSummaryCard = ({
   const paymentMethodLabels = {
     cash: 'Cash',
     zelle: 'Zelle',
-    venmo: 'Venmo',
     card: 'Card',
     package: 'Package credit',
   };
