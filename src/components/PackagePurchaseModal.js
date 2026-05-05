@@ -162,14 +162,18 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
               </div>
 
               <div className="mb-4">
-                <div id="package-stripe-element" className="min-h-[120px]">
-                  {loading && (
-                    <div className="flex items-center justify-center py-8 text-slate-500 text-sm">
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading payment options…
-                    </div>
-                  )}
-                </div>
+                {loading && (
+                  <div className="flex items-center justify-center py-8 text-slate-500 text-sm">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading payment options…
+                  </div>
+                )}
+                {/* Stripe Element mount point — MUST be empty (no React
+                    children) because Stripe.js takes ownership of its
+                    children and React's reconciler will throw a
+                    NotFoundError on removeChild if there's anything
+                    React-rendered inside when state updates fire. */}
+                <div id="package-stripe-element" className={loading ? 'hidden' : 'min-h-[120px]'} />
               </div>
 
               {error && (
