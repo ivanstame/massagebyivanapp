@@ -119,26 +119,28 @@ const Header = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:ring-offset-2"
-            >
-              <span className="sr-only">Open main menu</span>
-              {!mobileMenuOpen ? (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              ) : (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
-            </button>
-          </div>
         </div>
       </div>
+
+      {/* Mobile menu trigger — persistent peek-bar pinned to the
+          bottom edge instead of a top-right hamburger. The drag
+          handle pill is the universal "this opens" affordance, and
+          its physical proximity to where the sheet emerges from
+          keeps the cause-and-effect immediate. Tap (or drag the
+          sheet itself) to expand. iPhone home-indicator safe-area
+          padding included so we don't sit under it on notched
+          devices. */}
+      <button
+        type="button"
+        onClick={() => setMobileMenuOpen(true)}
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper-elev border-t border-line shadow-[0_-2px_10px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        aria-label="Open menu"
+      >
+        <span className="block w-10 h-1 rounded-full bg-slate-300 mb-1" />
+        <span className="text-[11px] uppercase tracking-wider text-slate-500 font-medium">
+          Menu
+        </span>
+      </button>
 
       {/* Mobile menu — bottom sheet, rendered as a sibling so it can
           escape the nav's max-w container. */}
