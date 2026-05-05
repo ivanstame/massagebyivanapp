@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight } from 'lucide-react';
+import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from 'luxon';
 import { BrushLeaf } from './brush/BrushMotifs';
@@ -24,27 +24,121 @@ const Eyebrow = ({ children }) => (
   </div>
 );
 
-const TimelineRow = ({ booking, formatTime }) => (
-  <Link
-    to={`/appointments/${booking._id}`}
-    className="flex items-center gap-3.5 py-3 px-3.5 rounded-card bg-paper-deep
-      hover:shadow-atelier-sm transition"
-    style={{ borderLeft: '3px solid #B07A4E' }}
-  >
-    <span className="av-meta text-accent" style={{ width: 54 }}>
-      {formatTime(booking.startTime)}
-    </span>
-    <div className="flex-1 min-w-0">
-      <div className="font-display" style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 500 }}>
-        {booking.client?.profile?.fullName || booking.recipientInfo?.name || 'Client'}
-      </div>
-      <div className="text-xs text-ink-2 mt-0.5 truncate">
-        {booking.duration} min · {booking.location?.address?.split(',')[0] || ''}
+// Derive a session's visual state from its booking.status + the wall
+// clock. Returns one of:
+//   'done'     → completed (closed out cleanly)
+//   'now'      → current time is between start and end
+//   'overdue'  → past end time but still confirmed (provider forgot
+//                to mark complete) — gets a one-tap action
+//   'upcoming' → future
+function deriveSessionState(booking, now) {
+  if (booking.status === 'completed') return 'done';
+  if (!booking.localDate || !booking.startTime || !booking.endTime) return 'upcoming';
+  const startsAt = DateTime.fromFormat(
+    `${booking.localDate} ${booking.startTime}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: 'America/Los_Angeles' }
+  );
+  const endsAt = DateTime.fromFormat(
+    `${booking.localDate} ${booking.endTime}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: 'America/Los_Angeles' }
+  );
+  if (!startsAt.isValid || !endsAt.isValid) return 'upcoming';
+  if (now >= endsAt) return 'overdue';
+  if (now >= startsAt) return 'now';
+  return 'upcoming';
+}
+
+// Friendly "in 2h 15m" / "in 45m" / "in 5m" countdown for upcoming
+// sessions. Falls back to start time if it's >12h out.
+function countdownFromNow(booking, now) {
+  if (!booking.localDate || !booking.startTime) return '';
+  const startsAt = DateTime.fromFormat(
+    `${booking.localDate} ${booking.startTime}`,
+    'yyyy-MM-dd HH:mm',
+    { zone: 'America/Los_Angeles' }
+  );
+  if (!startsAt.isValid) return '';
+  const diffMin = Math.max(0, Math.round(startsAt.diff(now, 'minutes').minutes));
+  if (diffMin <= 0) return 'now';
+  if (diffMin > 12 * 60) return ''; // too far out, time of day is enough
+  if (diffMin < 60) return `in ${diffMin}m`;
+  const h = Math.floor(diffMin / 60);
+  const m = diffMin % 60;
+  return m === 0 ? `in ${h}h` : `in ${h}h ${m}m`;
+}
+
+const TimelineRow = ({ booking, formatTime, now, onMarkComplete, marking }) => {
+  const state = deriveSessionState(booking, now);
+
+  // Per-state visual treatment. Border color, opacity, and the right-
+  // side meta (pill / countdown / inline action) all key off the
+  // single derived state, so we never render contradictory cues.
+  const visual = {
+    done: {
+      borderColor: '#10b981',           // emerald-500
+      opacity: 0.7,
+      pill: <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"><CheckCircle className="w-3 h-3" /> Done</span>,
+    },
+    now: {
+      borderColor: '#B07A4E',
+      opacity: 1,
+      pill: <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded bg-[#B07A4E] text-white"><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Now</span>,
+    },
+    overdue: {
+      borderColor: '#f59e0b',           // amber-500
+      opacity: 1,
+      pill: <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"><AlertTriangle className="w-3 h-3" /> Close out</span>,
+    },
+    upcoming: {
+      borderColor: '#B07A4E',
+      opacity: 1,
+      pill: countdownFromNow(booking, now)
+        ? <span className="text-[11px] text-ink-3">{countdownFromNow(booking, now)}</span>
+        : null,
+    },
+  }[state];
+
+  return (
+    <div
+      className="flex items-center gap-3.5 py-3 px-3.5 rounded-card bg-paper-deep hover:shadow-atelier-sm transition"
+      style={{ borderLeft: `3px solid ${visual.borderColor}`, opacity: visual.opacity }}
+    >
+      <Link to={`/appointments/${booking._id}`} className="flex items-center gap-3.5 flex-1 min-w-0">
+        <span className={`av-meta ${state === 'done' ? 'text-ink-3' : 'text-accent'}`} style={{ width: 54 }}>
+          {formatTime(booking.startTime)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div
+            className={`font-display ${state === 'done' ? 'text-ink-2' : ''}`}
+            style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 500 }}
+          >
+            {booking.client?.profile?.fullName || booking.recipientInfo?.name || 'Client'}
+          </div>
+          <div className="text-xs text-ink-2 mt-0.5 truncate">
+            {booking.duration} min · {booking.location?.address?.split(',')[0] || ''}
+          </div>
+        </div>
+      </Link>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {visual.pill}
+        {state === 'overdue' && onMarkComplete && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onMarkComplete(booking); }}
+            disabled={marking === booking._id}
+            className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-800 px-2 py-1 rounded border border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+          >
+            {marking === booking._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+            Mark
+          </button>
+        )}
+        <ArrowRight className="w-3.5 h-3.5 text-ink-3" />
       </div>
     </div>
-    <ArrowRight className="w-3.5 h-3.5 text-ink-3" />
-  </Link>
-);
+  );
+};
 
 const EmptyRow = ({ time }) => (
   <div className="flex items-center gap-3.5 py-2.5" style={{ borderTop: '1px dashed var(--line-2)' }}>
@@ -78,6 +172,10 @@ const ProviderDashboard = () => {
   const [revenue, setRevenue] = useState(null);
   const [todayBookings, setTodayBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Tick every minute so countdown labels and state transitions
+  // (upcoming → now → overdue) stay live without a refresh.
+  const [now, setNow] = useState(() => DateTime.now().setZone('America/Los_Angeles'));
+  const [markingId, setMarkingId] = useState(null);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -105,6 +203,28 @@ const ProviderDashboard = () => {
     fetchAll();
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(
+      () => setNow(DateTime.now().setZone('America/Los_Angeles')),
+      60 * 1000
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  const handleMarkComplete = async (booking) => {
+    try {
+      setMarkingId(booking._id);
+      await api.patch(`/api/bookings/${booking._id}/status`, { status: 'completed' });
+      setTodayBookings(prev =>
+        prev.map(b => (b._id === booking._id ? { ...b, status: 'completed' } : b))
+      );
+    } catch (err) {
+      console.error('Mark complete failed:', err);
+    } finally {
+      setMarkingId(null);
+    }
+  };
+
   const formatTime = (t) => {
     if (!t) return '';
     const [h, m] = t.split(':').map(Number);
@@ -113,26 +233,63 @@ const ProviderDashboard = () => {
     return `${dh}:${m.toString().padStart(2, '0')}${period}`;
   };
 
-  const now = DateTime.now().setZone('America/Los_Angeles');
   const greeting = now.hour < 12 ? 'Good morning' : now.hour < 18 ? 'Good afternoon' : 'Good evening';
   const todayLabel = now.toFormat('EEEE · d LLLL').toLowerCase();
   const firstName = user.profile?.fullName?.split(' ')[0]
     || user.providerProfile?.businessName
     || 'there';
 
-  // Build the subtitle copy
-  const firstAppt = todayBookings.find(b => b.status !== 'completed');
+  // Subtitle copy reflects the actual mix of states across today's
+  // sessions — "1 done · 2 to go" reads more honestly than "three
+  // sessions today" when one is already wrapped. Picks the most
+  // useful single sentence for the current shape of the day.
   const subtitle = (() => {
     if (loading) return 'Loading your day...';
     if (todayBookings.length === 0) return 'No sessions today. Stillness is a gift.';
-    if (todayBookings.length === 1) return firstAppt
-      ? `One session today. It begins at ${formatTime(firstAppt.startTime)}.`
-      : 'One session today, already complete.';
-    const wordCount = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-    const count = todayBookings.length < 10 ? wordCount[todayBookings.length] : todayBookings.length;
-    return firstAppt
-      ? `${count.charAt(0).toUpperCase() + count.slice(1)} sessions today. The first begins at ${formatTime(firstAppt.startTime)}.`
-      : `${count.charAt(0).toUpperCase() + count.slice(1)} sessions today, all done.`;
+
+    const counts = { done: 0, now: 0, overdue: 0, upcoming: 0 };
+    let nowName = '';
+    let firstUpcoming = null;
+    for (const b of todayBookings) {
+      const s = deriveSessionState(b, now);
+      counts[s] += 1;
+      if (s === 'now' && !nowName) {
+        nowName = b.client?.profile?.fullName?.split(' ')[0]
+          || b.recipientInfo?.name?.split(' ')[0]
+          || 'a client';
+      }
+      if (s === 'upcoming' && !firstUpcoming) firstUpcoming = b;
+    }
+
+    // Priority order for which state to lead with:
+    //   1. In-session "now" — the most time-sensitive thing on screen
+    //   2. Overdue — provider needs to act, lead with the prompt
+    //   3. All done — closure feels good, say so
+    //   4. Mixed past + future — show the breakdown
+    //   5. Pure upcoming — friendly time-til-first
+    if (counts.now > 0) {
+      const rest = todayBookings.length - counts.now - counts.done;
+      const after = rest > 0 ? ` · ${rest} after this` : '';
+      return `With ${nowName} now${after}.`;
+    }
+    if (counts.overdue > 0) {
+      const word = counts.overdue === 1 ? 'session needs' : 'sessions need';
+      return `${counts.overdue} ${word} closing out from earlier today.`;
+    }
+    if (counts.done === todayBookings.length) {
+      return todayBookings.length === 1
+        ? 'All done — 1 of 1 closed out.'
+        : `All done — ${counts.done} of ${todayBookings.length} closed out.`;
+    }
+    if (counts.done > 0 && counts.upcoming > 0) {
+      const goWord = counts.upcoming === 1 ? '1 to go' : `${counts.upcoming} to go`;
+      return `${counts.done} done · ${goWord}.`;
+    }
+    if (firstUpcoming) {
+      const word = todayBookings.length === 1 ? 'One session' : `${todayBookings.length} sessions`;
+      return `${word} today. First at ${formatTime(firstUpcoming.startTime)}.`;
+    }
+    return `${todayBookings.length} sessions today.`;
   })();
 
   return (
@@ -205,7 +362,16 @@ const ProviderDashboard = () => {
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {todayBookings.map(b => <TimelineRow key={b._id} booking={b} formatTime={formatTime} />)}
+                {todayBookings.map(b => (
+                  <TimelineRow
+                    key={b._id}
+                    booking={b}
+                    formatTime={formatTime}
+                    now={now}
+                    onMarkComplete={handleMarkComplete}
+                    marking={markingId}
+                  />
+                ))}
               </div>
             )}
           </div>
