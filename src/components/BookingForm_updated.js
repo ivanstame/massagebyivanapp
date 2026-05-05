@@ -258,16 +258,18 @@ const BookingForm = ({ googleMapsLoaded }) => {
     })();
   }, [isProviderBooking, searchParams]);
 
-  // When a client is picked inline, swap the URL so reloads land in the same
-  // context. Address/preferences reload via the targetClient effect below;
-  // date/duration/add-ons already chosen are preserved. Also clears the
-  // provider-guest mode flag — picking a real client supersedes any
-  // prior "someone new" choice the wizard was carrying.
+  // When a client is picked inline, swap the URL so reloads land in the
+  // same context. Address/preferences reload via the targetClient effect
+  // below; date/duration/add-ons already chosen are preserved. Also
+  // clears the provider-guest-mode flag and resets recipient back to
+  // 'self' (the picked client) — picking a real client supersedes any
+  // prior "one-off" or "someone else" choice the wizard was carrying.
   const handleClientPicked = (client) => {
     setShowClientPicker(false);
     setSelectedTime(null);
     setAvailableSlots([]);
     setProviderGuestMode(false);
+    setRecipientType('self');
     setRecipientInfo({ name: '', phone: '', email: '' });
     setSearchParams({ clientId: client._id }, { replace: true });
   };
@@ -716,15 +718,27 @@ const BookingForm = ({ googleMapsLoaded }) => {
         }),
         ...(isOnBehalfManaged
           ? {
+              // Owner is Kari. Recipient is whoever was picked:
+              // 'self' = Kari herself, 'other' = a named guest like
+              // Kim. Sending recipientInfo on 'other' so the booking
+              // shows the actual recipient's name without inflating
+              // the managed-client roster.
               clientId: targetClient._id,
-              recipientType: 'self',
+              recipientType,
+              ...(recipientType === 'other' && {
+                recipientInfo: {
+                  name: recipientInfo.name,
+                  phone: recipientInfo.phone,
+                  email: recipientInfo.email || ''
+                }
+              })
             }
           : isProviderGuest
             ? {
-                // No clientId — the server attributes the booking to
-                // the provider's own _id as a placeholder so the
-                // schema's required `client` ref is satisfied. No
-                // managed-client doc is created.
+                // True clientless one-off. No clientId — the server
+                // attributes the booking to the provider's own _id
+                // as a placeholder so the schema's required `client`
+                // ref is satisfied. No managed-client doc created.
                 recipientType: 'other',
                 recipientInfo: {
                   name: recipientInfo.name,
@@ -872,21 +886,34 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const wizardComplete = wizardStepIdx >= wizardOrder.length;
   const currentWizardStep = wizardOrder[wizardStepIdx] || null;
 
-  // Validation per step — drives whether Continue is enabled. The
-  // recipient step has two flavors depending on user type:
-  //   - Client: 'self' | 'other' (name only — phone optional)
-  //   - Provider: either targetClient picked OR providerGuestMode
-  //     with recipient name (phone optional)
-  // Phone is optional throughout: providers often have the recipient's
-  // number out-of-band, and SMS reminders handle missing phones
-  // gracefully (just don't fire). Forcing it blocks legitimate
-  // bookings where the provider is doing data entry on the spot.
+  // Validation per step — drives whether Continue is enabled.
+  //
+  // Recipient step shapes:
+  //   - Client self-booking: recipientType 'self' is always valid;
+  //     'other' needs a name (phone optional).
+  //   - Provider on-behalf (targetClient set, came from a client
+  //     page): always valid as long as targetClient resolved. The
+  //     recipient sub-toggle defaults to 'self' (the owner gets the
+  //     massage); 'other' adds a name field. Owner stays Kari even
+  //     when recipient is Kim — that's how Kari's saved address
+  //     remains the default in the Address step.
+  //   - Provider one-off (no client owner): providerGuestMode is on
+  //     and the form needs a name. Phone always optional — forcing
+  //     it blocks providers doing in-person data entry where the
+  //     phone is out of band.
   const isWizardStepValid = (id) => {
     switch (id) {
       case 'recipient':
         if (isProviderBooking) {
-          return !!targetClient?._id
-            || (providerGuestMode && !!recipientInfo.name);
+          if (targetClient?._id) {
+            // Owner picked. Recipient defaults to 'self' (the owner);
+            // 'other' needs a name. Phone optional.
+            return recipientType === 'self'
+              || (recipientType === 'other' && !!recipientInfo.name);
+          }
+          // No owner picked yet — only valid path forward is an
+          // explicit one-off with a recipient name on file.
+          return providerGuestMode && !!recipientInfo.name;
         }
         return recipientType === 'self'
           || (recipientType === 'other' && !!recipientInfo.name);
@@ -952,8 +979,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
       && !targetClient
       && !!recipientInfo.name;
 
+    // For provider-on-behalf: owner is set; recipient is either
+    // self (the owner) or someone else (named). For client self-
+    // booking: same self/other split. For provider one-off: name
+    // captured inline. Phone optional throughout.
     const isRecipientComplete = isOnBehalfManaged
-      ? true
+      ? (recipientType === 'self' || (recipientType === 'other' && !!recipientInfo.name))
       : isProviderGuest
         ? true
         : (recipientType === 'self' ||
@@ -1051,60 +1082,21 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
               {currentWizardStep === 'recipient' && (
                 isProviderBooking ? (
-                  /* Provider's recipient picker — pick existing
-                     managed client OR enter a one-off guest. Guest
-                     booking does NOT add a client to the roster. */
-                  <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line space-y-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-slate-900">Who is this booking for?</h3>
-                      <p className="text-sm text-slate-600 mt-1">
-                        Pick an existing client, or enter a one-off recipient
-                        — entering a one-off does NOT add them to your client list.
-                      </p>
-                    </div>
-
-                    {/* Mode chips */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProviderGuestMode(false);
-                          setShowClientPicker(true);
-                        }}
-                        className={`p-4 rounded-lg border-2 text-left transition-colors
-                          ${!providerGuestMode && targetClient
-                            ? 'border-teal-600 bg-teal-50'
-                            : 'border-line hover:border-teal-300'}`}
-                      >
-                        <UserIcon className="w-5 h-5 text-teal-700 mb-2" />
-                        <div className="font-medium text-slate-900">Existing client</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Pick from your client list
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProviderGuestMode(true);
-                          setTargetClient(null);
-                          setSearchParams({}, { replace: true });
-                          if (recipientType !== 'other') setRecipientType('other');
-                        }}
-                        className={`p-4 rounded-lg border-2 text-left transition-colors
-                          ${providerGuestMode
-                            ? 'border-teal-600 bg-teal-50'
-                            : 'border-line hover:border-teal-300'}`}
-                      >
-                        <Plus className="w-5 h-5 text-teal-700 mb-2" />
-                        <div className="font-medium text-slate-900">Someone new</div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          One-off — no roster add
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Selected display */}
-                    {targetClient && !providerGuestMode && (
+                  /* Provider's recipient picker — split into two
+                     concepts:
+                       1. Booking owner: who's the booking attached
+                          to (Kari, an existing managed client). Drives
+                          address book, payment history, etc.
+                       2. Recipient: who's actually getting the
+                          massage. Defaults to the owner; can be
+                          someone else (e.g. Kari's friend Kim) without
+                          inflating the roster.
+                     If the provider hits Book without an owner picked,
+                     we offer "Pick existing client" or "One-off" (true
+                     clientless walk-in) up front. */
+                  targetClient?._id ? (
+                    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line space-y-5">
+                      {/* Booking owner — banner with Change link */}
                       <div className="bg-paper-deep border border-line rounded-lg p-4 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[#B07A4E]/10 flex items-center justify-center flex-shrink-0">
                           <UserIcon className="w-5 h-5 text-[#B07A4E]" />
@@ -1123,39 +1115,157 @@ const BookingForm = ({ googleMapsLoaded }) => {
                           Change
                         </button>
                       </div>
-                    )}
 
-                    {/* Inline guest form */}
-                    {providerGuestMode && (
-                      <div className="space-y-3">
-                        <input
-                          type="text"
-                          value={recipientInfo.name}
-                          onChange={(e) => setRecipientInfo({ ...recipientInfo, name: e.target.value })}
-                          placeholder="Recipient's full name"
-                          className="w-full px-4 py-3 text-base border border-line rounded-lg
-                            focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                        <input
-                          type="tel"
-                          inputMode="tel"
-                          value={recipientInfo.phone}
-                          onChange={(e) => setRecipientInfo({ ...recipientInfo, phone: e.target.value })}
-                          placeholder="Phone (optional) — (555) 555-5555"
-                          className="w-full px-4 py-3 text-base border border-line rounded-lg
-                            focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
-                        <input
-                          type="email"
-                          value={recipientInfo.email}
-                          onChange={(e) => setRecipientInfo({ ...recipientInfo, email: e.target.value })}
-                          placeholder="Email (optional)"
-                          className="w-full px-4 py-3 text-base border border-line rounded-lg
-                            focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                        />
+                      {/* Recipient sub-question */}
+                      <div>
+                        <p className="text-base font-semibold text-slate-900 mb-2">
+                          Who's getting the massage?
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecipientType('self');
+                              setRecipientInfo({ name: '', phone: '', email: '' });
+                            }}
+                            className={`p-3 rounded-lg border-2 text-left transition-colors
+                              ${recipientType === 'self'
+                                ? 'border-teal-600 bg-teal-50'
+                                : 'border-line hover:border-teal-300'}`}
+                          >
+                            <div className="font-medium text-slate-900 text-sm">
+                              {targetClient.profile?.fullName?.split(' ')[0] || 'Owner'} herself
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              Standard booking
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRecipientType('other')}
+                            className={`p-3 rounded-lg border-2 text-left transition-colors
+                              ${recipientType === 'other'
+                                ? 'border-teal-600 bg-teal-50'
+                                : 'border-line hover:border-teal-300'}`}
+                          >
+                            <div className="font-medium text-slate-900 text-sm">
+                              Someone else
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              Friend, family — no roster add
+                            </div>
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Recipient details — only when "Someone else" */}
+                      {recipientType === 'other' && (
+                        <div className="space-y-3 pt-2">
+                          <input
+                            type="text"
+                            value={recipientInfo.name}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, name: e.target.value })}
+                            placeholder="Recipient's full name"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <input
+                            type="tel"
+                            inputMode="tel"
+                            value={recipientInfo.phone}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, phone: e.target.value })}
+                            placeholder="Phone (optional) — (555) 555-5555"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <input
+                            type="email"
+                            value={recipientInfo.email}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, email: e.target.value })}
+                            placeholder="Email (optional)"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* No owner picked — choose existing client OR
+                       book a one-off without a client owner. */
+                    <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line space-y-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-slate-900">Who is this booking for?</h3>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Pick an existing client, or book a one-off — a
+                          one-off does NOT add anyone to your client list.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProviderGuestMode(false);
+                            setShowClientPicker(true);
+                          }}
+                          className="p-4 rounded-lg border-2 border-line hover:border-teal-300 text-left transition-colors"
+                        >
+                          <UserIcon className="w-5 h-5 text-teal-700 mb-2" />
+                          <div className="font-medium text-slate-900">Existing client</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            Pick from your client list
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProviderGuestMode(true);
+                            if (recipientType !== 'other') setRecipientType('other');
+                          }}
+                          className={`p-4 rounded-lg border-2 text-left transition-colors
+                            ${providerGuestMode
+                              ? 'border-teal-600 bg-teal-50'
+                              : 'border-line hover:border-teal-300'}`}
+                        >
+                          <Plus className="w-5 h-5 text-teal-700 mb-2" />
+                          <div className="font-medium text-slate-900">One-off</div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            No client owner — walk-in
+                          </div>
+                        </button>
+                      </div>
+
+                      {providerGuestMode && (
+                        <div className="space-y-3">
+                          <input
+                            type="text"
+                            value={recipientInfo.name}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, name: e.target.value })}
+                            placeholder="Recipient's full name"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <input
+                            type="tel"
+                            inputMode="tel"
+                            value={recipientInfo.phone}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, phone: e.target.value })}
+                            placeholder="Phone (optional) — (555) 555-5555"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                          <input
+                            type="email"
+                            value={recipientInfo.email}
+                            onChange={(e) => setRecipientInfo({ ...recipientInfo, email: e.target.value })}
+                            placeholder="Email (optional)"
+                            className="w-full px-4 py-3 text-base border border-line rounded-lg
+                              focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
                 ) : (
                   <RecipientSection
                     recipientType={recipientType}
@@ -1367,11 +1477,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
                scroll up and edit anything), plus payment, summary,
                back-to-back CTA, and Confirm. */
             <>
-              {/* Recipient — show the same picker the wizard used.
-                  Provider sees their own variant; client sees the
-                  standard self/other picker. */}
+              {/* Recipient summary in review mode. Three shapes:
+                    - targetClient + recipientType='self': standard
+                      "Booking for [Kari]"
+                    - targetClient + recipientType='other': "Booking
+                      for [Kari]" + sub-line "Recipient: [Kim]"
+                    - no targetClient + providerGuestMode: one-off */}
               {isProviderBooking ? (
-                (targetClient && !providerGuestMode) ? (
+                targetClient ? (
                   <div className="bg-paper-elev border border-line rounded-lg p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#B07A4E]/10 flex items-center justify-center flex-shrink-0">
                       <UserIcon className="w-5 h-5 text-[#B07A4E]" />
@@ -1381,6 +1494,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
                       <p className="text-base font-medium text-slate-900 truncate">
                         {targetClient.profile?.fullName}
                       </p>
+                      {recipientType === 'other' && recipientInfo.name && (
+                        <p className="text-xs text-slate-600 truncate mt-0.5">
+                          Recipient: {recipientInfo.name}
+                          {recipientInfo.phone ? ` · ${recipientInfo.phone}` : ''}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
