@@ -558,6 +558,52 @@ router.patch('/:id/cancel', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Provider grants bonus / comp time on top of the original purchase.
+// Use case: client cancels last-minute for a sympathetic reason and the
+// provider wants to add 30 min as a thank-you. Stored as a separate
+// `bonuses[]` subdoc — not a bump to minutesTotal — so the audit trail
+// stays clean ("you bought X" + "your provider gifted Y on date Z").
+router.post('/:id/bonus', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+    const pkg = await PackagePurchase.findOne({ _id: req.params.id, provider: req.user._id });
+    if (!pkg) return res.status(404).json({ message: 'Package not found' });
+    if (pkg.cancelledAt || pkg.paymentStatus === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot add bonus to a cancelled package' });
+    }
+
+    const { minutes, sessions, reason } = req.body;
+    const bonus = { reason: (reason || '').trim().slice(0, 200) };
+
+    if (pkg.kind === 'minutes') {
+      const m = Number(minutes);
+      if (!Number.isFinite(m) || m <= 0) {
+        return res.status(400).json({ message: 'minutes must be a positive number' });
+      }
+      if (m > 600) return res.status(400).json({ message: 'Bonus capped at 600 minutes per add' });
+      bonus.minutes = Math.round(m);
+    } else {
+      const s = Number(sessions);
+      if (!Number.isInteger(s) || s <= 0) {
+        return res.status(400).json({ message: 'sessions must be a positive integer' });
+      }
+      if (s > 20) return res.status(400).json({ message: 'Bonus capped at 20 sessions per add' });
+      bonus.sessions = s;
+    }
+
+    bonus.addedBy = req.user.profile?.fullName || req.user.email || '';
+    bonus.addedAt = new Date();
+    pkg.bonuses.push(bonus);
+    await pkg.save();
+    res.json(pkg);
+  } catch (err) {
+    console.error('Error adding bonus to package:', err);
+    res.status(500).json({ message: 'Failed to add bonus' });
+  }
+});
+
 // Provider reinstates a consumed credit — useful when a client cancelled
 // late but the provider wants to grant a goodwill return, or when a
 // booking gets cancelled by the provider after the fact. The redemption

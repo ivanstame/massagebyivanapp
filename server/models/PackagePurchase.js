@@ -54,6 +54,24 @@ const RedemptionSchema = new mongoose.Schema({
   },
 }, { _id: true });
 
+// Goodwill / make-good time the provider grants on top of the original
+// purchase. Use case: client cancels last-minute for a sympathetic
+// reason (family emergency, illness) and the provider wants to add
+// time as a thank-you. Stored as a separate subdoc array (not a bump
+// to minutesTotal/sessionsTotal) so the audit trail stays clean —
+// "you bought 300 min" + "your provider gifted 30 min on Mar 4" reads
+// honestly to both parties later. minutesRemaining/sessionsRemaining
+// virtuals factor these in.
+const BonusSchema = new mongoose.Schema({
+  // Either minutes (minutes-mode pkgs) or sessions (sessions-mode pkgs).
+  // Validated server-side against the parent package's kind.
+  minutes:  { type: Number, default: 0, min: 0, max: 600 },
+  sessions: { type: Number, default: 0, min: 0, max: 20 },
+  reason:   { type: String, default: '', trim: true, maxlength: 200 },
+  addedBy:  { type: String, default: '', trim: true, maxlength: 100 }, // provider name snapshot
+  addedAt:  { type: Date, default: Date.now },
+}, { _id: true });
+
 const PackagePurchaseSchema = new mongoose.Schema({
   // Reference to the template the client bought (for provenance / analytics).
   // Null when the provider comped a package directly without a template, or
@@ -157,10 +175,19 @@ const PackagePurchaseSchema = new mongoose.Schema({
   },
 
   redemptions: [RedemptionSchema],
+  bonuses:     [BonusSchema],
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
+});
+
+// ── Bonus totals (provider-granted goodwill time) ─────────────────────
+PackagePurchaseSchema.virtual('bonusMinutes').get(function() {
+  return (this.bonuses || []).reduce((sum, b) => sum + (b.minutes || 0), 0);
+});
+PackagePurchaseSchema.virtual('bonusSessions').get(function() {
+  return (this.bonuses || []).reduce((sum, b) => sum + (b.sessions || 0), 0);
 });
 
 // ── Sessions-mode virtuals ────────────────────────────────────────────
@@ -171,7 +198,10 @@ PackagePurchaseSchema.virtual('sessionsUsed').get(function() {
 });
 PackagePurchaseSchema.virtual('sessionsRemaining').get(function() {
   if (this.kind !== 'sessions') return 0;
-  return (this.sessionsTotal || 0) - this.sessionsUsed;
+  // Bonuses add to the effective total — kept separate from
+  // sessionsTotal so the original purchase amount remains a clean
+  // historical fact.
+  return (this.sessionsTotal || 0) + this.bonusSessions - this.sessionsUsed;
 });
 
 // ── Minutes-mode virtuals ─────────────────────────────────────────────
@@ -183,7 +213,7 @@ PackagePurchaseSchema.virtual('minutesUsed').get(function() {
 });
 PackagePurchaseSchema.virtual('minutesRemaining').get(function() {
   if (this.kind !== 'minutes') return 0;
-  return (this.minutesTotal || 0) - this.minutesUsed;
+  return (this.minutesTotal || 0) + this.bonusMinutes - this.minutesUsed;
 });
 
 // Eligible for use in a new booking of `duration` minutes?
