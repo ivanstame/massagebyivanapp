@@ -59,12 +59,29 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       ? req.user.providerId 
       : req.user._id;
 
+    // Provider booking on behalf has two flavors:
+    //   (a) Existing managed client — req.body.clientId points at one
+    //       of this provider's clients. Booking attaches there.
+    //   (b) One-off guest — provider hasn't picked a client; booking
+    //       carries recipientType='other' + recipientInfo (name/phone).
+    //       We attribute it to the provider's own _id as a placeholder
+    //       so the schema's required `client` ref is satisfied. No
+    //       new managed-client doc is created. Use case: provider
+    //       walks in mid-day and wants to book for whoever happens to
+    //       be at the address (couple's massage, friend tagging
+    //       along, etc.) without inflating the roster.
+    const isProviderGuestBooking =
+      req.user.accountType === 'PROVIDER'
+      && !req.body.clientId
+      && req.body.recipientType === 'other';
+
     const clientId = req.user.accountType === 'CLIENT'
       ? req.user._id
-      : req.body.clientId;
+      : (isProviderGuestBooking ? req.user._id : req.body.clientId);
 
-    // Verify provider-client relationship
-    if (req.user.accountType === 'PROVIDER') {
+    // Verify provider-client relationship — skipped for guest bookings
+    // since the "client" is the provider themselves, just a placeholder.
+    if (req.user.accountType === 'PROVIDER' && !isProviderGuestBooking) {
       const client = await User.findById(clientId);
       if (!client || !client.providerId.equals(req.user._id)) {
         return res.status(403).json({ message: 'Invalid client for this provider' });
@@ -535,12 +552,21 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
 
     // Resolve provider/client from auth context. CLIENT books for self;
     // PROVIDER books on behalf of a target clientId in the request.
+    // Provider guest-booking: no clientId on the first session AND
+    // recipientType='other' → attribute the chain to the provider's
+    // own _id as a placeholder client (no managed-client doc created).
+    const isProviderGuestChain =
+      req.user.accountType === 'PROVIDER'
+      && !first.clientId
+      && first.recipientType === 'other';
     const provider = req.user.accountType === 'CLIENT' ? req.user.providerId : req.user._id;
-    const client = req.user.accountType === 'CLIENT' ? req.user._id : first.clientId;
+    const client = req.user.accountType === 'CLIENT'
+      ? req.user._id
+      : (isProviderGuestChain ? req.user._id : first.clientId);
     if (!provider || !client) {
       return res.status(400).json({ message: 'Could not resolve provider/client for this booking' });
     }
-    if (req.user.accountType === 'PROVIDER') {
+    if (req.user.accountType === 'PROVIDER' && !isProviderGuestChain) {
       const target = await User.findById(client);
       if (!target || !target.providerId?.equals(req.user._id)) {
         return res.status(403).json({ message: 'Invalid client for this provider' });
