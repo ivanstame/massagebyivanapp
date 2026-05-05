@@ -868,7 +868,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const showAddressStep = !(dayIsPurelyStatic && studioForDay && !isProviderBooking);
   const wizardOrder = ['recipient', 'date'];
   if (showAddressStep) wizardOrder.push('address');
-  wizardOrder.push('duration', 'time');
+  wizardOrder.push('duration', 'time', 'addanother');
 
   const wizardComplete = wizardStepIdx >= wizardOrder.length;
   const currentWizardStep = wizardOrder[wizardStepIdx] || null;
@@ -897,6 +897,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
         return !!selectedDuration;
       case 'time':
         return !!selectedTime;
+      case 'addanother':
+        // Always advanceable — adding another session is optional.
+        // The step exists so the question is in the user's face, but
+        // "no thanks, just one" is a perfectly valid answer.
+        return true;
       default:
         return true;
     }
@@ -914,6 +919,30 @@ const BookingForm = ({ googleMapsLoaded }) => {
       setWizardStepIdx(wizardOrder.length);
     }
   }, [wizardOrder.length, wizardStepIdx]);
+
+  // Scroll to top when the wizard finishes — without it the user
+  // sits in the middle of the now-fully-populated review page,
+  // which is disorienting (the wizard step they were just on is no
+  // longer at the top of the viewport, and they have no idea
+  // there's a Confirm button below).
+  useEffect(() => {
+    if (wizardComplete) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [wizardComplete]);
+
+  // If the chain (back-to-back add-another step) makes the picked
+  // time no longer fit, snap back to the time step. Without this
+  // the user could be parked at "addanother" with a stale time and
+  // hit Continue → submit fails. The staleTimeNotice from the slot
+  // invalidator is the trigger.
+  useEffect(() => {
+    if (!staleTimeNotice) return;
+    const timeIdx = wizardOrder.indexOf('time');
+    if (timeIdx >= 0 && wizardStepIdx > timeIdx) {
+      setWizardStepIdx(timeIdx);
+    }
+  }, [staleTimeNotice, wizardOrder, wizardStepIdx]);
 
   const isBookingComplete = () => {
     const isOnBehalfManaged = isProviderBooking && targetClient?._id;
@@ -1201,10 +1230,109 @@ const BookingForm = ({ googleMapsLoaded }) => {
                 </>
               )}
 
+              {/* "Want another massage right after at this same
+                  address?" — its own wizard step so the question is
+                  in the user's face rather than a footer they might
+                  scroll past. Always advanceable: not adding any
+                  additional sessions ("just one") is the most common
+                  answer and that's fine. The chain editor renders
+                  inline so the user can tweak each added session
+                  before continuing. */}
+              {currentWizardStep === 'addanother' && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                    <p className="text-base font-semibold text-blue-900 mb-1">
+                      Want another massage right after at this same address?
+                    </p>
+                    <p className="text-sm text-blue-800/80">
+                      Same provider, same location — book a second session
+                      back-to-back (for someone else, or for you again).
+                      Your provider stays put. Hit "Continue" if you're
+                      done with just one.
+                    </p>
+                  </div>
+
+                  {additionalSessions.length > 0 && (
+                    <div className="bg-paper-deep border border-line rounded-lg p-4 space-y-3">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Back-to-back at this address
+                      </p>
+                      {additionalSessions.map((session, i) => {
+                        const firstStartIso = selectedTime?.iso;
+                        if (!firstStartIso) return null;
+                        const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
+                        const firstExtraTime = selectedAddons.reduce((sum, name) => {
+                          const a = availableAddons.find(x => x.name === name);
+                          return sum + (a?.extraTime || 0);
+                        }, 0);
+                        let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + intraBufferMin });
+                        for (let j = 0; j < i; j++) {
+                          const earlier = additionalSessions[j];
+                          const earlierExtra = (earlier.addons || []).reduce((sum, name) => {
+                            const a = availableAddons.find(x => x.name === name);
+                            return sum + (a?.extraTime || 0);
+                          }, 0);
+                          cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + intraBufferMin });
+                        }
+                        const thisExtra = (session.addons || []).reduce((sum, name) => {
+                          const a = availableAddons.find(x => x.name === name);
+                          return sum + (a?.extraTime || 0);
+                        }, 0);
+                        const thisEnd = cursor.plus({ minutes: (session.duration || 0) + thisExtra });
+                        return (
+                          <AdditionalSessionRow
+                            key={i}
+                            index={i}
+                            session={session}
+                            durationOptions={durationOptions}
+                            availableAddons={availableAddons}
+                            computedStart={cursor.toFormat('h:mm a')}
+                            computedEnd={thisEnd.toFormat('h:mm a')}
+                            onChange={(next) => {
+                              setAdditionalSessions(prev => prev.map((s, idx) => idx === i ? next : s));
+                            }}
+                            onRemove={() => {
+                              setAdditionalSessions(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (additionalSessions.length >= 5) return;
+                      setAdditionalSessions(prev => [
+                        ...prev,
+                        {
+                          recipientType: 'other',
+                          recipientInfo: { name: '', phone: '', email: '' },
+                          duration: durationOptions[0]?.duration || 60,
+                          addons: [],
+                        },
+                      ]);
+                    }}
+                    disabled={additionalSessions.length >= 5}
+                    className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3
+                      ${additionalSessions.length === 0
+                        ? 'bg-[#B07A4E] text-white hover:bg-[#8A5D36]'
+                        : 'border-2 border-dashed border-slate-300 text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E]'
+                      } rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    {additionalSessions.length === 0
+                      ? 'Yes, add another session'
+                      : 'Add one more session'}
+                  </button>
+                </div>
+              )}
+
               {/* Back + Continue. Back is disabled on step 1.
                   Continue advances; on the last wizard step it
                   finishes the wizard and the page populates fully
-                  with payment + summary + back-to-back CTA + Confirm. */}
+                  with payment + summary + Confirm. */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
@@ -1451,61 +1579,37 @@ const BookingForm = ({ googleMapsLoaded }) => {
                     </div>
                   )}
 
-                  {additionalSessions.length === 0 ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm font-semibold text-blue-900 mb-1">
-                        Want another massage right after at this same address?
-                      </p>
-                      <p className="text-xs text-blue-800/80 mb-3">
-                        Same provider, same location — book a second session
-                        for someone else (or for yourself again) back-to-back.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdditionalSessions(prev => [
-                            ...prev,
-                            {
-                              recipientType: 'other',
-                              recipientInfo: { name: '', phone: '', email: '' },
-                              duration: durationOptions[0]?.duration || 60,
-                              addons: [],
-                            },
-                          ]);
-                        }}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5
-                          bg-[#B07A4E] text-white rounded-btn hover:bg-[#8A5D36]
-                          text-sm font-medium transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Yes, add another session</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (additionalSessions.length >= 5) return;
-                        setAdditionalSessions(prev => [
-                          ...prev,
-                          {
-                            recipientType: 'other',
-                            recipientInfo: { name: '', phone: '', email: '' },
-                            duration: durationOptions[0]?.duration || 60,
-                            addons: [],
-                          },
-                        ]);
-                      }}
-                      disabled={additionalSessions.length >= 5}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3
-                        border-2 border-dashed border-slate-300 text-slate-600 rounded-lg
-                        hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors
-                        disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add one more session
-                    </button>
-                  )}
+                  {/* The prominent "Want another?" prompt lives in
+                      the wizard's 'addanother' step now — by the time
+                      the user reaches Review they've already answered.
+                      Just leave a small affordance here for "actually
+                      I want to add one more" tweaks. Capped at 5 to
+                      match the chain limit. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (additionalSessions.length >= 5) return;
+                      setAdditionalSessions(prev => [
+                        ...prev,
+                        {
+                          recipientType: 'other',
+                          recipientInfo: { name: '', phone: '', email: '' },
+                          duration: durationOptions[0]?.duration || 60,
+                          addons: [],
+                        },
+                      ]);
+                    }}
+                    disabled={additionalSessions.length >= 5}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3
+                      border-2 border-dashed border-slate-300 text-slate-600 rounded-lg
+                      hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors
+                      disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {additionalSessions.length === 0
+                      ? 'Add another session at this address'
+                      : 'Add one more session'}
+                  </button>
                 </div>
               )}
 
