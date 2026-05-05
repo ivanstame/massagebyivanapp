@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { bookingService } from '../services/bookingService';
@@ -21,7 +21,6 @@ import PaymentMethodSelector from './BookingFormComponents/PaymentMethodSelector
 import StripeCheckout from './BookingFormComponents/StripeCheckout';
 import ClientPickerModal from './ClientPickerModal';
 import AdditionalSessionRow from './BookingFormComponents/AdditionalSessionRow';
-import WizardStep from './BookingFormComponents/WizardStep';
 
 // Standard inter-session settle buffer. Mirrors the server-side constant
 // in routes/bookings.js so the time cascade computed on the client matches
@@ -119,15 +118,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // dots — a booking might consume the last open slot on a date and
   // the green dot should clear.
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
-
-  // Wizard step index. The form walks one decision at a time so users
-  // don't have to scan the whole page to figure out what to do next —
-  // the rewrite was triggered by clients getting stuck mid-flow and
-  // texting the provider mid-booking. Steps are computed dynamically
-  // (provider-on-behalf skips Recipient; in-studio days skip Address);
-  // the index points into the current `steps` array, recomputed on
-  // dependency change.
-  const [currentStepIdx, setCurrentStepIdx] = useState(0);
 
   // Get provider info and services
   useEffect(() => {
@@ -818,123 +808,6 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   };
 
-  // Derived: which steps the wizard renders, in order. Provider-on-
-  // behalf skips Recipient (the target client IS the recipient, shown
-  // in the banner). In-studio-only days skip Address for clients (the
-  // booking is at the studio — asking for the client's address would
-  // be misleading; providers still see the picker for in-home
-  // exceptions). Each entry knows whether it can advance and what
-  // summary to show when collapsed.
-  const formattedDateSummary = selectedDate
-    ? DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('cccc, MMMM d, yyyy')
-    : null;
-  const serviceSummary = (() => {
-    if (!selectedDuration) return null;
-    const tier = durationOptions.find(p => p.duration === selectedDuration);
-    const label = (tier?.label && tier.label.trim()) || `${selectedDuration} min`;
-    if (selectedAddons.length === 0) return label;
-    return `${label} · +${selectedAddons.length} add-on${selectedAddons.length > 1 ? 's' : ''}`;
-  })();
-  const recipientSummary = recipientType === 'self'
-    ? 'Yourself'
-    : (recipientInfo?.name ? recipientInfo.name : 'Someone else');
-  const paymentSummaryLabels = {
-    cash: 'Cash', zelle: 'Zelle', card: 'Card', package: 'Package credit',
-  };
-  const paymentSummary = (() => {
-    if (!selectedPaymentMethod) return null;
-    if (selectedPackageId && !isPartialRedemption) return 'Package credit';
-    return paymentSummaryLabels[selectedPaymentMethod] || selectedPaymentMethod;
-  })();
-
-  const showAddressStep = !(dayIsPurelyStatic && studioForDay && !isProviderBooking);
-  const showRecipientStep = !isProviderBooking;
-
-  const steps = useMemo(() => {
-    const arr = [];
-    arr.push({
-      id: 'date',
-      title: 'When',
-      summary: formattedDateSummary,
-      canContinue: !!selectedDate,
-    });
-    if (showAddressStep) {
-      arr.push({
-        id: 'address',
-        title: 'Where',
-        summary: fullAddress || null,
-        canContinue: !!fullAddress && !!location,
-      });
-    }
-    arr.push({
-      id: 'service',
-      title: 'Service & duration',
-      summary: serviceSummary,
-      canContinue: !!selectedDuration,
-    });
-    arr.push({
-      id: 'time',
-      title: 'Time',
-      summary: selectedTime ? (selectedTime.display || selectedTime.local) : null,
-      canContinue: !!selectedTime,
-    });
-    if (showRecipientStep) {
-      arr.push({
-        id: 'recipient',
-        title: 'Who is this for?',
-        summary: recipientSummary,
-        canContinue: recipientType === 'self'
-          || (recipientType === 'other' && !!recipientInfo?.name && !!recipientInfo?.phone),
-      });
-    }
-    arr.push({
-      id: 'payment',
-      title: 'Payment',
-      summary: paymentSummary,
-      canContinue: !!selectedPaymentMethod
-        && (!isPartialRedemption || selectedPaymentMethod !== 'package'),
-    });
-    arr.push({
-      id: 'review',
-      title: 'Review & confirm',
-      summary: null,
-      canContinue: true,
-    });
-    return arr;
-  }, [
-    showAddressStep, showRecipientStep,
-    formattedDateSummary, fullAddress, location, serviceSummary,
-    selectedDate, selectedDuration, selectedTime, recipientType,
-    recipientInfo?.name, recipientInfo?.phone, recipientSummary,
-    paymentSummary, selectedPaymentMethod, isPartialRedemption,
-    selectedPackageId,
-  ]);
-
-  // Clamp currentStepIdx whenever the step list shrinks (e.g. day
-  // flips from has-mobile to purely-static and Address disappears).
-  useEffect(() => {
-    if (currentStepIdx > steps.length - 1) {
-      setCurrentStepIdx(Math.max(0, steps.length - 1));
-    }
-  }, [steps.length, currentStepIdx]);
-
-  // If the chain expansion invalidates the picked time AFTER the user
-  // has advanced past it, snap them back to the time step. The
-  // staleTimeNotice already explains what happened; this just makes
-  // sure they can't sit on Review with no time picked.
-  useEffect(() => {
-    if (!staleTimeNotice) return;
-    const timeIdx = steps.findIndex(s => s.id === 'time');
-    if (timeIdx >= 0 && currentStepIdx > timeIdx) {
-      setCurrentStepIdx(timeIdx);
-    }
-  }, [staleTimeNotice, steps, currentStepIdx]);
-
-  const goToStepId = (id) => {
-    const idx = steps.findIndex(s => s.id === id);
-    if (idx >= 0) setCurrentStepIdx(idx);
-  };
-
   const isBookingComplete = () => {
     const isOnBehalf = isProviderBooking && targetClient?._id;
     const isRecipientComplete = isOnBehalf
@@ -1039,304 +912,38 @@ const BookingForm = ({ googleMapsLoaded }) => {
             </div>
           )}
 
-          {/* Cancel link — sits above the wizard so it doesn't crowd
-              the active step's primary action. The wizard itself uses
-              edit-links on collapsed cards for backtracking; this is
-              just for "I want out of this flow entirely." */}
-          <div>
-            <button
-              onClick={() => navigate('/')}
-              className="inline-flex items-center gap-1.5 text-sm text-ink-2 hover:text-ink"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Cancel</span>
-            </button>
-          </div>
+          {/* 1. Calendar */}
+          <CalendarSection
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            isComplete={selectedDate !== null}
+            refreshKey={calendarRefreshKey}
+          />
 
-          {/* Wizard — one decision per step. Steps are computed above
-              (skipping Recipient for provider-on-behalf and Address
-              for in-studio days). The currently-active step renders
-              full-width with a Continue button; completed steps
-              collapse into a clickable summary card the user can
-              jump back to. The final step is Review, which shows the
-              full booking summary plus an explicit "add another at
-              this same address?" CTA so the back-to-back option is
-              impossible to miss. */}
-          {steps.map((step, idx) => {
-            const isActive = idx === currentStepIdx;
-            const isCompleted = idx < currentStepIdx;
-            const isLast = idx === steps.length - 1;
+          {/* 2. Recipient — only for client self-bookings. When a provider
+              books on behalf, the target client IS the recipient, shown in
+              the banner above. */}
+          {!isProviderBooking && (
+            <RecipientSection
+              recipientType={recipientType}
+              recipientInfo={recipientInfo}
+              onRecipientTypeChange={setRecipientType}
+              onRecipientInfoChange={setRecipientInfo}
+              isComplete={recipientType === 'self' || (recipientInfo.name && recipientInfo.phone)}
+            />
+          )}
 
-            const advance = () => setCurrentStepIdx(i => Math.min(i + 1, steps.length - 1));
-            const editStep = () => setCurrentStepIdx(idx);
-
-            // The Review step renders a custom Confirm button instead
-            // of the standard Continue, so it gets onContinue=undefined.
-            const onContinue = !isLast ? advance : undefined;
-            const continueLabel = 'Continue';
-
-            return (
-              <WizardStep
-                key={step.id}
-                stepNumber={idx + 1}
-                title={step.title}
-                summary={step.summary}
-                active={isActive}
-                completed={isCompleted}
-                canContinue={step.canContinue}
-                onContinue={onContinue}
-                onEdit={editStep}
-                continueLabel={continueLabel}
-              >
-                {step.id === 'date' && (
-                  <CalendarSection
-                    selectedDate={selectedDate}
-                    onDateChange={setSelectedDate}
-                    isComplete={selectedDate !== null}
-                    refreshKey={calendarRefreshKey}
-                  />
-                )}
-
-                {step.id === 'address' && (
-                  <AddressSection
-                    savedAddress={(() => {
-                      const addrSource = isProviderBooking ? targetClient : user;
-                      const addr = addrSource?.profile?.address;
-                      if (!addr) return null;
-                      const fullAddr = addr.formatted ||
-                        (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
-                      if (!fullAddr) return null;
-                      return { fullAddress: fullAddr };
-                    })()}
-                    currentAddress={location}
-                    onAddressChange={handleAddressConfirmed}
-                    isComplete={fullAddress !== ''}
-                  />
-                )}
-
-                {step.id === 'service' && (
-                  <div className="space-y-6">
-                    <SimpleDurationSelector
-                      selectedDuration={selectedDuration}
-                      onDurationChange={setSelectedDuration}
-                      isComplete={selectedDuration !== null}
-                      durationOptions={durationOptions}
-                    />
-                    {availableAddons.length > 0 && (
-                      <AddOnsSelector
-                        selectedAddons={selectedAddons}
-                        onAddonsChange={setSelectedAddons}
-                        isComplete={true}
-                        availableAddons={availableAddons}
-                      />
-                    )}
-                  </div>
-                )}
-
-                {step.id === 'time' && (
-                  <>
-                    <AvailableTimeSlots
-                      availableSlots={availableSlots}
-                      selectedTime={selectedTime}
-                      onTimeSelected={setSelectedTime}
-                      hasValidDuration={selectedDuration !== null}
-                      isComplete={selectedTime !== null}
-                      selectedDate={selectedDate}
-                    />
-                    {staleTimeNotice && (
-                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-800">
-                        {staleTimeNotice}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {step.id === 'recipient' && (
-                  <RecipientSection
-                    recipientType={recipientType}
-                    recipientInfo={recipientInfo}
-                    onRecipientTypeChange={setRecipientType}
-                    onRecipientInfoChange={setRecipientInfo}
-                    isComplete={recipientType === 'self' || (recipientInfo.name && recipientInfo.phone)}
-                  />
-                )}
-
-                {step.id === 'payment' && (
-                  <PaymentMethodSelector
-                    selectedMethod={selectedPaymentMethod}
-                    onMethodChange={setSelectedPaymentMethod}
-                    acceptedMethods={acceptedPaymentMethods}
-                    isComplete={selectedPaymentMethod !== null}
-                    redeemablePackages={matchingPackages}
-                    selectedPackageId={selectedPackageId}
-                    onPackageSelect={setSelectedPackageId}
-                    bookingDuration={selectedDuration}
-                    bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
-                      + selectedAddons.reduce((sum, n) => {
-                          const a = availableAddons.find(x => x.name === n);
-                          return sum + (a?.price || 0);
-                        }, 0)}
-                  />
-                )}
-
-                {step.id === 'review' && (
-                  <div className="space-y-5">
-                    <BookingSummaryCard
-                      selectedDuration={selectedDuration}
-                      selectedDate={selectedDate}
-                      selectedTime={selectedTime}
-                      fullAddress={
-                        selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
-                          ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
-                          : (location?.fullAddress || fullAddress)
-                      }
-                      selectedAddons={selectedAddons}
-                      recipientType={recipientType}
-                      recipientInfo={recipientInfo}
-                      durationOptions={durationOptions}
-                      availableAddons={availableAddons}
-                      selectedPaymentMethod={selectedPaymentMethod}
-                      packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
-                      packageName={selectedPackage?.name || null}
-                      additionalSessions={additionalSessions}
-                    />
-
-                    {/* Back-to-back chain editor on the review step.
-                        Existing sessions render as inline rows so the
-                        user can tweak duration/recipient before
-                        confirming. The big CTA below is the explicit
-                        "want another at this same address?" prompt
-                        that the user mentioned by name — clients kept
-                        missing the discoverability of this in the old
-                        single-page form. */}
-                    {additionalSessions.length > 0 && (
-                      <div className="bg-paper-deep border border-line rounded-lg p-4 space-y-3">
-                        <p className="text-sm font-semibold text-slate-900">
-                          Back-to-back at this address
-                        </p>
-                        {additionalSessions.map((session, i) => {
-                          const firstStartIso = selectedTime?.iso;
-                          if (!firstStartIso) return null;
-                          const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
-                          const firstExtraTime = selectedAddons.reduce((sum, name) => {
-                            const a = availableAddons.find(x => x.name === name);
-                            return sum + (a?.extraTime || 0);
-                          }, 0);
-                          let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + intraBufferMin });
-                          for (let j = 0; j < i; j++) {
-                            const earlier = additionalSessions[j];
-                            const earlierExtra = (earlier.addons || []).reduce((sum, name) => {
-                              const a = availableAddons.find(x => x.name === name);
-                              return sum + (a?.extraTime || 0);
-                            }, 0);
-                            cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + intraBufferMin });
-                          }
-                          const thisExtra = (session.addons || []).reduce((sum, name) => {
-                            const a = availableAddons.find(x => x.name === name);
-                            return sum + (a?.extraTime || 0);
-                          }, 0);
-                          const thisEnd = cursor.plus({ minutes: (session.duration || 0) + thisExtra });
-                          return (
-                            <AdditionalSessionRow
-                              key={i}
-                              index={i}
-                              session={session}
-                              durationOptions={durationOptions}
-                              availableAddons={availableAddons}
-                              computedStart={cursor.toFormat('h:mm a')}
-                              computedEnd={thisEnd.toFormat('h:mm a')}
-                              onChange={(next) => {
-                                setAdditionalSessions(prev => prev.map((s, idx) => idx === i ? next : s));
-                              }}
-                              onRemove={() => {
-                                setAdditionalSessions(prev => prev.filter((_, idx) => idx !== i));
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Explicit "another massage right after?" CTA. The
-                        old form buried this as a dashed button under
-                        the time slots, which clients regularly missed.
-                        Here it's a prominent question framed as one,
-                        with a clear "no, I'm done" path via the
-                        Confirm button below it. */}
-                    {selectedTime && selectedDuration && additionalSessions.length < 5 && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm font-semibold text-blue-900 mb-1">
-                          Want another massage right after at this same address?
-                        </p>
-                        <p className="text-xs text-blue-800/80 mb-3">
-                          Same provider, same place — they'll stay and do another
-                          session for someone else (or for you again).
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAdditionalSessions(prev => [
-                                ...prev,
-                                {
-                                  recipientType: 'other',
-                                  recipientInfo: { name: '', phone: '', email: '' },
-                                  duration: durationOptions[0]?.duration || 60,
-                                  addons: [],
-                                },
-                              ]);
-                            }}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5
-                              bg-[#B07A4E] text-white rounded-btn hover:bg-[#8A5D36]
-                              text-sm font-medium transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span>Yes, add another</span>
-                          </button>
-                          <p className="flex-1 text-xs text-blue-800/70 self-center text-center sm:text-left">
-                            Or just hit Confirm below if you're done.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {error && (
-                      <div className="p-4 border border-red-200 rounded-card flex items-start gap-2"
-                        style={{ background: 'rgba(165,70,65,0.08)' }}>
-                        <p className="text-red-700 text-sm">{error}</p>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleSubmit}
-                      disabled={!isBookingComplete() || loading}
-                      className={`w-full inline-flex items-center justify-center gap-2
-                        px-6 py-3.5 rounded-btn text-[15px] font-medium transition
-                        ${isBookingComplete() && !loading
-                          ? 'bg-accent text-white hover:bg-accent-ink shadow-sm'
-                          : 'bg-paper-deep text-ink-3 cursor-not-allowed'
-                        }`}
-                    >
-                      {loading ? (
-                        <span>Processing...</span>
-                      ) : (
-                        <>
-                          <span>Confirm booking</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </WizardStep>
-            );
-          })}
-
-          {/* In-studio explainer — replaces the Address step entirely
-              when the day is purely static and the user is a client.
-              Renders BELOW the When step's collapsed card so the user
-              sees "ah, I'm going to the studio, no address from me." */}
-          {dayIsPurelyStatic && studioForDay && !isProviderBooking && currentStepIdx > 0 && (
+          {/* 3. Address — the day's shape decides whether we even ask:
+                - Purely in-studio + CLIENT self-booking: location is the
+                  studio, full stop. Show a banner instead of an address
+                  picker — they're being invited to the studio.
+                - Provider booking on behalf: ALWAYS show the address
+                  picker, defaulting to the target client's saved address.
+                  The provider may take an in-home as a one-off exception
+                  even on a normally-in-studio day. The provider's intent
+                  in the form wins.
+                - Otherwise: ask for the client's address (existing flow). */}
+          {dayIsPurelyStatic && studioForDay && !isProviderBooking ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -1350,10 +957,266 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {studioForDay.address}
                   </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    No address needed — clients come to this location on this day.
+                  </p>
                 </div>
               </div>
             </div>
+          ) : (
+            <AddressSection
+              savedAddress={(() => {
+                const addrSource = isProviderBooking ? targetClient : user;
+                const addr = addrSource?.profile?.address;
+                if (!addr) return null;
+                const fullAddr = addr.formatted ||
+                  (addr.street ? `${addr.street}${addr.unit ? ', ' + addr.unit : ''}, ${addr.city}, ${addr.state} ${addr.zip}` : null);
+                if (!fullAddr) return null;
+                return { fullAddress: fullAddr };
+              })()}
+              currentAddress={location}
+              onAddressChange={handleAddressConfirmed}
+              isComplete={fullAddress !== ''}
+            />
           )}
+
+          {/* 4. Duration — from provider's pricing */}
+          <SimpleDurationSelector
+            selectedDuration={selectedDuration}
+            onDurationChange={setSelectedDuration}
+            isComplete={selectedDuration !== null}
+            durationOptions={durationOptions}
+          />
+
+          {/* 5. Add-ons — from provider's services */}
+          <AddOnsSelector
+            selectedAddons={selectedAddons}
+            onAddonsChange={setSelectedAddons}
+            isComplete={true}
+            availableAddons={availableAddons}
+          />
+
+          {/* 6. Payment Method (incl. package-credit options when eligible) */}
+          <PaymentMethodSelector
+            selectedMethod={selectedPaymentMethod}
+            onMethodChange={setSelectedPaymentMethod}
+            acceptedMethods={acceptedPaymentMethods}
+            isComplete={selectedPaymentMethod !== null}
+            redeemablePackages={matchingPackages}
+            selectedPackageId={selectedPackageId}
+            onPackageSelect={setSelectedPackageId}
+            bookingDuration={selectedDuration}
+            bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+              + selectedAddons.reduce((sum, n) => {
+                  const a = availableAddons.find(x => x.name === n);
+                  return sum + (a?.price || 0);
+                }, 0)}
+          />
+
+          {/* 7. Booking Summary. When the picked slot is in-studio, the
+              location is the studio — surface that explicitly so the
+              client doesn't think they're getting an in-home visit. */}
+          <BookingSummaryCard
+            selectedDuration={selectedDuration}
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
+            fullAddress={
+              selectedTime?.kind === 'static' && selectedTime?.location?.address && !isProviderBooking
+                ? `${selectedTime.location.name} — ${selectedTime.location.address} (in-studio)`
+                : (location?.fullAddress || fullAddress)
+            }
+            selectedAddons={selectedAddons}
+            recipientType={recipientType}
+            recipientInfo={recipientInfo}
+            durationOptions={durationOptions}
+            availableAddons={availableAddons}
+            selectedPaymentMethod={selectedPaymentMethod}
+            packageMinutesApplied={isPartialRedemption ? packageMinutesApplied : 0}
+            packageName={selectedPackage?.name || null}
+            additionalSessions={additionalSessions}
+          />
+
+          {/* 7. Available Time Slots */}
+          <AvailableTimeSlots
+            availableSlots={availableSlots}
+            selectedTime={selectedTime}
+            onTimeSelected={setSelectedTime}
+            hasValidDuration={selectedDuration !== null}
+            isComplete={selectedTime !== null}
+            selectedDate={selectedDate}
+          />
+
+          {/* Surfaces when the chain expanded (added session, added addon,
+              or server rejected the picked time with a list of fits) and
+              the user's previous time pick is no longer valid. */}
+          {staleTimeNotice && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-800">
+              {staleTimeNotice}
+            </div>
+          )}
+
+          {/* Back-to-back chain — only surfaced after a time is picked, so
+              the addition is a deliberate "I want another session right
+              after this one" decision rather than clutter at first sight.
+              Each additional session inherits the address; the time
+              auto-cascades from the first session + standard buffer. */}
+          {selectedTime && selectedDuration && (
+            <div className="space-y-3">
+              {additionalSessions.length > 0 && (
+                <div className="bg-paper-deep border border-line rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Back-to-back at this address
+                  </p>
+                  {additionalSessions.map((session, i) => {
+                    // Cascade: each session's start = previous end + buffer.
+                    // Compute from the first selected slot forward.
+                    const firstStartIso = selectedTime?.iso;
+                    if (!firstStartIso) return null;
+                    const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
+                    const firstExtraTime = selectedAddons.reduce((sum, name) => {
+                      const a = availableAddons.find(x => x.name === name);
+                      return sum + (a?.extraTime || 0);
+                    }, 0);
+                    let cursor = firstStart.plus({ minutes: selectedDuration + firstExtraTime + intraBufferMin });
+                    for (let j = 0; j < i; j++) {
+                      const earlier = additionalSessions[j];
+                      const earlierExtra = (earlier.addons || []).reduce((sum, name) => {
+                        const a = availableAddons.find(x => x.name === name);
+                        return sum + (a?.extraTime || 0);
+                      }, 0);
+                      cursor = cursor.plus({ minutes: (earlier.duration || 0) + earlierExtra + intraBufferMin });
+                    }
+                    const thisExtra = (session.addons || []).reduce((sum, name) => {
+                      const a = availableAddons.find(x => x.name === name);
+                      return sum + (a?.extraTime || 0);
+                    }, 0);
+                    const thisEnd = cursor.plus({ minutes: (session.duration || 0) + thisExtra });
+                    return (
+                      <AdditionalSessionRow
+                        key={i}
+                        index={i}
+                        session={session}
+                        durationOptions={durationOptions}
+                        availableAddons={availableAddons}
+                        computedStart={cursor.toFormat('h:mm a')}
+                        computedEnd={thisEnd.toFormat('h:mm a')}
+                        onChange={(next) => {
+                          setAdditionalSessions(prev => prev.map((s, idx) => idx === i ? next : s));
+                        }}
+                        onRemove={() => {
+                          setAdditionalSessions(prev => prev.filter((_, idx) => idx !== i));
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Prominent ask: clients regularly missed the dashed-
+                  button version of this and ended up texting the
+                  provider mid-flow asking how to book a second
+                  session. Framed as a question + clear CTA so it
+                  reads as a deliberate prompt, not an "advanced"
+                  option. */}
+              {additionalSessions.length === 0 ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-blue-900 mb-1">
+                    Want another massage right after at this same address?
+                  </p>
+                  <p className="text-xs text-blue-800/80 mb-3">
+                    Same provider, same location — book a second session
+                    for someone else (or for yourself again) back-to-back.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdditionalSessions(prev => [
+                        ...prev,
+                        {
+                          recipientType: 'other',
+                          recipientInfo: { name: '', phone: '', email: '' },
+                          duration: durationOptions[0]?.duration || 60,
+                          addons: [],
+                        },
+                      ]);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5
+                      bg-[#B07A4E] text-white rounded-btn hover:bg-[#8A5D36]
+                      text-sm font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Yes, add another session</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (additionalSessions.length >= 5) return;
+                    setAdditionalSessions(prev => [
+                      ...prev,
+                      {
+                        recipientType: 'other',
+                        recipientInfo: { name: '', phone: '', email: '' },
+                        duration: durationOptions[0]?.duration || 60,
+                        addons: [],
+                      },
+                    ]);
+                  }}
+                  disabled={additionalSessions.length >= 5}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3
+                    border-2 border-dashed border-slate-300 text-slate-600 rounded-lg
+                    hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors
+                    disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add one more session
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <div className="p-4 border border-red-200 rounded-card flex items-start gap-2"
+              style={{ background: 'rgba(165,70,65,0.08)' }}>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-6">
+            <button
+              onClick={() => navigate('/')}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2
+                px-5 py-3 rounded-btn border border-line bg-transparent text-ink
+                hover:bg-paper-deep transition text-[14px] font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Go Back</span>
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={!isBookingComplete() || loading}
+              className={`flex-1 inline-flex items-center justify-center gap-2
+                px-6 py-3.5 rounded-btn text-[15px] font-medium transition
+                ${isBookingComplete()
+                  ? 'bg-accent text-white hover:bg-accent-ink'
+                  : 'bg-paper-deep text-ink-3 cursor-not-allowed'
+                }`}
+              style={isBookingComplete() ? { boxShadow: '0 1px 2px rgba(0,0,0,0.08)' } : {}}
+            >
+              {loading ? (
+                <span>Processing...</span>
+              ) : (
+                <>
+                  <span>Confirm booking</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Client picker — providers must choose a client before booking.
