@@ -124,23 +124,25 @@ const Header = () => {
       </div>
 
       {/* Mobile menu trigger — persistent peek-bar pinned to the
-          bottom edge. We're a web app so users don't have iOS-style
-          swipe-up muscle memory; the bar has to read as a button at
-          a glance. Chevron + "Open Menu" label + subtle bounce on
-          first paint makes the tappability obvious. iPhone home-
-          indicator safe-area padding included. */}
+          bottom edge. Solid accent fill (copper) so it reads as a
+          deliberate action surface, not page chrome — earlier
+          paper-on-paper version blended into footers. Chevron has a
+          subtle infinite bounce to telegraph "tap me, I open
+          something above." iPhone home-indicator safe-area padding
+          retained. */}
       <button
         type="button"
         onClick={() => setMobileMenuOpen(true)}
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper-elev border-t border-line shadow-[0_-2px_12px_rgba(0,0,0,0.06)] active:bg-paper-deep transition-colors pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#B07A4E] hover:bg-[#8A5D36] active:bg-[#7A5230] transition-colors shadow-[0_-4px_16px_rgba(0,0,0,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         aria-label="Open menu"
       >
-        <span className="block w-10 h-1 rounded-full bg-slate-300 mx-auto mt-1.5 mb-1" />
-        <span className="flex items-center justify-center gap-1.5 pb-1">
-          <ChevronUp className="w-4 h-4 text-[#B07A4E]" />
-          <span className="text-sm font-semibold text-[#B07A4E] tracking-wide">
+        <span className="block w-10 h-1 rounded-full bg-white/40 mx-auto mt-2 mb-1" />
+        <span className="flex items-center justify-center gap-2 pt-1 pb-2">
+          <ChevronUp className="w-5 h-5 text-white animate-bounce" />
+          <span className="text-base font-semibold text-white tracking-wide">
             Open Menu
           </span>
+          <ChevronUp className="w-5 h-5 text-white animate-bounce" />
         </span>
       </button>
 
