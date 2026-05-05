@@ -90,6 +90,13 @@ const AddressSection = ({
     }
   };
 
+  // When there's no saved address to differ FROM, the two-option
+  // picker is just confusing — there's nothing to "differ" from. Skip
+  // the toggle in that case and show the entry form directly with a
+  // clearer header. The "Different address" branding only makes sense
+  // when there's a default sitting next to it for contrast.
+  const hasSaved = !!savedAddress;
+
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
       {/* Header */}
@@ -99,16 +106,23 @@ const AddressSection = ({
             <MapPin className="w-6 h-6 text-teal-700" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Service Location</h3>
-            <p className="text-sm text-slate-600 mt-1">Where should we send your provider?</p>
+            <h3 className="text-xl font-semibold text-slate-900">
+              {hasSaved ? 'Service Location' : 'Where is the appointment?'}
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              {hasSaved
+                ? 'Where should we send your provider?'
+                : 'Enter the street address where the provider should arrive.'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Location Options */}
-      <div className="space-y-3">
-        {/* My Address option */}
-        {savedAddress && (
+      {/* Location Options — only when there's a default to choose
+          against. With no default, skip the picker and show the form
+          directly below. */}
+      {hasSaved && (
+        <div className="space-y-3">
           <button
             type="button"
             onClick={handleUseSaved}
@@ -131,7 +145,7 @@ const AddressSection = ({
                 </div>
                 <div>
                   <div className={`font-medium text-lg ${locationType === 'saved' ? 'text-teal-900' : 'text-slate-900'}`}>
-                    My address
+                    Default address
                   </div>
                   <div className="text-sm text-slate-600">
                     {savedAddress.fullAddress}
@@ -143,49 +157,48 @@ const AddressSection = ({
               )}
             </div>
           </button>
-        )}
 
-        {/* Different Address option */}
-        <button
-          type="button"
-          onClick={handleUseOther}
-          className={`
-            w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-            hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-            ${locationType === 'other'
-              ? 'border-teal-600 bg-teal-50'
-              : 'border-line bg-paper-elev hover:border-teal-300'
-            }
-          `}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className={`
-                w-10 h-10 rounded-full flex items-center justify-center
-                ${locationType === 'other' ? 'bg-teal-600' : 'bg-teal-100'}
-              `}>
-                <Navigation className={`w-5 h-5 ${locationType === 'other' ? 'text-white' : 'text-teal-700'}`} />
-              </div>
-              <div>
-                <div className={`font-medium text-lg ${locationType === 'other' ? 'text-teal-900' : 'text-slate-900'}`}>
-                  Different address
+          <button
+            type="button"
+            onClick={handleUseOther}
+            className={`
+              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+              hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+              ${locationType === 'other'
+                ? 'border-teal-600 bg-teal-50'
+                : 'border-line bg-paper-elev hover:border-teal-300'
+              }
+            `}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center
+                  ${locationType === 'other' ? 'bg-teal-600' : 'bg-teal-100'}
+                `}>
+                  <Navigation className={`w-5 h-5 ${locationType === 'other' ? 'text-white' : 'text-teal-700'}`} />
                 </div>
-                <div className="text-sm text-slate-600">
-                  Enter a different location
+                <div>
+                  <div className={`font-medium text-lg ${locationType === 'other' ? 'text-teal-900' : 'text-slate-900'}`}>
+                    Different address
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    Enter a different location
+                  </div>
                 </div>
               </div>
+              {locationType === 'other' && (
+                <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
+              )}
             </div>
-            {locationType === 'other' && (
-              <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
-            )}
-          </div>
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
 
       {/* Other Address Form */}
       {locationType === 'other' && (
-        <div className="mt-6 p-4 bg-paper-deep rounded-lg border border-line">
-          <h4 className="font-medium text-slate-900 mb-4">Enter Address</h4>
+        <div className={`${hasSaved ? 'mt-6 p-4 bg-paper-deep rounded-lg border border-line' : ''}`}>
+          {hasSaved && <h4 className="font-medium text-slate-900 mb-4">Enter Address</h4>}
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Street Address</label>

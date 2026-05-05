@@ -659,10 +659,9 @@ const BookingForm = ({ googleMapsLoaded }) => {
       const isProviderGuest = isProviderBooking
         && providerGuestMode
         && !targetClient
-        && !!recipientInfo.name
-        && !!recipientInfo.phone;
+        && !!recipientInfo.name;
       if (isProviderBooking && !isOnBehalfManaged && !isProviderGuest) {
-        throw new Error('Please pick a client or fill in the recipient name and phone before booking.');
+        throw new Error('Please pick a client or enter a recipient name before booking.');
       }
 
       // Location resolution:
@@ -875,20 +874,22 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
   // Validation per step — drives whether Continue is enabled. The
   // recipient step has two flavors depending on user type:
-  //   - Client: 'self' | 'other' (with name+phone for 'other')
+  //   - Client: 'self' | 'other' (name only — phone optional)
   //   - Provider: either targetClient picked OR providerGuestMode
-  //     with recipientInfo filled in
+  //     with recipient name (phone optional)
+  // Phone is optional throughout: providers often have the recipient's
+  // number out-of-band, and SMS reminders handle missing phones
+  // gracefully (just don't fire). Forcing it blocks legitimate
+  // bookings where the provider is doing data entry on the spot.
   const isWizardStepValid = (id) => {
     switch (id) {
       case 'recipient':
         if (isProviderBooking) {
           return !!targetClient?._id
-            || (providerGuestMode
-                && !!recipientInfo.name
-                && !!recipientInfo.phone);
+            || (providerGuestMode && !!recipientInfo.name);
         }
         return recipientType === 'self'
-          || (recipientType === 'other' && !!recipientInfo.name && !!recipientInfo.phone);
+          || (recipientType === 'other' && !!recipientInfo.name);
       case 'date':
         return !!selectedDate;
       case 'address':
@@ -949,15 +950,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
     const isProviderGuest = isProviderBooking
       && providerGuestMode
       && !targetClient
-      && !!recipientInfo.name
-      && !!recipientInfo.phone;
+      && !!recipientInfo.name;
 
     const isRecipientComplete = isOnBehalfManaged
       ? true
       : isProviderGuest
         ? true
         : (recipientType === 'self' ||
-           (recipientType === 'other' && recipientInfo.name && recipientInfo.phone));
+           (recipientType === 'other' && recipientInfo.name));
 
     // Each additional session in the chain must have a duration and, if
     // recipient is "other," a name. Phone is optional — many providers
@@ -1141,7 +1141,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                           inputMode="tel"
                           value={recipientInfo.phone}
                           onChange={(e) => setRecipientInfo({ ...recipientInfo, phone: e.target.value })}
-                          placeholder="Phone — (555) 555-5555"
+                          placeholder="Phone (optional) — (555) 555-5555"
                           className="w-full px-4 py-3 text-base border border-line rounded-lg
                             focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                         />
