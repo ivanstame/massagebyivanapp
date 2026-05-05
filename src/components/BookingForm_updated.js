@@ -119,6 +119,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // the green dot should clear.
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
 
+  // Ref on the bottom Confirm button — used to scroll it into view
+  // when the wizard finishes, so the user lands at the action they
+  // need to take (not somewhere in the middle of the populated page).
+  const confirmButtonRef = useRef(null);
+
   // True wizard. ONE step's component is visible at a time, with Back
   // and Continue inside. After the user finishes the last step (time),
   // the wizard collapses and the page fully populates: every step's
@@ -948,15 +953,22 @@ const BookingForm = ({ googleMapsLoaded }) => {
     }
   }, [wizardOrder.length, wizardStepIdx]);
 
-  // Scroll to top when the wizard finishes — without it the user
-  // sits in the middle of the now-fully-populated review page,
-  // which is disorienting (the wizard step they were just on is no
-  // longer at the top of the viewport, and they have no idea
-  // there's a Confirm button below).
+  // Scroll the Confirm button into view when the wizard finishes —
+  // the user needs to see what action to take next, not be parked
+  // mid-page above 800px of summary content. Two RAFs so the new
+  // review-mode DOM has time to render and lay out before we measure
+  // its bottom; without that, scrollIntoView fires while the page is
+  // still wizard-height and lands somewhere in the middle.
   useEffect(() => {
-    if (wizardComplete) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (!wizardComplete) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        confirmButtonRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        });
+      });
+    });
   }, [wizardComplete]);
 
   // If the chain (back-to-back add-another step) makes the picked
@@ -1740,6 +1752,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
               )}
 
               <button
+                ref={confirmButtonRef}
                 onClick={handleSubmit}
                 disabled={!isBookingComplete() || loading}
                 className={`w-full inline-flex items-center justify-center gap-2
