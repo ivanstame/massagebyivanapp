@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../AuthContext';
+import MobileMenu from './MobileMenu';
 
 const Header = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -139,55 +140,15 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden border-t border-slate-200 bg-white`}>
-        <div className="pt-2 pb-3 space-y-1">
-          {navLinks.map((link) => {
-            const isExternal = link.href.startsWith('/privacy-policy');
-            const classes = `${
-              isActive(link.href)
-                ? 'bg-teal-50 border-[#B07A4E] text-[#B07A4E]'
-                : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-            } block pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors`;
-
-            return isExternal ? (
-              <a key={link.href} href={link.href} className={classes} onClick={() => setMobileMenuOpen(false)}>
-                {link.label}
-              </a>
-            ) : (
-              <Link key={link.href} to={link.href} className={classes} onClick={() => setMobileMenuOpen(false)}>
-                {link.label}
-              </Link>
-            );
-          })}
-          {user && (
-            <>
-              {user.accountType === 'CLIENT' && (
-                <Link
-                  to="/my-profile"
-                  className={`${
-                    isActive('/my-profile')
-                      ? 'bg-teal-50 border-[#B07A4E] text-[#B07A4E]'
-                      : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                  } block pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Profile
-                </Link>
-              )}
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setMobileMenuOpen(false);
-                }}
-                className="block w-full text-left pl-3 pr-4 py-3 border-l-4 border-transparent text-base font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors"
-              >
-                Logout
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      {/* Mobile menu — bottom sheet, rendered as a sibling so it can
+          escape the nav's max-w container. */}
+      <MobileMenu
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        navLinks={navLinks}
+        user={user}
+        onLogout={handleLogout}
+      />
     </nav>
   );
 };
