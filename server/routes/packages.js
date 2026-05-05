@@ -314,10 +314,14 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
       });
     }
 
+    // payment_method_types limited to 'card' for now. Venmo requires
+    // explicit activation in the Stripe dashboard (and is US-only) —
+    // we'll add it back as opt-in once a provider has it enabled and
+    // the dashboard activation is part of the provider onboarding flow.
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(template.price * 100),
       currency: 'usd',
-      payment_method_types: ['card', 'venmo'],
+      payment_method_types: ['card'],
       metadata: {
         packagePurchaseId: purchase._id.toString(),
         clientId: req.user._id.toString(),

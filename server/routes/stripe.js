@@ -173,7 +173,7 @@ router.post('/create-payment-intent', ensureAuthenticated, requireStripe, async 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalPrice * 100), // cents
       currency: 'usd',
-      payment_method_types: ['card', 'venmo'],
+      payment_method_types: ['card'],
       metadata: {
         bookingId: booking._id.toString(),
         clientId: req.user._id.toString(),
