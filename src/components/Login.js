@@ -136,11 +136,30 @@ const Login = () => {
             )}
           </button>
 
-          <div className="text-center text-[13px] text-ink-3 mt-2">
+          {/* Forgot password — small, secondary. */}
+          <div className="text-center text-[13px] text-ink-3 -mt-1">
             <Link to="/forgot-password" className="hover:text-ink-2 transition">Forgot password?</Link>
-            <span className="mx-2">·</span>
-            <Link to="/signup" className="text-accent hover:text-accent-ink transition">Create account</Link>
           </div>
+
+          {/* "or" separator + Create account CTA. The previous version
+              tucked Create account into a tiny muted text line; new
+              clients regularly missed it and emailed asking how to
+              sign up. Treat it as a near-equal secondary action with
+              its own outlined button. */}
+          <div className="flex items-center gap-3 my-1">
+            <span className="flex-1 h-px bg-line" />
+            <span className="text-[11px] uppercase tracking-wider text-ink-3">or</span>
+            <span className="flex-1 h-px bg-line" />
+          </div>
+
+          <Link
+            to="/signup"
+            className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-5
+              rounded-btn text-[15px] font-medium text-accent bg-paper-elev
+              border border-accent hover:bg-accent-soft transition"
+          >
+            Create an account
+          </Link>
         </form>
       </div>
 
