@@ -80,6 +80,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Persistent bottom peek-bar (the "Open Menu" trigger that opens the
+   mobile bottom sheet) sits at the viewport's bottom edge with
+   position: fixed. Without compensating bottom padding on the body,
+   primary CTAs at the end of forms — "Save", "Confirm booking",
+   etc. — hide underneath it on mobile, which looks like the buttons
+   stopped working. Push the body up by the peek-bar's height +
+   home-indicator safe-area so the last bit of content clears it.
+   Mobile-only; the desktop nav doesn't have a peek-bar. */
+@media (max-width: 639px) {
+  body {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* Display typography — headings default to the serif */
 h1, h2, h3, .font-display {
   font-family: var(--font-display);
