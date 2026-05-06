@@ -280,7 +280,7 @@ const ProviderLocations = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Where you work</div>
           <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
@@ -301,9 +301,12 @@ const ProviderLocations = () => {
           </div>
         )}
 
-        {/* Existing locations */}
+        {/* Existing locations — flush rows with hairline dividers
+            instead of per-location cards. The page-level container
+            already gives breathing room; cards-per-row was redundant
+            chrome the user kept noticing as boxes-within-boxes. */}
         {editingId === null && (
-          <div className="space-y-3 mb-6">
+          <div className="mb-6">
             {locations.length === 0 ? (
               <div className="text-center py-8 bg-paper-deep rounded-lg border border-dashed border-slate-300">
                 <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -312,7 +315,7 @@ const ProviderLocations = () => {
               </div>
             ) : (
               locations.map(loc => (
-                <div key={loc._id} className="p-4 bg-paper-elev border border-line rounded-lg shadow-sm">
+                <div key={loc._id} className="py-4 border-b border-line-soft last:border-b-0">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
                       {loc.isHomeBase ? (
@@ -408,11 +411,13 @@ const ProviderLocations = () => {
           </button>
         )}
 
-        {/* Editor */}
+        {/* Editor — typographic header + flush form, no outer card.
+            Hierarchy comes from the section dividers inside (border-t
+            border-line on subgroup wrappers). */}
         {editingId !== null && draft && (
-          <div className="bg-paper-elev rounded-lg border border-line shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-line bg-paper-deep flex items-center justify-between">
-              <h3 className="font-medium text-slate-900">
+          <div>
+            <div className="flex items-center justify-between py-2 mb-4 border-b border-line">
+              <h3 className="font-display text-lg text-slate-900">
                 {editingId === 'new' ? 'Add a location' : 'Edit location'}
               </h3>
               <button onClick={cancelEdit} className="text-slate-500 hover:text-slate-600">
@@ -422,7 +427,7 @@ const ProviderLocations = () => {
 
             {/* Address mode toggle (create only) */}
             {editingId === 'new' && (
-              <div className="px-4 pt-4 flex gap-2">
+              <div className="flex gap-2 mb-4">
                 <button
                   type="button"
                   onClick={() => setAddMode('pin')}
@@ -444,7 +449,7 @@ const ProviderLocations = () => {
               </div>
             )}
 
-            <form onSubmit={save} className="p-4 space-y-4">
+            <form onSubmit={save} className="space-y-4">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Location name</label>
@@ -532,7 +537,7 @@ const ProviderLocations = () => {
                   This place can be tagged with one or both. Both can be off if it's just a saved departure point.
                 </p>
 
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
+                <label className="flex items-start gap-3 py-2 px-1 cursor-pointer hover:bg-paper-deep rounded -mx-1">
                   <input
                     type="checkbox"
                     checked={draft.isHomeBase}
@@ -549,7 +554,7 @@ const ProviderLocations = () => {
                   </div>
                 </label>
 
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
+                <label className="flex items-start gap-3 py-2 px-1 cursor-pointer hover:bg-paper-deep rounded -mx-1">
                   <input
                     type="checkbox"
                     checked={draft.isStaticLocation}
@@ -596,7 +601,7 @@ const ProviderLocations = () => {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Pricing</label>
                     <div className="space-y-2">
-                      <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
+                      <label className="flex items-start gap-3 py-2 px-1 cursor-pointer hover:bg-paper-deep rounded -mx-1">
                         <input
                           type="radio"
                           checked={draft.staticConfig.useMobilePricing}
@@ -617,7 +622,7 @@ const ProviderLocations = () => {
                         </div>
                       </label>
 
-                      <label className="flex items-start gap-3 p-3 rounded-lg border border-line cursor-pointer hover:bg-paper-deep">
+                      <label className="flex items-start gap-3 py-2 px-1 cursor-pointer hover:bg-paper-deep rounded -mx-1">
                         <input
                           type="radio"
                           checked={!draft.staticConfig.useMobilePricing}
@@ -648,7 +653,7 @@ const ProviderLocations = () => {
                           </button>
                         )}
                         {draft.staticConfig.pricing.map((tier, idx) => (
-                          <div key={idx} className="flex items-end gap-2 p-2 bg-paper-deep rounded-lg border border-line-soft">
+                          <div key={idx} className="flex items-end gap-2 py-2 border-b border-line-soft last:border-b-0">
                             <div className="flex-1">
                               <label className="block text-xs text-slate-500 mb-0.5">Label</label>
                               <input
