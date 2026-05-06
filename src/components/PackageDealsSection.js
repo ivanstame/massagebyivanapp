@@ -192,14 +192,12 @@ const PackageDealsSection = ({ availableDurations }) => {
   };
 
   return (
-    <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-[#B07A4E]" />
-          <h3 className="font-medium text-slate-900">Package Deals</h3>
-        </div>
+    <div className="mb-8">
+      <div className="flex items-center gap-2 mb-2">
+        <Layers className="w-5 h-5 text-[#B07A4E]" />
+        <h3 className="font-medium text-slate-900">Package Deals</h3>
       </div>
-      <p className="text-xs text-slate-500 mb-4">
+      <p className="text-sm text-ink-2 mb-6">
         Sell multi-session packs (e.g. a 5-pack). Clients pay upfront via Stripe, then
         redeem one credit per booking &mdash; add-ons are still paid per visit.
       </p>
@@ -221,17 +219,15 @@ const PackageDealsSection = ({ availableDurations }) => {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div>
           {templates.map(tmpl => {
             const isEditing = editing === tmpl._id;
             const draft = isEditing ? editDraft : null;
             return (
               <div
                 key={tmpl._id}
-                className={`p-3 rounded-lg border transition-colors ${
-                  tmpl.isActive
-                    ? 'bg-paper-elev border-line shadow-sm'
-                    : 'bg-paper-deep border-line-soft opacity-60'
+                className={`py-4 border-b border-line-soft last:border-b-0 transition-opacity ${
+                  tmpl.isActive ? '' : 'opacity-60'
                 }`}
               >
                 {!isEditing ? (

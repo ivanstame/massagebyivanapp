@@ -837,16 +837,17 @@ const ProviderServices = () => {
         </div>
         )}
 
-        {/* Add-ons tab */}
+        {/* Add-ons tab — flat / typographic, matching the Pricing
+            tab. Per-addon row cards dropped; active vs hidden state
+            now reads through the toggle icon + opacity on the row,
+            without a card border carrying the same signal. */}
         {activeTab === 'addons' && (
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-4 sm:p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-[#B07A4E]" />
-              <h3 className="font-medium text-slate-900">Add-ons</h3>
-            </div>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Plus className="w-5 h-5 text-[#B07A4E]" />
+            <h3 className="font-medium text-slate-900">Add-ons</h3>
           </div>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-sm text-ink-2 mb-6">
             Optional extras clients can tack onto any offering. Toggle to hide one without deleting it.
           </p>
 
@@ -856,14 +857,12 @@ const ProviderServices = () => {
               <p className="text-slate-500 text-xs mt-1">Examples: {tradePreset.addonExamples}</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div>
               {addons.map((addon, index) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg border transition-colors ${
-                    addon.isActive
-                      ? 'bg-paper-elev border-line shadow-sm'
-                      : 'bg-paper-deep border-line-soft opacity-60'
+                  className={`py-4 border-b border-line-soft last:border-b-0 transition-opacity ${
+                    addon.isActive ? '' : 'opacity-60'
                   }`}
                 >
                   <div className="flex items-start gap-3">

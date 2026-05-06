@@ -150,11 +150,11 @@ const SoldPackagesSection = () => {
   const hasActiveFilters = paymentFilter !== 'all' || kindFilter !== 'all' || fromDate || toDate || search;
 
   return (
-    <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
+    <div className="mb-8">
       <button
         type="button"
         onClick={() => setCollapsed(c => !c)}
-        className="w-full flex items-center justify-between gap-3 text-left"
+        className="w-full flex items-center justify-between gap-3 text-left py-2 border-b border-line"
       >
         <div className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-[#B07A4E]" />
@@ -216,7 +216,7 @@ const SoldPackagesSection = () => {
         </div>
 
         {/* Search + filters */}
-        <div className="bg-paper-elev border border-line rounded-lg p-3 mb-4">
+        <div className="mb-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -438,11 +438,11 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
   const pct = total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0;
 
   return (
-    <div className={`rounded-lg border ${isCancelled ? 'bg-paper-deep border-line-soft opacity-75' : 'bg-paper-elev border-line'}`}>
+    <div className={`border-b border-line-soft last:border-b-0 transition-opacity ${isCancelled ? 'opacity-75' : ''}`}>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left p-4 hover:bg-slate-50/40 rounded-lg transition-colors"
+        className="w-full text-left py-4 hover:bg-paper-deep transition-colors -mx-3 px-3 rounded"
       >
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#B07A4E]/10 flex items-center justify-center">
