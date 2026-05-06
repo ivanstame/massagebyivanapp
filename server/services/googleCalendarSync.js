@@ -19,6 +19,50 @@ const BUFFER_WITHOUT_LOCATION = 30;
 // Simple in-memory geocode cache to avoid redundant API calls during a sync run
 const geocodeCache = new Map();
 
+// Detect Google OAuth auth failures so we can flip the integration's
+// `connected` flag instead of silently looping on a dead refresh
+// token. Most relevant in Testing-mode OAuth apps where refresh tokens
+// expire after 7 days; also covers the user-revoked-on-Google's-side
+// path. We err on the side of disconnecting too eagerly here — false
+// positives just prompt a quick reconnect; false negatives mean the
+// user thinks GCal is working when it isn't.
+function isGcalAuthError(err) {
+  if (!err) return false;
+  const code = err.code || err.response?.status;
+  const msg = String(err.message || '').toLowerCase();
+  const data = err.response?.data || {};
+  const errStr = String(data.error || data.error_description || '').toLowerCase();
+  return (
+    code === 401
+    || code === 403
+    || msg.includes('invalid_grant')
+    || msg.includes('invalid grant')
+    || msg.includes('invalid_token')
+    || errStr.includes('invalid_grant')
+    || errStr.includes('invalid_token')
+  );
+}
+
+// Flip the integration to disconnected and clear tokens so the UI
+// surfaces the Reconnect button on next /status hit. Idempotent —
+// safe to call multiple times. Logs loudly so the operator sees
+// the chain that led to the disconnect.
+async function markGcalDisconnected(provider, reason) {
+  const gcal = provider.providerProfile?.googleCalendar;
+  if (!gcal || gcal.connected === false) return;
+  console.warn(`[GCal] Disconnecting ${provider.email} — ${reason}`);
+  gcal.connected = false;
+  gcal.accessToken = null;
+  gcal.refreshToken = null;
+  gcal.tokenExpiry = null;
+  // Watch channels are now invalid on Google's side anyway; clear so
+  // we don't try to stop them with bad tokens on next renewal.
+  if (gcal.watchChannels && typeof gcal.watchChannels.clear === 'function') {
+    gcal.watchChannels.clear();
+  }
+  await provider.save();
+}
+
 async function geocodeAddress(address) {
   if (!address || !process.env.GOOGLE_MAPS_API_KEY) return null;
   if (geocodeCache.has(address)) return geocodeCache.get(address);
@@ -281,6 +325,14 @@ async function runFullSync(provider, calendarIds) {
       syncSuccess = true;
     } catch (err) {
       console.error(`[GCal] Full sync error for provider ${provider.email}, calendar ${calendarId}:`, err.message);
+      // If this is a token-class failure, the integration is
+      // effectively dead. Disconnect and stop iterating other
+      // calendars on the same provider — they'd all 401 too.
+      if (isGcalAuthError(err)) {
+        await markGcalDisconnected(provider, `full sync auth failure: ${err.message}`);
+        markSyncEnd(provider._id.toString(), calendarId, false);
+        return;
+      }
     } finally {
       markSyncEnd(provider._id.toString(), calendarId, syncSuccess);
     }
@@ -347,6 +399,9 @@ async function runIncrementalSync(provider, calendarId, retryCount = 0) {
     return result;
   } catch (err) {
     console.error(`[GCal] Incremental sync error for ${provider.email}, calendar ${calendarId}:`, err.message);
+    if (isGcalAuthError(err)) {
+      await markGcalDisconnected(provider, `incremental sync auth failure: ${err.message}`);
+    }
     return { upserted: 0, deleted: 0 };
   } finally {
     markSyncEnd(provider._id.toString(), calendarId, syncSuccess);
@@ -404,6 +459,16 @@ async function renewExpiringChannels() {
           await gcalService.createWatchChannel(provider, calendarId);
           channelRenewalFailures.delete(renewalKey);
         } catch (err) {
+          // Auth-class failure: refresh token is dead. Don't retry —
+          // mark the integration disconnected and bail. The provider
+          // sees a Reconnect prompt on next /status and re-links in
+          // a few seconds. Without this, the channel quietly expires
+          // and sync stays "connected: true" but functionally dead.
+          if (isGcalAuthError(err)) {
+            await markGcalDisconnected(provider, `channel renewal auth failure: ${err.message}`);
+            channelRenewalFailures.delete(renewalKey);
+            break; // no point trying other calendars; tokens are bad
+          }
           channelRenewalFailures.set(renewalKey, failures + 1);
           console.error(`[GCal] Channel renewal failed for ${provider.email}, calendar ${calendarId} (failure ${failures + 1}/${MAX_RENEWAL_FAILURES}):`, err.message);
         }
