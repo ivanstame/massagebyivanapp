@@ -338,14 +338,26 @@ const ProviderAvailability = () => {
     } catch (error) {
       console.error('Error modifying availability:', error);
       if (error.response?.data?.conflicts) {
+        // Booking conflicts and overlap conflicts both come back via
+        // `conflicts`. Close the modify modal so the user can see the
+        // conflict banner the parent renders below — keeping the
+        // modal open hides it.
         setConflictInfo({
           type: 'modify',
           message: error.response.data.message,
           conflicts: error.response.data.conflicts
         });
-      } else {
-        setError('Failed to modify availability block');
+        setModifyModalOpen(false);
+        setSelectedBlock(null);
       }
+      // Re-throw so the modify modal's local catch can surface a
+      // useful inline error message instead of silently spinning
+      // down. The modal shows whatever .message we hand it, so
+      // prefer the server's text when available.
+      const msg = error.response?.data?.message
+        || error.message
+        || 'Failed to modify availability block';
+      throw new Error(msg);
     }
   }, [fetchAvailabilityBlocks, selectedDate]);
 
@@ -354,6 +366,11 @@ const ProviderAvailability = () => {
       DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
     const conflicts = findGcalConflicts(dateStr, modifiedBlock.start, modifiedBlock.end);
     if (conflicts.length > 0) {
+      // Close the modify modal so the GCal conflict modal that we're
+      // about to surface isn't stacked on top of it. Without this the
+      // user just sees the modify modal "stuck" with no feedback;
+      // they'd have to dismiss it to see the conflict prompt.
+      setModifyModalOpen(false);
       setPendingAction({ type: 'modify', data: modifiedBlock });
       setGcalConflicts(conflicts);
       return;

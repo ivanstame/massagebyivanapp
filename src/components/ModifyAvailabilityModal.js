@@ -97,8 +97,12 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
         end: endTime,
       });
     } catch (err) {
-      // Parent surfaces the error; we just stop the spinner.
+      // Parent re-throws server errors here so we can surface them
+      // inline. Without this the modal silently spins back to its
+      // resting state and the user has no idea what went wrong —
+      // any banner the parent set is hidden behind this modal.
       console.error('Modification error:', err);
+      setError(err?.message || 'Failed to modify availability.');
     } finally {
       setIsSubmitting(false);
     }
