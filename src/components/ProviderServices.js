@@ -33,6 +33,30 @@ const ProviderServices = () => {
     setExpandedTiers(prev => ({ ...prev, [uid]: !prev[uid] }));
   };
 
+  // Top-level tabs. The Services page used to be a long scroll of
+  // four large sections (Pricing, Add-ons, Package Deals, Sold
+  // Packages), which made the whole page hard to navigate even
+  // after the unified Pricing card landed. Tabs let the provider
+  // focus on one concern at a time. Persisted in the URL hash so
+  // refreshes / back-button / shared links land on the right tab.
+  const TABS = [
+    { id: 'pricing',  label: 'Pricing' },
+    { id: 'addons',   label: 'Add-ons' },
+    { id: 'packages', label: 'Packages' },
+  ];
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = typeof window !== 'undefined'
+      ? window.location.hash.replace('#', '')
+      : '';
+    return TABS.some(t => t.id === hash) ? hash : 'pricing';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== `#${activeTab}`) {
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab]);
+
   // FLIP animation for offering reorder. We capture each row's top
   // before basePricing changes (in the move handler) and after the new
   // layout commits we animate from the captured delta back to zero so
@@ -462,7 +486,30 @@ const ProviderServices = () => {
           </div>
         )}
 
-        {/* Pricing — unified card. Standard offerings (the default
+        {/* Tabs — Pricing / Add-ons / Packages. Switches the content
+            below so the page is one focused concern at a time
+            instead of a long scroll of four large cards. URL hash
+            persists the active tab. */}
+        <div className="border-b border-line mb-6 overflow-x-auto">
+          <div className="flex gap-1 -mb-px">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-[#B07A4E] text-[#B07A4E]'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Pricing tab — unified card. Standard offerings (the default
             menu every new client sees) and custom tiers (per-client
             override price lists) used to live in two visually
             identical cards stacked on top of each other. Same data
@@ -472,6 +519,7 @@ const ProviderServices = () => {
             DEFAULT. Each custom tier renders below as a collapsed
             disclosure (chevron + name + row count). One concept,
             one card, one mental model. */}
+        {activeTab === 'pricing' && (
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -785,8 +833,10 @@ const ProviderServices = () => {
             Add a custom tier
           </button>
         </div>
+        )}
 
-        {/* Add-ons */}
+        {/* Add-ons tab */}
+        {activeTab === 'addons' && (
         <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -964,19 +1014,25 @@ const ProviderServices = () => {
             </button>
           )}
         </div>
+        )}
 
-        {/* Package Deals — multi-session prepaid packs. Saves per-template
-            via its own endpoints, so the global Save button below doesn't
-            need to know about these. */}
-        <PackageDealsSection
-          availableDurations={basePricing.map(p => Number(p.duration)).filter(Boolean)}
-        />
+        {/* Packages tab — Package Deals (templates) + Sold Packages
+            (instances). These two are tightly related and both save
+            via their own endpoints, so the global Save button below
+            stays gated to Pricing + Add-ons tabs. */}
+        {activeTab === 'packages' && (
+        <>
+          <PackageDealsSection
+            availableDurations={basePricing.map(p => Number(p.duration)).filter(Boolean)}
+          />
+          <SoldPackagesSection />
+        </>
+        )}
 
-        {/* Sold Packages — every instance clients own, with redemption
-            history. Collapsed by default to keep this page scannable. */}
-        <SoldPackagesSection />
-
-        {/* Save button (covers Service Offerings + Add-ons, NOT Package Deals) */}
+        {/* Save button — only visible on tabs that have unsaved
+            global state (Pricing, Add-ons). Packages tab subsections
+            save themselves via their own endpoints. */}
+        {(activeTab === 'pricing' || activeTab === 'addons') && (
         <div className="flex justify-end mb-8">
           <button
             onClick={handleSave}
@@ -993,6 +1049,7 @@ const ProviderServices = () => {
             )}
           </button>
         </div>
+        )}
       </div>
     </div>
   );
