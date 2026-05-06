@@ -1244,6 +1244,10 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     // Save the updated block (this will trigger the pre-save middleware)
     await availability.save();
 
+    // Diagnostic: log what we actually persisted so we can compare
+    // against what the client sees on next fetch.
+    console.log(`[Availability PUT] saved id=${availability._id} provider=${availability.provider} localDate=${availability.localDate} start=${availability.start.toISOString()} end=${availability.end.toISOString()} source=${availability.source}`);
+
     res.json(availability);
   } catch (error) {
     console.error('Error updating availability:', error);
