@@ -229,8 +229,11 @@ async function mapEventToBlockedTimes(event) {
 
 /**
  * Process a batch of Google Calendar events: upsert or delete BlockedTime records.
+ * `calendarId` is stamped onto each upserted BlockedTime so the per-calendar
+ * stale-cleanup can scope to one calendar at a time without nuking entries
+ * belonging to a different synced calendar on the same provider.
  */
-async function applyEventChanges(providerId, events) {
+async function applyEventChanges(providerId, events, calendarId = null) {
   let upserted = 0;
   let deleted = 0;
   const upsertedIds = [];
@@ -260,6 +263,7 @@ async function applyEventChanges(providerId, events) {
             date: slice.date,
             source: 'google_calendar',
             googleEventId: slice.googleEventId,
+            googleCalendarId: calendarId,
             location: slice.location || { address: null, lat: null, lng: null }
           }
         },
@@ -298,23 +302,39 @@ async function runFullSync(provider, calendarIds) {
         continue;
       }
 
-      const { upserted, upsertedIds } = await applyEventChanges(provider._id, events);
+      const { upserted, upsertedIds } = await applyEventChanges(provider._id, events, calendarId);
       totalUpserted += upserted;
 
-      // Clean up stale records for this calendar (blocks that no longer exist in Google)
+      // Clean up stale records for THIS calendar only — blocks that no
+      // longer exist in this Google calendar. Scoping by
+      // googleCalendarId is the fix for the cross-calendar deletion
+      // bug: previously the cleanup looked at every google_calendar
+      // BlockedTime for the provider, so syncing a second calendar
+      // would erase the first calendar's still-valid entries.
+      //
+      // Backward compat: include `null` calendarId in the scope so
+      // entries created before this field existed (and are stamped
+      // null) get cleaned up by whichever calendar has them in its
+      // current upserted set. Once each calendar has run a fresh
+      // sync after this deploy, all rows have the field populated
+      // and the null branch becomes a no-op.
+      const cleanupScope = {
+        provider: provider._id,
+        source: 'google_calendar',
+        $or: [
+          { googleCalendarId: calendarId },
+          { googleCalendarId: null },
+        ],
+      };
       if (upsertedIds.length > 0) {
         const staleResult = await BlockedTime.deleteMany({
-          provider: provider._id,
-          source: 'google_calendar',
-          googleEventId: { $regex: `^.+_`, $nin: upsertedIds }
+          ...cleanupScope,
+          googleEventId: { $nin: upsertedIds },
         });
         totalDeleted += staleResult.deletedCount;
       } else {
-        // No events → delete all google_calendar blocks for this provider
-        const staleResult = await BlockedTime.deleteMany({
-          provider: provider._id,
-          source: 'google_calendar'
-        });
+        // No events → delete this calendar's google_calendar blocks
+        const staleResult = await BlockedTime.deleteMany(cleanupScope);
         totalDeleted += staleResult.deletedCount;
       }
 
@@ -386,7 +406,7 @@ async function runIncrementalSync(provider, calendarId, retryCount = 0) {
       return { upserted: 0, deleted: 0 };
     }
 
-    const result = await applyEventChanges(provider._id, events);
+    const result = await applyEventChanges(provider._id, events, calendarId);
 
     if (nextSyncToken) {
       gcal.syncTokens.set(calendarId, nextSyncToken);

@@ -21,6 +21,17 @@ const BlockedTimeSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Which Google calendar this block was synced from. Critical when a
+  // provider syncs more than one calendar — without it, the per-
+  // calendar stale-cleanup at the end of each sync pass cross-deletes
+  // entries belonging to other synced calendars (since cleanup matches
+  // by source='google_calendar' and "not in this calendar's
+  // upsertedIds"). With this field, cleanup scopes to the calendar
+  // currently being synced and leaves the others alone.
+  googleCalendarId: {
+    type: String,
+    default: null
+  },
   // Location for Google Calendar events that have one (affects travel time calc)
   location: {
     address: { type: String, default: null },
