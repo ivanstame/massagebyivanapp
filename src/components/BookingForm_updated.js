@@ -892,7 +892,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const showAddressStep = !(dayIsPurelyStatic && studioForDay && !isProviderBooking);
   const wizardOrder = ['recipient', 'date'];
   if (showAddressStep) wizardOrder.push('address');
-  wizardOrder.push('duration', 'time', 'addanother');
+  wizardOrder.push('duration');
+  // Add-ons gets its own step only when the provider has add-ons
+  // configured. Skipping the step entirely when there are zero
+  // add-ons means a clean wizard for providers who don't offer them.
+  if (availableAddons.length > 0) wizardOrder.push('addons');
+  wizardOrder.push('time', 'addanother');
 
   const wizardComplete = wizardStepIdx >= wizardOrder.length;
   const currentWizardStep = wizardOrder[wizardStepIdx] || null;
@@ -934,6 +939,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
         return !!fullAddress && !!location;
       case 'duration':
         return !!selectedDuration;
+      case 'addons':
+        // Always advanceable — add-ons are optional. Picking zero
+        // is a valid answer.
+        return true;
       case 'time':
         return !!selectedTime;
       case 'addanother':
@@ -1322,22 +1331,26 @@ const BookingForm = ({ googleMapsLoaded }) => {
               )}
 
               {currentWizardStep === 'duration' && (
-                <div className="space-y-6">
-                  <SimpleDurationSelector
-                    selectedDuration={selectedDuration}
-                    onDurationChange={setSelectedDuration}
-                    isComplete={selectedDuration !== null}
-                    durationOptions={durationOptions}
-                  />
-                  {availableAddons.length > 0 && (
-                    <AddOnsSelector
-                      selectedAddons={selectedAddons}
-                      onAddonsChange={setSelectedAddons}
-                      isComplete={true}
-                      availableAddons={availableAddons}
-                    />
-                  )}
-                </div>
+                <SimpleDurationSelector
+                  selectedDuration={selectedDuration}
+                  onDurationChange={setSelectedDuration}
+                  isComplete={selectedDuration !== null}
+                  durationOptions={durationOptions}
+                />
+              )}
+
+              {/* Add-ons — its own wizard step so it gets the same
+                  one-decision-at-a-time framing as the rest. The
+                  step itself is conditionally added to wizardOrder
+                  only when the provider has add-ons configured, so
+                  no-addons providers don't see an empty step. */}
+              {currentWizardStep === 'addons' && (
+                <AddOnsSelector
+                  selectedAddons={selectedAddons}
+                  onAddonsChange={setSelectedAddons}
+                  isComplete={true}
+                  availableAddons={availableAddons}
+                />
               )}
 
               {currentWizardStep === 'time' && (
