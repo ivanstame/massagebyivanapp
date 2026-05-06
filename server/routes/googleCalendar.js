@@ -139,13 +139,27 @@ router.post('/calendars/select', ensureAuthenticated, async (req, res) => {
     }
 
     const previousIds = gcal.syncedCalendarIds || [];
+    const removedIds = previousIds.filter(id => !calendarIds.includes(id));
 
     // Stop watch channels for removed calendars
-    for (const prevId of previousIds) {
-      if (!calendarIds.includes(prevId)) {
-        await gcalService.stopWatchChannel(provider, prevId);
-        gcal.syncTokens.delete(prevId);
-      }
+    for (const prevId of removedIds) {
+      await gcalService.stopWatchChannel(provider, prevId);
+      gcal.syncTokens.delete(prevId);
+    }
+
+    // Delete BlockedTime rows that came from removed calendars. Without
+    // this, un-syncing a calendar leaves its blocks ghost-blocking the
+    // provider's availability with no way to clear them. The
+    // googleCalendarId stamp lets us scope the deletion precisely to
+    // the calendars being removed.
+    if (removedIds.length > 0) {
+      const BlockedTime = require('../models/BlockedTime');
+      const deleted = await BlockedTime.deleteMany({
+        provider: provider._id,
+        source: 'google_calendar',
+        googleCalendarId: { $in: removedIds },
+      });
+      console.log(`[GCal] Removed ${deleted.deletedCount} BlockedTime rows from un-synced calendars (${removedIds.join(', ')}) for ${provider.email}`);
     }
 
     // Set up watch channels for new calendars
