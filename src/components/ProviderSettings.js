@@ -533,7 +533,7 @@ const ProviderSettings = () => {
                   })}
                   className="w-full px-3 py-2 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
                 />
-                <p className="text-xs text-slate-400 mt-1">Clients cancelling within this window get warned</p>
+                <p className="text-xs text-slate-500 mt-1">Clients cancelling within this window get warned</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Late Cancel Fee ($)</label>
@@ -548,7 +548,7 @@ const ProviderSettings = () => {
                   })}
                   className="w-full px-3 py-2 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
                 />
-                <p className="text-xs text-slate-400 mt-1">$0 = warning only, no fee</p>
+                <p className="text-xs text-slate-500 mt-1">$0 = warning only, no fee</p>
               </div>
             </div>
           )}
@@ -683,7 +683,7 @@ const ProviderSettings = () => {
                         }}
                         className="rounded border-slate-300 text-[#B07A4E] focus:ring-[#B07A4E]"
                       />
-                      {cal.summary} {cal.primary && <span className="text-xs text-slate-400">(primary)</span>}
+                      {cal.summary} {cal.primary && <span className="text-xs text-slate-500">(primary)</span>}
                     </label>
                   ))}
                   <button

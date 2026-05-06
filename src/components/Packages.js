@@ -98,7 +98,7 @@ const Packages = () => {
           <div className="text-center py-10 bg-paper-elev rounded-lg border border-dashed border-line">
             <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-600 text-sm">No packages available yet.</p>
-            <p className="text-slate-400 text-xs mt-1">
+            <p className="text-slate-500 text-xs mt-1">
               Your provider will list package deals here when they're ready.
             </p>
           </div>
@@ -124,11 +124,11 @@ const Packages = () => {
                   <div className="text-right flex-shrink-0">
                     <p className="text-2xl font-bold text-slate-900">${tmpl.price}</p>
                     {tmpl.kind === 'minutes' && tmpl.minutesTotal > 0 && tmpl.price > 0 ? (
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         ${((tmpl.price / tmpl.minutesTotal) * 60).toFixed(2)}/hr
                       </p>
                     ) : tmpl.sessionsTotal > 0 && tmpl.price > 0 ? (
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         ${(tmpl.price / tmpl.sessionsTotal).toFixed(2)}/session
                       </p>
                     ) : null}

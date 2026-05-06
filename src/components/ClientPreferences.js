@@ -5,13 +5,13 @@ import { AuthContext } from '../AuthContext';
 const ProgressIndicator = ({ currentStep }) => (
   <div className="mb-8 w-full max-w-2xl">
     <div className="flex justify-between mb-2">
-      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Account
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Profile
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Preferences
       </div>
     </div>

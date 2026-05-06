@@ -115,7 +115,7 @@ const RecipientSection = ({
                 onChange={(e) => setRecipientInfo({...recipientInfo, name: e.target.value})}
                 className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-teal-500 focus:border-transparent
-                          placeholder:text-slate-400"
+                          placeholder:text-slate-500"
               />
             </div>
 
@@ -132,7 +132,7 @@ const RecipientSection = ({
                 onChange={(e) => setRecipientInfo({...recipientInfo, phone: e.target.value})}
                 className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-sage-500 focus:border-transparent
-                          placeholder:text-slate-400"
+                          placeholder:text-slate-500"
               />
             </div>
 
@@ -140,7 +140,7 @@ const RecipientSection = ({
             <div>
               <label className="flex items-center text-sm font-medium text-slate-700 mb-2">
                 <Mail className="w-4 h-4 mr-2 text-teal-600" />
-                Email Address <span className="text-slate-400 font-normal">(optional)</span>
+                Email Address <span className="text-slate-500 font-normal">(optional)</span>
               </label>
               <input
                 type="email"
@@ -149,7 +149,7 @@ const RecipientSection = ({
                 onChange={(e) => setRecipientInfo({...recipientInfo, email: e.target.value})}
                 className="w-full px-4 py-3 text-base border border-line rounded-lg 
                           focus:ring-2 focus:ring-sage-500 focus:border-transparent
-                          placeholder:text-slate-400"
+                          placeholder:text-slate-500"
               />
             </div>
           </div>

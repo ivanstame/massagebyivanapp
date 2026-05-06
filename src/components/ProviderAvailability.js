@@ -807,7 +807,7 @@ const formatTime = useCallback((time) => {
                 <div className="flex items-center gap-2 min-w-0">
                   <Navigation className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                   <p className="text-xs text-slate-600 truncate">
-                    <span className="text-slate-400">From: </span>
+                    <span className="text-slate-500">From: </span>
                     {currentDeparture?.address || 'Not set'}
                   </p>
                 </div>

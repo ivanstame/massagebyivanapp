@@ -196,7 +196,7 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
                 of {total} {isMinutes ? 'min' : ''} remaining
               </span>
             </p>
-            <p className="text-xs text-slate-400">{percentUsed}% used</p>
+            <p className="text-xs text-slate-500">{percentUsed}% used</p>
           </div>
           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -205,12 +205,12 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
             />
           </div>
           {!isMinutes && pkg.sessionDuration > 0 && (
-            <p className="text-[11px] text-slate-400 mt-1.5">
+            <p className="text-[11px] text-slate-500 mt-1.5">
               {remaining * pkg.sessionDuration} of {total * pkg.sessionDuration} min remaining
             </p>
           )}
           {isMinutes && pkg.displayPack?.sessionDuration > 0 && (
-            <p className="text-[11px] text-slate-400 mt-1.5">
+            <p className="text-[11px] text-slate-500 mt-1.5">
               ≈ {Math.floor(remaining / pkg.displayPack.sessionDuration)} × {pkg.displayPack.sessionDuration}-min sessions left
             </p>
           )}

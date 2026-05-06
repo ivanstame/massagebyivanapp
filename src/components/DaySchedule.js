@@ -269,7 +269,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                   <div className="p-1.5 flex items-start justify-between">
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-xs font-medium ${isOverridden ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
+                        <span className={`text-xs font-medium ${isOverridden ? 'text-slate-500 line-through' : 'text-slate-600'}`}>
                           {bt.allDay ? 'All day' : `${formatTime(bt.start)} - ${formatTime(bt.end)}`}
                         </span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${
@@ -280,7 +280,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                       </div>
                       {bt.reason && (
                         <span className={`text-[11px] mt-0.5 truncate ${
-                          isOverridden ? 'text-slate-400' : 'text-slate-500'
+                          isOverridden ? 'text-slate-500' : 'text-slate-500'
                         }`}>
                           {bt.reason}
                         </span>

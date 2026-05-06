@@ -136,13 +136,13 @@ const ProviderPreferences = ({ formData, onChange }) => (
 const ProgressIndicator = ({ currentStep }) => (
   <div className="mb-8 w-full max-w-4xl">
     <div className="flex justify-between mb-2">
-      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Account
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Profile
       </div>
-      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+      <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
         Preferences
       </div>
     </div>
@@ -284,7 +284,7 @@ const ClientPreferences = ({ prefs, onChange, disabled }) => (
         placeholder={`e.g., "Please bring breast support for the table"\n"I'm pregnant — second trimester"\n"Park in driveway, dog might bark"\n"I prefer minimal conversation"`}
         className="w-full px-3 py-2 border border-line rounded-lg focus:border-[#B07A4E] focus:ring-1 focus:ring-[#B07A4E] outline-none resize-y disabled:opacity-60"
       />
-      <div className="text-xs text-slate-400 mt-1 text-right">
+      <div className="text-xs text-slate-500 mt-1 text-right">
         {(prefs.notes || '').length} / 2000
       </div>
     </section>

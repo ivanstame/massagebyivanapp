@@ -40,7 +40,7 @@ const ProgressIndicator = ({ currentStep, accountType }) => {
         {stepLabels.map((label, index) => (
           <div
             key={label}
-            className={`text-sm font-medium ${currentStep >= index + 1 ? 'text-[#B07A4E]' : 'text-slate-400'}`}
+            className={`text-sm font-medium ${currentStep >= index + 1 ? 'text-[#B07A4E]' : 'text-slate-500'}`}
           >
             {label}
           </div>
@@ -256,7 +256,7 @@ const ProfileSetup = () => {
                       className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="John Doe"
                     />
-                    <User className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                    <User className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
                   </div>
                 </div>
 
@@ -279,7 +279,7 @@ const ProfileSetup = () => {
                       className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="(555) 123-4567"
                     />
-                    <Phone className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                    <Phone className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
                   </div>
                 </div>
               </div>
@@ -306,7 +306,7 @@ const ProfileSetup = () => {
                       className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition"
                       placeholder="e.g. Healing Hands, Glow Studio, Shine Detailing"
                     />
-                    <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                    <Briefcase className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
                   </div>
                 </div>
 
@@ -351,7 +351,7 @@ const ProfileSetup = () => {
                       }`}
                       placeholder="e.g. ivan"
                     />
-                    <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                    <LinkIcon className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
                     {joinCodeStatus === 'checking' && (
                       <div className="absolute right-3 top-2.5">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#B07A4E]"></div>

@@ -9,14 +9,14 @@ const ProgressIndicator = ({ currentStep, accountType }) => {
   return (
     <div className="mb-8 w-full max-w-md">
       <div className="flex justify-between mb-2">
-        <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+        <div className={`text-sm font-medium ${currentStep >= 1 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
           Account
         </div>
-        <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+        <div className={`text-sm font-medium ${currentStep >= 2 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
           Profile
         </div>
         {accountType === 'CLIENT' && (
-          <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-400'}`}>
+          <div className={`text-sm font-medium ${currentStep >= 3 ? 'text-[#B07A4E]' : 'text-slate-500'}`}>
             Preferences
           </div>
         )}
@@ -312,7 +312,7 @@ const SignUp = () => {
               }
             }}
           />
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-slate-500">
             Contact support to obtain the provider access password
           </p>
         </div>
@@ -380,7 +380,7 @@ const SignUp = () => {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-all duration-200"
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-600 transition-all duration-200"
           >
             {showPassword ? (
               <EyeOff className="h-5 w-5" />
@@ -389,7 +389,7 @@ const SignUp = () => {
             )}
           </button>
         </div>
-        <p className="mt-1 text-xs text-slate-400">Must be at least 6 characters</p>
+        <p className="mt-1 text-xs text-slate-500">Must be at least 6 characters</p>
       </div>
 
       <div>
@@ -411,7 +411,7 @@ const SignUp = () => {
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-all duration-200"
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-slate-600 transition-all duration-200"
           >
             {showConfirmPassword ? (
               <EyeOff className="h-5 w-5" />
@@ -440,7 +440,7 @@ const SignUp = () => {
             <label htmlFor="sms-consent" className="font-medium text-slate-700">
               I agree to receive automated SMS messages for appointment-related communications.
             </label>
-            <p className="text-slate-400">
+            <p className="text-slate-500">
               Standard message and data rates may apply. You can opt out at any time.
               <a href="/sms-consent-policy.html" target="_blank" rel="noopener noreferrer" className="text-[#B07A4E] hover:text-[#8A5D36] ml-1 transition-all duration-200">
                 View our SMS consent policy.

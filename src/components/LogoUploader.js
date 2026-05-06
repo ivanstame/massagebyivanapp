@@ -130,7 +130,7 @@ const LogoUploader = ({ currentLogoUrl, onLogoChange }) => {
           <label
             className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border cursor-pointer transition-colors ${
               uploading
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-line'
+                ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-line'
                 : 'bg-white text-[#B07A4E] border-[#B07A4E]/30 hover:bg-[#B07A4E]/5'
             }`}
           >

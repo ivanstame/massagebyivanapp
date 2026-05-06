@@ -48,7 +48,7 @@ const AdditionalSessionRow = ({
         <button
           type="button"
           onClick={onRemove}
-          className="text-xs text-slate-400 hover:text-red-600 inline-flex items-center gap-1"
+          className="text-xs text-slate-500 hover:text-red-600 inline-flex items-center gap-1"
         >
           <Trash2 className="w-3.5 h-3.5" />
           Remove
@@ -146,7 +146,7 @@ const AdditionalSessionRow = ({
       {availableAddons.length > 0 && (
         <div>
           <p className="text-xs font-medium text-slate-700 mb-1.5">
-            Add-ons <span className="text-slate-400 font-normal">(optional)</span>
+            Add-ons <span className="text-slate-500 font-normal">(optional)</span>
           </p>
           <div className="space-y-1.5">
             {availableAddons.map(addon => {
@@ -162,7 +162,7 @@ const AdditionalSessionRow = ({
                   <span className="flex-1">
                     <span className="font-medium text-slate-700">{addon.name}</span>
                     {addon.price > 0 && <span className="text-slate-500 ml-1">+${addon.price}</span>}
-                    {addon.extraTime > 0 && <span className="text-slate-400 ml-1">(+{addon.extraTime} min)</span>}
+                    {addon.extraTime > 0 && <span className="text-slate-500 ml-1">(+{addon.extraTime} min)</span>}
                   </span>
                 </label>
               );

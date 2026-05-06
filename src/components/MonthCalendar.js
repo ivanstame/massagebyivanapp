@@ -258,7 +258,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                       transition-all duration-200 ease-in-out
                       ${isPast ? 'text-slate-300 line-through bg-paper-deep' : 
                         hasSlots ? 'text-slate-700 hover:bg-[#FBF7EF]' :
-                        'text-slate-400 hover:bg-paper-deep'
+                        'text-slate-500 hover:bg-paper-deep'
                       }
                       ${isSelected ? 'ring-2 ring-[#B07A4E] ring-offset-2' : ''}
                       ${hasSlots ? 'border-green-200' : ''}

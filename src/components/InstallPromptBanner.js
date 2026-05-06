@@ -146,7 +146,7 @@ const InstallPromptBanner = () => {
         <button
           onClick={handleDismissStd}
           aria-label="Dismiss install prompt"
-          className="text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded"
+          className="text-slate-500 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded"
         >
           <X className="w-4 h-4" />
         </button>
@@ -177,7 +177,7 @@ const InstallPromptBanner = () => {
           <button
             onClick={handleDismissIos}
             aria-label="Dismiss install hint"
-            className="text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded -mt-1 -mr-1"
+            className="text-slate-500 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded -mt-1 -mr-1"
           >
             <X className="w-4 h-4" />
           </button>

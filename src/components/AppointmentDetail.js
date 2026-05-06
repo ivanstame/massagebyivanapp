@@ -544,7 +544,7 @@ const AppointmentDetail = () => {
           <div className="mt-6 bg-paper-elev border border-line rounded-lg p-5">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-slate-800">Session notes</h3>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-slate-500">
                 {noteDraft.length}/5000 · private to you
               </span>
             </div>
@@ -566,7 +566,7 @@ const AppointmentDetail = () => {
                 className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${
                   noteIsDirty && !noteSaving
                     ? 'bg-[#B07A4E] text-white hover:bg-[#8A5D36]'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-slate-100 text-slate-500 cursor-not-allowed'
                 }`}
               >
                 {noteSaving ? 'Saving…' : 'Save note'}

@@ -472,7 +472,7 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
               <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
             ))}
           </select>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Each occurrence inherits this. They can each be marked paid individually after the visit.
           </p>
         </div>
@@ -496,7 +496,7 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
             </button>
           </div>
           {additionalSessions.length === 0 ? (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Optional. Add another session if this is a couple's massage or multi-recipient standing.
             </p>
           ) : (
@@ -559,7 +559,7 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
                   </div>
                 </div>
               ))}
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-500">
                 Each session runs back-to-back with a 15-min settle buffer between. The whole chain repeats on the same cadence.
               </p>
             </div>

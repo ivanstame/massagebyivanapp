@@ -97,9 +97,9 @@ const ResetPassword = () => {
                       className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     >
                       {showPassword ? (
-                        <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+                        <EyeOff className="h-5 w-5 text-slate-500 hover:text-slate-600" />
                       ) : (
-                        <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+                        <Eye className="h-5 w-5 text-slate-500 hover:text-slate-600" />
                       )}
                     </button>
                   </div>

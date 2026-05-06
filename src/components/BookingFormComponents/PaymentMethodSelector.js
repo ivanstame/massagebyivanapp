@@ -122,7 +122,7 @@ const PaymentMethodSelector = ({
                   }`}
               >
                 <Layers className={`w-5 h-5 flex-shrink-0 ${
-                  isSelected ? 'text-[#B07A4E]' : 'text-slate-400'
+                  isSelected ? 'text-[#B07A4E]' : 'text-slate-500'
                 }`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${
@@ -193,7 +193,7 @@ const PaymentMethodSelector = ({
                     }`}
                 >
                   <Icon className={`w-5 h-5 flex-shrink-0 ${
-                    isSelected ? 'text-teal-600' : 'text-slate-400'
+                    isSelected ? 'text-teal-600' : 'text-slate-500'
                   }`} />
                   <div>
                     <p className={`text-sm font-medium ${

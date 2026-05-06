@@ -112,7 +112,7 @@ export const BonusHistory = ({ pkg }) => {
                   +{isMinutes ? `${b.minutes} min` : `${b.sessions} session${b.sessions === 1 ? '' : 's'}`}
                   {b.reason && <span className="text-slate-600 font-normal"> — {b.reason}</span>}
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-[11px] text-slate-500">
                   {DateTime.fromISO(b.addedAt).toFormat('MMM d, yyyy h:mm a')}
                   {b.addedBy && ` · by ${b.addedBy}`}
                 </div>

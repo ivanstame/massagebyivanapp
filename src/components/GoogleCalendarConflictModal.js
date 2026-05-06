@@ -61,7 +61,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
                   {formatTime(conflict.start)} &ndash; {formatTime(conflict.end)}
                 </div>
                 {conflict.location?.address && (

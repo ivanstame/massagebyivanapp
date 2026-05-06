@@ -41,7 +41,7 @@ const AvailabilityList = ({
         <p className="text-slate-600">
           No availability set for this date.
         </p>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           Set your <a href="/provider/schedule-template" className="text-[#B07A4E] underline">weekly hours</a> to auto-fill your calendar.
         </p>
         <button

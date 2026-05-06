@@ -137,7 +137,7 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
           </div>
           {!success && (
             <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-              <X className="w-5 h-5 text-slate-400" />
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           )}
         </div>
@@ -188,7 +188,7 @@ const StripeCheckout = ({ bookingId, totalPrice, onSuccess, onClose }) => {
                 )}
               </button>
 
-              <p className="text-xs text-slate-400 text-center mt-3">
+              <p className="text-xs text-slate-500 text-center mt-3">
                 Payments are processed securely by Stripe
               </p>
             </>

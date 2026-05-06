@@ -109,7 +109,7 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               <Phone className="w-3.5 h-3.5 inline mr-1" />
-              Phone <span className="text-slate-400 font-normal">(optional)</span>
+              Phone <span className="text-slate-500 font-normal">(optional)</span>
             </label>
             <input
               type="tel"
@@ -123,7 +123,7 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               <Mail className="w-3.5 h-3.5 inline mr-1" />
-              Email <span className="text-slate-400 font-normal">(optional)</span>
+              Email <span className="text-slate-500 font-normal">(optional)</span>
             </label>
             <input
               type="email"
@@ -138,7 +138,7 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
             <div className="flex items-center mb-3">
               <MapPin className="w-4 h-4 text-slate-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-700">
-                Home address <span className="text-slate-400 font-normal">(optional but needed for travel-time)</span>
+                Home address <span className="text-slate-500 font-normal">(optional but needed for travel-time)</span>
               </span>
             </div>
             <div className="space-y-3">
@@ -186,7 +186,7 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Notes <span className="text-slate-400 font-normal">(optional)</span>
+              Notes <span className="text-slate-500 font-normal">(optional)</span>
             </label>
             <textarea
               value={notes}

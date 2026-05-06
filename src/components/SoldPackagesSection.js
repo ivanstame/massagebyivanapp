@@ -167,8 +167,8 @@ const SoldPackagesSection = () => {
           )}
         </div>
         {collapsed
-          ? <ChevronDown className="w-4 h-4 text-slate-400" />
-          : <ChevronUp className="w-4 h-4 text-slate-400" />
+          ? <ChevronDown className="w-4 h-4 text-slate-500" />
+          : <ChevronUp className="w-4 h-4 text-slate-500" />
         }
       </button>
 
@@ -219,7 +219,7 @@ const SoldPackagesSection = () => {
         <div className="bg-paper-elev border border-line rounded-lg p-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 value={search}
@@ -471,12 +471,12 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
                       <span className="font-semibold text-slate-900">{remaining}</span>
                       <span className="text-slate-500"> / {total} {unit}</span>
                     </div>
-                    <div className="text-[11px] text-slate-400">remaining</div>
+                    <div className="text-[11px] text-slate-500">remaining</div>
                   </div>
                 )}
                 {expanded
-                  ? <ChevronUp className="w-4 h-4 text-slate-400" />
-                  : <ChevronDown className="w-4 h-4 text-slate-400" />
+                  ? <ChevronUp className="w-4 h-4 text-slate-500" />
+                  : <ChevronDown className="w-4 h-4 text-slate-500" />
                 }
               </div>
             </div>
@@ -493,7 +493,7 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
 
             {/* Last activity hint, collapsed view. */}
             {!expanded && lastRedemptionDate && (
-              <p className="text-[11px] text-slate-400 mt-2">
+              <p className="text-[11px] text-slate-500 mt-2">
                 Last redeemed {DateTime.fromISO(lastRedemptionDate).toFormat('MMM d, yyyy')}
               </p>
             )}
@@ -555,7 +555,7 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap text-sm">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <Calendar className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                           <span className="text-slate-900">{apptLabel}</span>
                           {b && (
                             <span className="text-slate-500 text-xs">({b.duration} min)</span>
@@ -574,7 +574,7 @@ const PackageCard = ({ pkg, expanded, onToggle, onReinstate, onAddBonus, working
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
+                        <div className="text-[11px] text-slate-500 mt-0.5">
                           Redeemed {DateTime.fromISO(r.redeemedAt).toFormat('MMM d, yyyy h:mm a')}
                           {isReturned && r.returnedAt && (
                             <> · returned {DateTime.fromISO(r.returnedAt).toFormat('MMM d, yyyy')}</>

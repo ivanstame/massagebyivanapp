@@ -146,7 +146,7 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
               Start typing your address
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 ref={inputRef}
                 type="text"
@@ -163,13 +163,13 @@ const AddressForm = ({ onAddressConfirmed, onCancel, showCancel }) => {
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p className="mt-1.5 text-xs text-slate-500">
               Select a suggestion from the dropdown to confirm the address
             </p>
           </div>

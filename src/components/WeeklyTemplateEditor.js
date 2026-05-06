@@ -343,7 +343,7 @@ const WeeklyTemplateEditor = () => {
 
                 {/* Day name */}
                 <span className={`w-12 text-sm font-medium ${
-                  day.isActive ? 'text-slate-900' : 'text-slate-400'
+                  day.isActive ? 'text-slate-900' : 'text-slate-500'
                 }`}>
                   <span className="hidden sm:inline">{DAY_NAMES[day.dayOfWeek]}</span>
                   <span className="sm:hidden">{DAY_SHORT[day.dayOfWeek]}</span>
@@ -361,7 +361,7 @@ const WeeklyTemplateEditor = () => {
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
-                    <span className="text-slate-400 text-sm flex-shrink-0">to</span>
+                    <span className="text-slate-500 text-sm flex-shrink-0">to</span>
                     <select
                       value={day.endTime}
                       onChange={(e) => handleTimeChange(day.dayOfWeek, 'endTime', e.target.value)}
@@ -373,7 +373,7 @@ const WeeklyTemplateEditor = () => {
                     </select>
                   </div>
                 ) : (
-                  <span className="text-sm text-slate-400 italic">Not available</span>
+                  <span className="text-sm text-slate-500 italic">Not available</span>
                 )}
               </div>
 

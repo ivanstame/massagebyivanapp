@@ -384,19 +384,19 @@ const ProviderClientDetails = () => {
             <div className="mt-5 pt-4 border-t border-line space-y-2 text-sm">
               {client?.email && (
                 <div className="flex items-start text-slate-600">
-                  <Mail className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <Mail className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-500" />
                   <span className="break-all">{client.email}</span>
                 </div>
               )}
               {client?.profile?.phoneNumber && (
                 <div className="flex items-start text-slate-600">
-                  <Phone className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <Phone className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-500" />
                   <span>{client.profile.phoneNumber}</span>
                 </div>
               )}
               {client?.profile?.address && (
                 <div className="flex items-start text-slate-600">
-                  <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-400" />
+                  <MapPin className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-slate-500" />
                   <span>{formatAddress(client.profile.address)}</span>
                 </div>
               )}
@@ -601,7 +601,7 @@ const ProviderClientDetails = () => {
           </div>
           <div className="bg-paper-deep p-4 rounded-lg">
             <div className="flex items-start">
-              <StickyNote className="w-5 h-5 text-slate-400 mr-2 mt-1" />
+              <StickyNote className="w-5 h-5 text-slate-500 mr-2 mt-1" />
               <p className="text-slate-700 whitespace-pre-wrap">
                 {client?.clientProfile?.notes || 'No notes added yet.'}
               </p>
@@ -839,7 +839,7 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppoint
                   : <ChevronRight className="w-4 h-4" />}
                 {cancelled.length} cancelled appointment{cancelled.length === 1 ? '' : 's'}
                 {!showCancelled && cancelledGroups.some(g => g.kind === 'series') && (
-                  <span className="text-xs text-slate-400 ml-1">
+                  <span className="text-xs text-slate-500 ml-1">
                     (incl. recurring series)
                   </span>
                 )}
@@ -865,9 +865,9 @@ const AppointmentHistorySection = ({ appointments, clientId, navigate, onAppoint
                             className="w-full flex items-start gap-3 text-left"
                           >
                             {isExpanded
-                              ? <ChevronDown className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
-                              : <ChevronRight className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />}
-                            <Repeat className="w-4 h-4 text-slate-400 mt-1 flex-shrink-0" />
+                              ? <ChevronDown className="w-4 h-4 text-slate-500 mt-1 flex-shrink-0" />
+                              : <ChevronRight className="w-4 h-4 text-slate-500 mt-1 flex-shrink-0" />}
+                            <Repeat className="w-4 h-4 text-slate-500 mt-1 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-slate-700">
                                 Recurring series cancelled — {group.appointments.length} occurrence{group.appointments.length === 1 ? '' : 's'}
@@ -958,7 +958,7 @@ const AppointmentRow = ({
     <div className={`${compact ? 'p-2' : 'p-4'} hover:bg-paper-deep rounded-lg border border-line-soft`}>
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-start space-x-3">
-          <Calendar className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} text-slate-400 mt-1`} />
+          <Calendar className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} text-slate-500 mt-1`} />
           <div>
             <div className={`${compact ? 'text-sm' : 'font-medium'} text-slate-900`}>
               {moment(appointment.date).format('dddd, MMMM D, YYYY')}

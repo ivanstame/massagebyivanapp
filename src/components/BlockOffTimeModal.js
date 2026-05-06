@@ -268,7 +268,7 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                      <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <User className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                       <span className="truncate">{c.clientName}</span>
                       {c.isRecurring && (
                         <span
@@ -368,10 +368,10 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
           {pickableLocations.length > 0 && (
             <div>
               <label htmlFor="blockLocation" className="block text-sm font-medium text-slate-700 mb-1">
-                Where you'll be <span className="font-normal text-slate-400">(optional)</span>
+                Where you'll be <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                 <select
                   id="blockLocation"
                   value={selectedLocationId}
@@ -394,7 +394,7 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
 
           <div>
             <label htmlFor="blockReason" className="block text-sm font-medium text-slate-700 mb-1">
-              Reason <span className="font-normal text-slate-400">(optional)</span>
+              Reason <span className="font-normal text-slate-500">(optional)</span>
             </label>
             <input
               id="blockReason"
@@ -407,7 +407,7 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
             />
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Clients won't be able to book during this time.
           </p>
 

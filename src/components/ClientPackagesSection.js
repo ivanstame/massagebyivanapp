@@ -227,13 +227,13 @@ const PackageRow = ({ pkg, onCancel, onReinstate, onAddBonus, working }) => {
             <span className="font-semibold text-slate-900">{remaining}</span>{' '}
             of {total} {unit} remaining
           </span>
-          {used > 0 && <span className="text-slate-400">{used} {unit} used</span>}
+          {used > 0 && <span className="text-slate-500">{used} {unit} used</span>}
         </div>
       )}
 
       {/* Pre-consumed history note (backfill context). */}
       {(pkg.preConsumedMinutes > 0 || pkg.preConsumedSessions > 0) && (
-        <p className="mt-1 text-[11px] text-slate-400 italic">
+        <p className="mt-1 text-[11px] text-slate-500 italic">
           Includes {isMinutes ? `${pkg.preConsumedMinutes} min` : `${pkg.preConsumedSessions} session(s)`} backfilled from before tracking
           {pkg.preConsumedNote ? ` — ${pkg.preConsumedNote}` : '.'}
         </p>
@@ -266,7 +266,7 @@ const PackageRow = ({ pkg, onCancel, onReinstate, onAddBonus, working }) => {
                 <li key={r._id} className="flex items-start justify-between gap-2 text-xs text-slate-600">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <Calendar className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      <Calendar className="w-3 h-3 text-slate-500 flex-shrink-0" />
                       <span className="text-slate-900">{apptLabel}</span>
                       {isMinutes && r.minutesConsumed > 0 && (
                         <span className="text-slate-500">({r.minutesConsumed} min)</span>
@@ -278,7 +278,7 @@ const PackageRow = ({ pkg, onCancel, onReinstate, onAddBonus, working }) => {
                       )}
                     </div>
                     {b && (
-                      <div className="text-[11px] text-slate-400 mt-0.5">
+                      <div className="text-[11px] text-slate-500 mt-0.5">
                         Redeemed {DateTime.fromISO(r.redeemedAt).toFormat('MMM d, h:mm a')}
                       </div>
                     )}
@@ -473,7 +473,7 @@ const CompForm = ({ firstName, templates, submitting, onSubmit, onCancel }) => {
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
             />
             {minutesTotal > 0 && (
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 = {(minutesTotal / 60).toFixed(minutesTotal % 60 ? 1 : 0)} hours. Client can spend at any duration you offer.
               </p>
             )}
@@ -559,7 +559,7 @@ const CompForm = ({ firstName, templates, submitting, onSubmit, onCancel }) => {
           )}
           <div className={paymentMethod === 'cash' ? '' : 'col-span-2'}>
             <label className="block text-xs text-slate-500 mb-1">
-              Purchase date {paymentMethod === 'cash' && <span className="text-slate-400">(when cash changed hands)</span>}
+              Purchase date {paymentMethod === 'cash' && <span className="text-slate-500">(when cash changed hands)</span>}
             </label>
             <input
               type="date"

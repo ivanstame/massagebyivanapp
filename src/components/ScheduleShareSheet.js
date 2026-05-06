@@ -154,7 +154,7 @@ const ScheduleShareSheet = ({ bookings = [], date, onClose }) => {
               />
               <span className="text-sm text-slate-700">Show client names</span>
               {!showClientNames && (
-                <EyeOff className="w-3.5 h-3.5 text-slate-400" title="Names hidden by default for privacy" />
+                <EyeOff className="w-3.5 h-3.5 text-slate-500" title="Names hidden by default for privacy" />
               )}
             </label>
             <label className="flex items-center gap-3 cursor-pointer">

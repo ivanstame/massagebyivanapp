@@ -62,7 +62,7 @@ const ClientPickerModal = ({ currentClientId, onSelect, onClose, canDismiss = tr
             {canDismiss && (
               <button
                 onClick={onClose}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                className="p-1 text-slate-500 hover:text-slate-600 rounded"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -72,7 +72,7 @@ const ClientPickerModal = ({ currentClientId, onSelect, onClose, canDismiss = tr
 
           <div className="p-4 border-b border-line">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="text"
                 value={query}

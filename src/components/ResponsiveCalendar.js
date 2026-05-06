@@ -192,7 +192,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     border
     ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-line-soft' : 
       hasSlots ? 'hover:bg-[#FBF7EF] hover:border-[#B07A4E] border-line' :
-      'text-slate-400 hover:bg-paper-deep border-line-soft'}
+      'text-slate-500 hover:bg-paper-deep border-line-soft'}
     ${isSelected ?
       'bg-[#FBF7EF] border-[#B07A4E] text-[#8A5D36] shadow-md ring-2 ring-[#B07A4E] ring-opacity-50' : ''}
   `}

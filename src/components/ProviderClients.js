@@ -510,7 +510,7 @@ const ProviderClients = () => {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-slate-400" />
+                <Search className="h-5 w-5 text-slate-500" />
               </div>
               <input
                 type="text"
@@ -691,7 +691,7 @@ const ProviderClients = () => {
                               </div>
                             )}
                             {stats && stats.totalAppointments === 0 && (
-                              <p className="mt-2 text-xs text-slate-400 italic">No appointments yet</p>
+                              <p className="mt-2 text-xs text-slate-500 italic">No appointments yet</p>
                             )}
                           </div>
 

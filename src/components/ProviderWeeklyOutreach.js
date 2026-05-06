@@ -281,7 +281,7 @@ const ProviderWeeklyOutreach = () => {
               {/* List */}
               <div className="border border-line-soft rounded-lg max-h-72 overflow-y-auto">
                 {filteredRecipients.length === 0 ? (
-                  <div className="text-center py-6 text-sm text-slate-400">
+                  <div className="text-center py-6 text-sm text-slate-500">
                     No matches.
                   </div>
                 ) : (
@@ -389,7 +389,7 @@ const ProviderWeeklyOutreach = () => {
               <div className="flex items-center justify-between gap-3">
                 <div className="text-xs text-slate-500">
                   <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
                     Last sent: {lastSentLabel}
                   </div>
                   {nextSendLabel && (
@@ -417,7 +417,7 @@ const ProviderWeeklyOutreach = () => {
             <div className="bg-paper-elev rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               <div className="p-5 border-b border-line flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">Edit message template</h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
+                <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -436,7 +436,7 @@ const ProviderWeeklyOutreach = () => {
                     maxLength={280}
                     className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                   />
-                  <div className="text-xs text-slate-400 text-right mt-0.5">{draft.openingLine.length} / 280</div>
+                  <div className="text-xs text-slate-500 text-right mt-0.5">{draft.openingLine.length} / 280</div>
                 </div>
 
                 <div>
@@ -453,7 +453,7 @@ const ProviderWeeklyOutreach = () => {
                     maxLength={280}
                     className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                   />
-                  <div className="text-xs text-slate-400 text-right mt-0.5">{draft.closingLine.length} / 280</div>
+                  <div className="text-xs text-slate-500 text-right mt-0.5">{draft.closingLine.length} / 280</div>
                 </div>
 
                 <div className="text-xs text-slate-500 bg-paper-deep border border-line-soft rounded p-3">

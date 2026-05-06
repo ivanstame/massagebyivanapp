@@ -308,7 +308,7 @@ const ProviderLocations = () => {
               <div className="text-center py-8 bg-paper-deep rounded-lg border border-dashed border-slate-300">
                 <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-slate-500 text-sm">No saved locations yet</p>
-                <p className="text-slate-400 text-xs mt-1">Add your first location below</p>
+                <p className="text-slate-500 text-xs mt-1">Add your first location below</p>
               </div>
             ) : (
               locations.map(loc => (
@@ -347,11 +347,11 @@ const ProviderLocations = () => {
                       {loc.isStaticLocation && (
                         <div className="mt-1.5 text-xs text-slate-500 space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-3 h-3 text-slate-400" />
+                            <Clock className="w-3 h-3 text-slate-500" />
                             {loc.staticConfig?.bufferMinutes ?? 15} min turnover
                           </div>
                           <div className="flex items-start gap-1.5">
-                            <DollarSign className="w-3 h-3 text-slate-400 mt-0.5" />
+                            <DollarSign className="w-3 h-3 text-slate-500 mt-0.5" />
                             <span className="break-words">
                               {loc.staticConfig?.useMobilePricing
                                 ? 'Uses mobile pricing'
@@ -415,7 +415,7 @@ const ProviderLocations = () => {
               <h3 className="font-medium text-slate-900">
                 {editingId === 'new' ? 'Add a location' : 'Edit location'}
               </h3>
-              <button onClick={cancelEdit} className="text-slate-400 hover:text-slate-600">
+              <button onClick={cancelEdit} className="text-slate-500 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -684,7 +684,7 @@ const ProviderLocations = () => {
                             <button
                               type="button"
                               onClick={() => removePricingTier(idx)}
-                              className="p-1 text-slate-400 hover:text-red-500 mb-0.5"
+                              className="p-1 text-slate-500 hover:text-red-500 mb-0.5"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

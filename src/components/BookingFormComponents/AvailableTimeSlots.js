@@ -116,7 +116,7 @@ const AvailableTimeSlots = ({
         <div className="text-center py-12">
           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <p className="text-slate-500 text-lg">No available times for this date</p>
-          <p className="text-sm text-slate-400 mt-2">Please try selecting a different date</p>
+          <p className="text-sm text-slate-500 mt-2">Please try selecting a different date</p>
         </div>
       ) : (
         <>
@@ -136,7 +136,7 @@ const AvailableTimeSlots = ({
                     ${isActive
                       ? 'bg-paper-elev text-teal-700 shadow-sm'
                       : slotCount === 0
-                        ? 'text-slate-400 cursor-not-allowed'
+                        ? 'text-slate-500 cursor-not-allowed'
                         : 'text-slate-600 hover:text-teal-600'
                     }
                   `}

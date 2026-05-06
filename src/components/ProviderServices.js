@@ -555,7 +555,7 @@ const ProviderServices = () => {
                 </div>
                 <button
                   onClick={() => handleRemovePricingTier(index)}
-                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-6"
+                  className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-6"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -593,7 +593,7 @@ const ProviderServices = () => {
           {pricingTiers.length === 0 ? (
             <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
               <p className="text-sm text-slate-500">No alternate tiers yet</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 All clients use your Standard pricing.
               </p>
             </div>
@@ -616,7 +616,7 @@ const ProviderServices = () => {
                     <button
                       type="button"
                       onClick={() => removeTier(tier._uid)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                       title="Remove tier"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -711,7 +711,7 @@ const ProviderServices = () => {
                           type="button"
                           onClick={() => removeTierRow(tier._uid, rowIdx)}
                           disabled={tier.pricing.length <= 1}
-                          className="p-1 text-slate-400 hover:text-red-500 mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1 text-slate-500 hover:text-red-500 mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
                           title="Remove row"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -758,7 +758,7 @@ const ProviderServices = () => {
           {addons.length === 0 && !showAddAddon ? (
             <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">No add-ons yet</p>
-              <p className="text-slate-400 text-xs mt-1">Examples: {tradePreset.addonExamples}</p>
+              <p className="text-slate-500 text-xs mt-1">Examples: {tradePreset.addonExamples}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -781,7 +781,7 @@ const ProviderServices = () => {
                       {addon.isActive ? (
                         <ToggleRight className="w-6 h-6 text-[#B07A4E]" />
                       ) : (
-                        <ToggleLeft className="w-6 h-6 text-slate-400" />
+                        <ToggleLeft className="w-6 h-6 text-slate-500" />
                       )}
                     </button>
 
@@ -799,7 +799,7 @@ const ProviderServices = () => {
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <div className="relative">
-                            <span className="absolute left-2 top-1.5 text-sm text-slate-400">$</span>
+                            <span className="absolute left-2 top-1.5 text-sm text-slate-500">$</span>
                             <input
                               type="number"
                               min="0"
@@ -819,7 +819,7 @@ const ProviderServices = () => {
                               className="w-full border border-line rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
                               title="Extra minutes added"
                             />
-                            <span className="absolute right-2 top-1.5 text-xs text-slate-400">min</span>
+                            <span className="absolute right-2 top-1.5 text-xs text-slate-500">min</span>
                           </div>
                         </div>
                       </div>
@@ -837,7 +837,7 @@ const ProviderServices = () => {
                     {/* Delete */}
                     <button
                       onClick={() => handleRemoveAddon(index)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-1"
+                      className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-1"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

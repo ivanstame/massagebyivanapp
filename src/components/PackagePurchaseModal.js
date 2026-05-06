@@ -125,7 +125,7 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
           </div>
           {!success && (
             <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
-              <X className="w-5 h-5 text-slate-400" />
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           )}
         </div>
@@ -151,11 +151,11 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
                 </p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">${template.price.toFixed(2)}</p>
                 {template.kind === 'minutes' && template.minutesTotal > 0 && template.price > 0 ? (
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     ${((template.price / template.minutesTotal) * 60).toFixed(2)} per hour
                   </p>
                 ) : template.sessionsTotal > 0 && template.price > 0 ? (
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     ${(template.price / template.sessionsTotal).toFixed(2)} per session
                   </p>
                 ) : null}
@@ -197,7 +197,7 @@ const PackagePurchaseModal = ({ template, onSuccess, onClose }) => {
                 )}
               </button>
 
-              <p className="text-xs text-slate-400 text-center mt-3">
+              <p className="text-xs text-slate-500 text-center mt-3">
                 Payments processed securely by Stripe.
                 Credits never expire and you'll see them on your packages page.
               </p>

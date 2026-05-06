@@ -111,7 +111,7 @@ const PinDropMap = ({ onLocationConfirmed, initialLocation }) => {
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center h-[300px] bg-slate-100 rounded-lg">
-        <Loader className="w-6 h-6 text-slate-400 animate-spin" />
+        <Loader className="w-6 h-6 text-slate-500 animate-spin" />
         <span className="ml-2 text-slate-500 text-sm">Loading map...</span>
       </div>
     );

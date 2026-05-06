@@ -285,7 +285,7 @@ const ProviderSelection = () => {
 
         {providers.length === 0 && !isLoading && (
           <div className="text-center py-12">
-            <Users className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+            <Users className="h-16 w-16 text-slate-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-slate-600 mb-2">
               No providers available at the moment
             </h3>

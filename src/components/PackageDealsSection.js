@@ -216,7 +216,7 @@ const PackageDealsSection = ({ availableDurations }) => {
       ) : templates.length === 0 && editing !== '_new' ? (
         <div className="text-center py-6 bg-paper-deep rounded-lg border border-dashed border-slate-300">
           <p className="text-slate-500 text-sm">No package deals yet</p>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             Offer prepaid packs so regulars can buy in bulk.
           </p>
         </div>
@@ -245,7 +245,7 @@ const PackageDealsSection = ({ availableDurations }) => {
                       {tmpl.isActive ? (
                         <ToggleRight className="w-6 h-6 text-[#B07A4E]" />
                       ) : (
-                        <ToggleLeft className="w-6 h-6 text-slate-400" />
+                        <ToggleLeft className="w-6 h-6 text-slate-500" />
                       )}
                     </button>
 
@@ -267,7 +267,7 @@ const PackageDealsSection = ({ availableDurations }) => {
                             {tmpl.minutesTotal} min pool &middot;{' '}
                             <span className="font-medium text-slate-900">${tmpl.price}</span>
                             {tmpl.minutesTotal > 0 && tmpl.price > 0 && (
-                              <span className="text-xs text-slate-400 ml-1.5">
+                              <span className="text-xs text-slate-500 ml-1.5">
                                 (${((tmpl.price / tmpl.minutesTotal) * 60).toFixed(2)}/hr)
                               </span>
                             )}
@@ -277,7 +277,7 @@ const PackageDealsSection = ({ availableDurations }) => {
                             {tmpl.sessionsTotal} × {tmpl.sessionDuration} min &middot;{' '}
                             <span className="font-medium text-slate-900">${tmpl.price}</span>
                             {tmpl.sessionsTotal > 0 && tmpl.price > 0 && (
-                              <span className="text-xs text-slate-400 ml-1.5">
+                              <span className="text-xs text-slate-500 ml-1.5">
                                 (${(tmpl.price / tmpl.sessionsTotal).toFixed(2)}/session)
                               </span>
                             )}
@@ -292,7 +292,7 @@ const PackageDealsSection = ({ availableDurations }) => {
                     <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => startEdit(tmpl)}
-                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
                         title="Edit"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -300,7 +300,7 @@ const PackageDealsSection = ({ availableDurations }) => {
                       <button
                         onClick={() => remove(tmpl)}
                         disabled={savingId === tmpl._id}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                         title="Remove"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -426,7 +426,7 @@ const PackageForm = ({ draft, setDraft, availableDurations, onSave, onCancel, sa
               className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
             />
             {draft.minutesTotal > 0 && (
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 {(draft.minutesTotal / 60).toFixed(draft.minutesTotal % 60 ? 1 : 0)} hours
               </p>
             )}
@@ -501,7 +501,7 @@ const PackageForm = ({ draft, setDraft, availableDurations, onSave, onCancel, sa
 
       <div>
         <label className="block text-xs font-medium text-slate-700 mb-1">
-          Description <span className="font-normal text-slate-400">(optional, shown to clients)</span>
+          Description <span className="font-normal text-slate-500">(optional, shown to clients)</span>
         </label>
         <input
           type="text"

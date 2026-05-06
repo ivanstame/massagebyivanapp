@@ -198,7 +198,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 }`}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <Navigation className={`w-4 h-4 ${kind === 'mobile' ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
+                  <Navigation className={`w-4 h-4 ${kind === 'mobile' ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
                   <span className="text-sm font-medium text-slate-900">Mobile</span>
                 </div>
                 <span className="text-xs text-slate-500">You travel to clients</span>
@@ -215,7 +215,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 title={staticLocations.length === 0 ? 'Add an in-studio location first' : ''}
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <Building2 className={`w-4 h-4 ${kind === 'static' ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
+                  <Building2 className={`w-4 h-4 ${kind === 'static' ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
                   <span className="text-sm font-medium text-slate-900">In-studio</span>
                 </div>
                 <span className="text-xs text-slate-500">
@@ -224,7 +224,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
               </button>
             </div>
             {staticLocations.length === 0 && (
-              <p className="text-xs text-slate-400 mt-2">
+              <p className="text-xs text-slate-500 mt-2">
                 <a href="/provider/locations" className="text-[#B07A4E] underline">
                   Tag a saved location as in-studio
                 </a>{' '}
@@ -240,7 +240,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 In-studio location
               </label>
               <div className="relative">
-                <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                 <select
                   id="staticLocation"
                   value={selectedStaticLocationId}
@@ -284,8 +284,8 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 </div>
               </div>
               {showLocationPicker ?
-                <ChevronUp className="w-4 h-4 text-slate-400" /> :
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-4 h-4 text-slate-500" /> :
+                <ChevronDown className="w-4 h-4 text-slate-500" />
               }
             </button>
 

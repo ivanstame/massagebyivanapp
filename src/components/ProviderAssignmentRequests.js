@@ -83,7 +83,7 @@ const ProviderAssignmentRequests = () => {
 
         {requests.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <Clock className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+            <Clock className="h-16 w-16 text-slate-500 mx-auto mb-4" />
             <h2 className="text-xl font-medium text-slate-700 mb-2">No Pending Requests</h2>
             <p className="text-slate-500">
               You don't have any pending client assignment requests at the moment.

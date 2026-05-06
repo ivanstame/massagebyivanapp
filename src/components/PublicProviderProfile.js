@@ -133,10 +133,10 @@ const PublicProviderProfile = () => {
                   <div>
                     <span className="text-slate-700 font-medium">{addon.name}</span>
                     {addon.extraTime > 0 && (
-                      <span className="text-slate-400 text-sm ml-2">+{addon.extraTime} min</span>
+                      <span className="text-slate-500 text-sm ml-2">+{addon.extraTime} min</span>
                     )}
                     {addon.description && (
-                      <p className="text-sm text-slate-400 mt-0.5">{addon.description}</p>
+                      <p className="text-sm text-slate-500 mt-0.5">{addon.description}</p>
                     )}
                   </div>
                   <span className="text-slate-700 font-semibold">+${addon.price}</span>
@@ -175,7 +175,7 @@ const PublicProviderProfile = () => {
           >
             Book Now
           </Link>
-          <p className="text-center text-slate-400 text-sm mt-3">
+          <p className="text-center text-slate-500 text-sm mt-3">
             Create a free account to book your appointment
           </p>
         </div>

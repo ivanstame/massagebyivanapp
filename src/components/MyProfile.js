@@ -382,11 +382,11 @@ const MyProfile = () => {
                       {formData.address.city && formData.address.state ? (
                         `${formData.address.city}, ${formData.address.state} ${formData.address.zip}`
                       ) : (
-                        <span className="text-slate-400 italic">Incomplete address</span>
+                        <span className="text-slate-500 italic">Incomplete address</span>
                       )}
                     </>
                   ) : (
-                    <span className="text-slate-400 italic">No address provided</span>
+                    <span className="text-slate-500 italic">No address provided</span>
                   )}
                 </div>
               </div>
@@ -555,7 +555,7 @@ const MyProfile = () => {
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-slate-400">None specified</span>
+                <span className="text-sm text-slate-500">None specified</span>
               )}
             </div>
           </div>
@@ -569,7 +569,7 @@ const MyProfile = () => {
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-slate-400">None specified</span>
+                <span className="text-sm text-slate-500">None specified</span>
               )}
             </div>
           </div>

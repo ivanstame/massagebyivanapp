@@ -13,10 +13,13 @@
   --bg-elev:  #FBF7EF;
   --bg-deep:  #EDE5D5;
 
-  /* Ink */
+  /* Ink — tertiary darkened from #8D857B to #6B6359 so muted copy
+     (eyebrow labels, helper text) clears WCAG AA on the cream
+     background instead of sitting at ~3:1. Primary + secondary were
+     already at AAA / AA respectively. */
   --ink:      #2A2520;
   --ink-2:    #5B534B;
-  --ink-3:    #8D857B;
+  --ink-3:    #6B6359;
 
   /* Lines */
   --line:     rgba(42,37,32,0.12);
@@ -51,11 +54,27 @@ html, body {
   color: var(--ink);
 }
 
+/* Text-size accessibility toggle. Scales the html root font-size so
+   every Tailwind rem-based utility (text-*, padding, margin, width,
+   height) plus our own rem-based body size grows or shrinks
+   proportionally. The four steps are intentionally close together —
+   25% spread total — so the layout doesn't break, just gets easier
+   to read. Persisted to localStorage; restored on app mount.
+   Default class is `text-size-default` set in JS; falling back to
+   the unprefixed html selector means an unmounted page still looks
+   right. */
+html                       { font-size: 16px; }
+html.text-size-sm          { font-size: 14.5px; }
+html.text-size-default     { font-size: 16px; }
+html.text-size-lg          { font-size: 18px; }
+html.text-size-xl          { font-size: 20px; }
+
 body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
-  font-size: 17px;
+  /* 17px when html is at the default 16px; scales with the toggle. */
+  font-size: 1.0625rem;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

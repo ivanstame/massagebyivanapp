@@ -12,7 +12,9 @@ import {
   LayoutDashboard, Calendar, Clock, CalendarRange, MapPin, Sparkles,
   Users, Megaphone, Car, Settings,
   CalendarPlus, Package, ShoppingBag, User as UserIcon, Shield,
+  Type,
 } from 'lucide-react';
+import useTextSize from '../../hooks/useTextSize';
 
 // Maps a nav-link href to a Lucide icon. Falls back to a generic icon if
 // nothing matches. Centralized here so both client + provider menus
@@ -46,6 +48,7 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
   // Live drag offset (px) while the user is dragging down. 0 when at rest.
   const [dragY, setDragY] = useState(0);
   const dragState = useRef({ startY: 0, startT: 0, dragging: false });
+  const { size: textSize, setSize: setTextSize, steps: textSizeSteps } = useTextSize();
 
   // Body scroll-lock + ESC-to-close while the sheet is open.
   useEffect(() => {
@@ -263,6 +266,51 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
               </div>
             </>
           )}
+
+          {/* Text size — accessibility for low-vision users. Each step
+              scales the html root font-size; rem-based Tailwind utilities
+              cascade through the whole app. Persisted to localStorage by
+              the hook. Buttons render the letter "A" at the size each
+              step would produce, so users see the change before
+              committing. */}
+          <div className="mt-6 pt-4 border-t border-line">
+            <div className="av-eyebrow mb-3 flex items-center gap-2">
+              <Type className="w-3.5 h-3.5" />
+              <span>Text Size</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {textSizeSteps.map((step) => {
+                const active = textSize === step.id;
+                const sample = {
+                  sm: 'text-xs',
+                  default: 'text-sm',
+                  lg: 'text-base',
+                  xl: 'text-lg',
+                }[step.id];
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setTextSize(step.id)}
+                    aria-label={`${step.description} text size`}
+                    aria-pressed={active}
+                    className={`flex flex-col items-center justify-center py-2.5 rounded-lg border-2 transition-colors ${
+                      active
+                        ? 'border-[#B07A4E] bg-[color:var(--accent-soft)] text-[#B07A4E]'
+                        : 'border-line bg-paper-deep text-ink-2 hover:border-[#B07A4E]/40'
+                    }`}
+                  >
+                    <span className={`${sample} font-semibold leading-none`}>
+                      {step.label}
+                    </span>
+                    <span className="text-[10px] mt-1 opacity-70">
+                      {step.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Footer — privacy + version, muted */}
           <div className="mt-6 pt-4 border-t border-line text-xs text-ink-3 flex items-center justify-between">

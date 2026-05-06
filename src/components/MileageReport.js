@@ -228,7 +228,7 @@ const MileageReport = () => {
             ].map((card, i) => (
               <div key={i} className="bg-paper-elev rounded-xl shadow-sm border border-line p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <card.icon className={`w-4 h-4 ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-400'}`} />
+                  <card.icon className={`w-4 h-4 ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
                   <span className="text-xs font-medium text-slate-500">{card.label}</span>
                 </div>
                 <p className={`text-xl font-bold ${card.highlight ? 'text-[#B07A4E]' : 'text-slate-900'}`}>
@@ -240,7 +240,7 @@ const MileageReport = () => {
 
           {/* IRS Rate Note */}
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-slate-500">
               IRS standard rate: ${report.irsRate}/mile ({new Date().getFullYear()})
             </p>
             <button
@@ -271,9 +271,9 @@ const MileageReport = () => {
                     className="w-full px-5 py-4 flex items-center justify-between hover:bg-paper-deep transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <Calendar className="w-4 h-4 text-slate-500" />
                       <span className="font-medium text-slate-800">{fmtDate(day.date)}</span>
-                      <span className="text-sm text-slate-400">{day.appointments} appt{day.appointments !== 1 ? 's' : ''}</span>
+                      <span className="text-sm text-slate-500">{day.appointments} appt{day.appointments !== 1 ? 's' : ''}</span>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
@@ -281,15 +281,15 @@ const MileageReport = () => {
                           {day.deductibleMiles.toFixed(1)} mi
                         </span>
                         {day.totalMiles !== day.deductibleMiles && (
-                          <span className="text-xs text-slate-400 ml-2">
+                          <span className="text-xs text-slate-500 ml-2">
                             / {day.totalMiles.toFixed(1)} total
                           </span>
                         )}
                       </div>
                       {expandedDays[day.date] ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
+                        <ChevronUp className="w-4 h-4 text-slate-500" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-slate-500" />
                       )}
                     </div>
                   </button>
@@ -330,7 +330,7 @@ const MileageReport = () => {
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <MapPin className={`w-3.5 h-3.5 flex-shrink-0 ${
                                   isGap ? 'text-amber-500'
-                                    : (leg.isDeductible ? 'text-green-500' : 'text-slate-400')
+                                    : (leg.isDeductible ? 'text-green-500' : 'text-slate-500')
                                 }`} />
                                 <span className="text-sm text-slate-600 truncate">
                                   {leg.from}
@@ -343,7 +343,7 @@ const MileageReport = () => {
                               <div className="flex items-center gap-3 flex-shrink-0 ml-3">
                                 <span className={`text-sm font-medium ${
                                   isGap ? 'text-amber-700'
-                                    : (leg.isDeductible ? 'text-green-700' : 'text-slate-400')
+                                    : (leg.isDeductible ? 'text-green-700' : 'text-slate-500')
                                 }`}>
                                   {leg.miles.toFixed(1)} mi
                                 </span>
