@@ -59,10 +59,27 @@ async function reservePackageCredit({ packageId, clientId, providerId, duration,
         cancelledAt: null,
         $expr: {
           $gte: [
-            // remaining = minutesTotal - preConsumed - sum(active redemptions' minutesConsumed)
+            // remaining = (minutesTotal + sum(bonuses.minutes)) - preConsumed
+            //             - sum(active redemptions' minutesConsumed)
+            //
+            // Bonuses are provider-granted comp time stored alongside the
+            // original purchase amount. Earlier this expression skipped
+            // them, so a package displayed as "60 min remaining" (where
+            // 30 came from a comp) would silently reject a 60-min
+            // redemption — the conditional saw only the un-comped pool.
             {
               $subtract: [
-                { $subtract: ['$minutesTotal', { $ifNull: ['$preConsumedMinutes', 0] }] },
+                {
+                  $subtract: [
+                    {
+                      $add: [
+                        '$minutesTotal',
+                        { $sum: { $map: { input: { $ifNull: ['$bonuses', []] }, as: 'b', in: { $ifNull: ['$$b.minutes', 0] } } } },
+                      ],
+                    },
+                    { $ifNull: ['$preConsumedMinutes', 0] },
+                  ],
+                },
                 {
                   $sum: {
                     $map: {
@@ -114,7 +131,20 @@ async function reservePackageCredit({ packageId, clientId, providerId, duration,
       cancelledAt: null,
       $expr: {
         $gt: [
-          { $subtract: ['$sessionsTotal', { $ifNull: ['$preConsumedSessions', 0] }] },
+          // capacity = (sessionsTotal + sum(bonuses.sessions)) - preConsumedSessions
+          // Bonuses are provider-granted comp sessions; same fix as the
+          // minutes branch above.
+          {
+            $subtract: [
+              {
+                $add: [
+                  '$sessionsTotal',
+                  { $sum: { $map: { input: { $ifNull: ['$bonuses', []] }, as: 'b', in: { $ifNull: ['$$b.sessions', 0] } } } },
+                ],
+              },
+              { $ifNull: ['$preConsumedSessions', 0] },
+            ],
+          },
           {
             $size: {
               $filter: {
