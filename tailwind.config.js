@@ -83,16 +83,22 @@ module.exports = {
         sans:    ['"Inter Tight"', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
         mono:    ['"JetBrains Mono"', 'ui-monospace', 'Menlo', 'monospace'],
       },
+      // Type scale in rem so the text-size accessibility toggle (which
+      // changes the html root font-size) actually scales the whole UI.
+      // Px values lock every utility to a fixed size and the toggle
+      // becomes a no-op everywhere except plain inherited body text.
+      // Anchor: html=16px → text-base=17px, matching the original
+      // design intent (1.0625rem). Other steps proportional.
       fontSize: {
-        'base': '17px',               // slightly dialed back from 18px
-        'xs':   '12px',
-        'sm':   '14px',
-        'lg':   '19px',
-        'xl':   '22px',
-        '2xl':  '26px',
-        '3xl':  '32px',
-        '4xl':  '42px',
-        '5xl':  '56px',
+        'base': '1.0625rem',          // 17px @ 16px root
+        'xs':   '0.75rem',            // 12px
+        'sm':   '0.875rem',           // 14px
+        'lg':   '1.1875rem',          // 19px
+        'xl':   '1.375rem',           // 22px
+        '2xl':  '1.625rem',           // 26px
+        '3xl':  '2rem',               // 32px
+        '4xl':  '2.625rem',           // 42px
+        '5xl':  '3.5rem',             // 56px
       },
       letterSpacing: {
         meta: '0.14em',
