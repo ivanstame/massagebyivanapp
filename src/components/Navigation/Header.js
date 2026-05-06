@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronUp } from 'lucide-react';
 import { AuthContext } from '../../AuthContext';
@@ -9,6 +9,31 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Swipe-up-to-open on the peek bar. Mirrors the swipe-down-to-
+  // close gesture inside MobileMenu so the bar feels like a
+  // bidirectional handle. Threshold is generous: a 30px drag up OR
+  // a fast upward flick (velocity > 0.4 px/ms) counts. Tap still
+  // works — touchend without crossing the threshold falls through
+  // to the button's onClick.
+  const swipeState = useRef({ startY: 0, startT: 0, opened: false });
+  const onPeekTouchStart = (e) => {
+    swipeState.current = {
+      startY: e.touches[0].clientY,
+      startT: Date.now(),
+      opened: false,
+    };
+  };
+  const onPeekTouchMove = (e) => {
+    if (swipeState.current.opened) return;
+    const dy = e.touches[0].clientY - swipeState.current.startY;
+    const dt = Math.max(1, Date.now() - swipeState.current.startT);
+    const velocity = -dy / dt; // px/ms upward (positive)
+    if (dy < -30 || velocity > 0.4) {
+      swipeState.current.opened = true;
+      setMobileMenuOpen(true);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -133,7 +158,9 @@ const Header = () => {
       <button
         type="button"
         onClick={() => setMobileMenuOpen(true)}
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#B07A4E] hover:bg-[#8A5D36] active:bg-[#7A5230] transition-colors shadow-[0_-4px_16px_rgba(0,0,0,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        onTouchStart={onPeekTouchStart}
+        onTouchMove={onPeekTouchMove}
+        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#B07A4E] hover:bg-[#8A5D36] active:bg-[#7A5230] transition-colors shadow-[0_-4px_16px_rgba(0,0,0,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))] touch-pan-x"
         aria-label="Open menu"
       >
         <span className="block w-10 h-1 rounded-full bg-white/40 mx-auto mt-2 mb-1" />
