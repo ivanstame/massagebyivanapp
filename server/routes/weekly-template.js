@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { DateTime } = require('luxon');
 const WeeklyTemplate = require('../models/WeeklyTemplate');
 const SavedLocation = require('../models/SavedLocation');
+const Availability = require('../models/Availability');
+const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
 // Get all template entries for the logged-in provider (with anchor location populated)
@@ -100,6 +103,20 @@ router.put('/', ensureAuthenticated, async (req, res) => {
     });
 
     await WeeklyTemplate.bulkWrite(operations);
+
+    // Invalidate already-generated Availability rows for today + future
+    // so they regenerate from the new template on next view. Without
+    // this, the day-generator's "if exists, skip" guard makes new
+    // template hours invisible on dates the user/server has already
+    // touched. Past dates are left alone (historical record); manual
+    // edits (source: 'manual') survive — only template-sourced rows
+    // are blown away.
+    const todayLA = DateTime.now().setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.ISO_DATE);
+    await Availability.deleteMany({
+      provider: req.user._id,
+      source: 'template',
+      localDate: { $gte: todayLA },
+    });
 
     const updated = await WeeklyTemplate.find({ provider: req.user._id })
       .sort({ dayOfWeek: 1 });
