@@ -343,7 +343,7 @@ const ProviderClients = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-7xl mx-auto px-5 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-5 py-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 gap-4">
           <div>
             <div className="av-eyebrow mb-2">Your people</div>
@@ -548,11 +548,15 @@ const ProviderClients = () => {
           )}
         </div>
 
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line">
+        {/* Flush list — no outer card. Each client/invitation row
+            is a flush p-4 hover-bg row separated by hairline
+            dividers. The page background carries the surface;
+            wrapping the list in a card was redundant chrome. */}
+        <div>
           {activeTab === 'clients' ? (
             <>
               {isLoading ? (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-line-soft">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="p-6">
                       <div className="flex justify-between items-start">
@@ -608,7 +612,7 @@ const ProviderClients = () => {
                   <p className="text-sm text-slate-500">Try adjusting your search terms</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-line-soft">
                   {filteredClients.map(client => {
                     const address = formatClientAddress(client.profile?.address);
                     const stats = client.bookingStats;
@@ -737,7 +741,7 @@ const ProviderClients = () => {
           ) : (
             <>
               {isLoadingInvitations ? (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-line-soft">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="p-6">
                       <div className="flex justify-between items-start">
@@ -777,7 +781,7 @@ const ProviderClients = () => {
                   <p className="text-sm text-slate-500">Try adjusting your search terms</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-line-soft">
                   {filteredInvitations.map(invitation => (
                     <div key={invitation._id} className="p-4 sm:p-6 hover:bg-paper-deep">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-4 sm:space-y-0">
