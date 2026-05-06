@@ -47,7 +47,7 @@ const MyPackages = () => {
   if (loading) {
     return (
       <div className="av-paper pt-16 min-h-screen">
-        <div className="max-w-2xl mx-auto px-5 py-8">
+        <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
           <p className="text-sm text-ink-2">Loading…</p>
         </div>
       </div>
@@ -56,7 +56,7 @@ const MyPackages = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
         <div className="mb-7 flex items-end justify-between gap-3">
           <div>
             <div className="av-eyebrow mb-2">Your prepaid sessions</div>
@@ -124,8 +124,8 @@ const MyPackages = () => {
 
 const Section = ({ title, children }) => (
   <div>
-    <p className="text-[11px] uppercase tracking-wider text-ink-2 mb-2 font-medium">{title}</p>
-    <div className="space-y-2">{children}</div>
+    <p className="text-[11px] uppercase tracking-wider text-ink-2 mb-2 font-medium border-b border-line pb-2">{title}</p>
+    <div>{children}</div>
   </div>
 );
 
@@ -154,7 +154,7 @@ const PackageCard = ({ pkg, formatDate, muted = false }) => {
       : `${pkg.sessionsTotal} × ${pkg.sessionDuration}-min sessions`;
 
   return (
-    <div className={`bg-paper-elev rounded-lg shadow-sm border border-line p-4 ${muted ? 'opacity-70' : ''}`}>
+    <div className={`py-4 border-b border-line-soft last:border-b-0 ${muted ? 'opacity-70' : ''}`}>
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-full bg-[#B07A4E]/10 flex items-center justify-center flex-shrink-0">

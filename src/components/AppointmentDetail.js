@@ -269,7 +269,7 @@ const AppointmentDetail = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-lg mx-auto px-5 py-8">
+      <div className="max-w-lg mx-auto px-3 sm:px-5 py-8">
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}

@@ -230,7 +230,7 @@ const BookingList = () => {
   if (error) {
     return (
       <div className="av-paper pt-16 min-h-screen">
-        <div className="max-w-2xl mx-auto px-5 py-8">
+        <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
           <div className="flex items-start gap-3 p-4 border border-red-200 rounded-card" style={{ background: 'rgba(165,70,65,0.08)' }}>
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-red-700">{error}</p>
@@ -242,7 +242,7 @@ const BookingList = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
         {/* Header */}
         <div className="mb-6">
           <div className="av-eyebrow mb-2">

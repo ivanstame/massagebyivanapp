@@ -175,7 +175,7 @@ const ProviderWeeklyOutreach = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Drum up business</div>
           <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
@@ -232,8 +232,8 @@ const ProviderWeeklyOutreach = () => {
         {totalCount > 0 && (
           <>
             {/* Recipients picker */}
-            <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-5 mb-4">
-              <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="mb-6">
+              <div className="flex items-center justify-between gap-2 py-2 mb-3 border-b border-line">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-[#B07A4E]" />
                   <h3 className="font-medium text-slate-900">Recipients</h3>
@@ -327,8 +327,8 @@ const ProviderWeeklyOutreach = () => {
             </div>
 
             {/* Preview */}
-            <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-5 mb-4">
-              <div className="flex items-center justify-between mb-2">
+            <div className="mb-6">
+              <div className="flex items-center justify-between py-2 mb-3 border-b border-line">
                 <div className="flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-[#B07A4E]" />
                   <h3 className="font-medium text-slate-900">Preview</h3>
@@ -385,7 +385,7 @@ const ProviderWeeklyOutreach = () => {
             </div>
 
             {/* Send */}
-            <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-5 mb-6">
+            <div className="mb-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-xs text-slate-500">
                   <div className="flex items-center gap-1.5">

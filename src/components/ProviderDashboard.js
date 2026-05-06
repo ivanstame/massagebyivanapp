@@ -294,7 +294,7 @@ const ProviderDashboard = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-6xl mx-auto px-5 py-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-5 py-8">
         {/* Greeting header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>

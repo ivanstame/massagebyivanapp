@@ -116,7 +116,7 @@ const MileageReport = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-4xl mx-auto px-5 py-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">For the taxman</div>
           <div className="flex items-center gap-3">

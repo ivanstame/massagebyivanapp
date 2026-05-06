@@ -272,7 +272,7 @@ const ProviderSettings = () => {
 
   return (
     <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-2xl mx-auto px-5 py-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Tune the studio</div>
           <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
@@ -298,8 +298,8 @@ const ProviderSettings = () => {
         )}
 
         {/* Business Information */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <Settings className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Business Information</h3>
           </div>
@@ -377,8 +377,8 @@ const ProviderSettings = () => {
         </div>
 
         {/* Home Address */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 py-2 border-b border-line mb-2">
             <Home className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Home Address</h3>
           </div>
@@ -446,7 +446,7 @@ const ProviderSettings = () => {
 
         {/* Tax & Mileage */}
         <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <Home className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Tax & Mileage</h3>
           </div>
@@ -471,7 +471,7 @@ const ProviderSettings = () => {
 
         {/* Booking Flow */}
         <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <Calendar className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Booking Flow</h3>
           </div>
@@ -496,7 +496,7 @@ const ProviderSettings = () => {
 
         {/* Cancellation Policy */}
         <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <AlertCircle className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Cancellation Policy</h3>
           </div>
@@ -555,8 +555,8 @@ const ProviderSettings = () => {
         </div>
 
         {/* Stripe Connect */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <CreditCard className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Card Payments (Stripe)</h3>
           </div>
@@ -627,8 +627,8 @@ const ProviderSettings = () => {
         </div>
 
         {/* Google Calendar */}
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 py-2 mb-4 border-b border-line">
             <Calendar className="w-5 h-5 text-[#B07A4E]" />
             <h3 className="font-medium text-slate-900">Google Calendar Sync</h3>
           </div>
