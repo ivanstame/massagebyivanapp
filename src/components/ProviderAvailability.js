@@ -167,8 +167,18 @@ const ProviderAvailability = () => {
 
   const fetchBookings = useCallback(async (date) => {
     try {
+      // Use the LA calendar date, not the UTC slice. `date.toISOString()`
+      // collapses local time → UTC, so when the page loads in the
+      // evening LA time the UTC date has already rolled to the next
+      // day and we'd query the wrong day's bookings. The user's
+      // initial-load symptom — "page looks empty until I toggle the
+      // date" — was exactly this: clicking a calendar cell sets a
+      // clean LA-midnight value where toISOString().split agrees,
+      // initial mount with `new Date()` doesn't. fetchAvailabilityBlocks
+      // and fetchBlockedTimes already do this conversion; this matches.
+      const laDate = DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
       const response = await axios.get(
-        `/api/bookings?date=${date.toISOString().split('T')[0]}`,
+        `/api/bookings?date=${laDate}`,
         { withCredentials: true }
       );
       // The /api/bookings endpoint includes cancelled bookings (other
