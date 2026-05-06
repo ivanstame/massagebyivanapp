@@ -347,7 +347,7 @@ const ProviderClients = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 gap-4">
           <div>
             <div className="av-eyebrow mb-2">Your people</div>
-            <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
               Clients
             </h1>
             <p className="text-sm text-ink-2 mt-1.5">

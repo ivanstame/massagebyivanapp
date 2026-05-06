@@ -19,7 +19,7 @@ const UpdateAvailableBanner = ({ visible, onReload }) => {
     <div
       role="status"
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg bg-[#B07A4E] text-white max-w-[92vw]"
-      style={{ fontSize: 14 }}
+      style={{ fontSize: "0.875rem" }}
     >
       <RefreshCw className="w-4 h-4 flex-shrink-0" />
       <span>A new version is available.</span>

@@ -287,7 +287,7 @@ const AppointmentDetail = () => {
               : 'Appointment'}
           </div>
           <div className="flex justify-between items-start">
-            <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.05, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            <h1 className="font-display" style={{ fontSize: "2.25rem", lineHeight: 1.05, fontWeight: 500, letterSpacing: '-0.01em' }}>
               {booking.startTime ? (() => {
                 const t = formatTime(booking.startTime);
                 const parts = t.split(' ');
@@ -295,7 +295,7 @@ const AppointmentDetail = () => {
               })() : 'Appointment'}
             </h1>
             <span className={`av-meta px-2.5 py-1 rounded-full border border-line text-ink-2 ${statusColor(booking.status)}`}
-              style={{ fontSize: 10 }}>
+              style={{ fontSize: "0.625rem" }}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
             </span>
           </div>

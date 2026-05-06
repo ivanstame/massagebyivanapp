@@ -159,13 +159,13 @@ const BookingList = () => {
               color: isPrimary ? '#fff' : 'var(--ink)',
             }}
           >
-            <div className="av-meta" style={{ fontSize: 9, opacity: 0.8, color: 'inherit' }}>{month}</div>
-            <div className="font-display" style={{ fontSize: 22, lineHeight: 1, fontWeight: 500 }}>{day}</div>
+            <div className="av-meta" style={{ fontSize: "0.5625rem", opacity: 0.8, color: 'inherit' }}>{month}</div>
+            <div className="font-display" style={{ fontSize: "1.375rem", lineHeight: 1, fontWeight: 500 }}>{day}</div>
           </div>
 
           {/* Body */}
           <div className="flex-1 min-w-0">
-            <div className="font-display truncate" style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 500 }}>
+            <div className="font-display truncate" style={{ fontSize: "1rem", lineHeight: 1.25, fontWeight: 500 }}>
               {title}
             </div>
             <div className="text-xs text-ink-3 mt-0.5 truncate">{timeRange}</div>
@@ -182,7 +182,7 @@ const BookingList = () => {
               background: statusStyle.bg,
               color: statusStyle.text,
               border: `1px solid ${statusStyle.border}`,
-              fontSize: 10,
+              fontSize: "0.625rem",
             }}
           >
             {booking.status === 'in-progress' ? 'In progress' : booking.status || 'Pending'}
@@ -250,7 +250,7 @@ const BookingList = () => {
               ? `Your hours with ${provider.providerProfile.businessName}`
               : 'Your hours'}
           </div>
-          <h1 className="font-display" style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display" style={{ fontSize: "1.875rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Appointments
           </h1>
 
@@ -292,7 +292,7 @@ const BookingList = () => {
                 background: activeTab === t.id ? 'var(--ink)' : 'transparent',
                 color: activeTab === t.id ? 'var(--bg)' : 'var(--ink-2)',
                 border: `1px solid ${activeTab === t.id ? 'var(--ink)' : 'var(--line)'}`,
-                fontSize: 11,
+                fontSize: "0.6875rem",
               }}
             >
               {t.label}

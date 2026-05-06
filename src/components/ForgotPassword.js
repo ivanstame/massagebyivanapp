@@ -34,7 +34,7 @@ const ForgotPassword = () => {
         </div>
         <div className="text-center mb-8">
           <div className="av-meta mb-1.5">A moment of forgetfulness</div>
-          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Reset your <em style={{ color: '#B07A4E' }}>password.</em>
           </h1>
           <p className="mt-2 text-sm text-ink-2">

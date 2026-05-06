@@ -60,7 +60,7 @@ const MyPackages = () => {
         <div className="mb-7 flex items-end justify-between gap-3">
           <div>
             <div className="av-eyebrow mb-2">Your prepaid sessions</div>
-            <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
               My <em style={{ color: '#B07A4E' }}>packages</em>
             </h1>
           </div>

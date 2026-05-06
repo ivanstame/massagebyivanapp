@@ -74,7 +74,7 @@ const Home = () => {
 
         <div className="relative z-10">
           <div className="av-meta text-ink-3">{todayLabel}</div>
-          <h1 className="font-display mt-1 mb-0" style={{ fontSize: 34, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display mt-1 mb-0" style={{ fontSize: "2.125rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             {greeting},<br />
             <em style={{ color: '#B07A4E' }}>{firstName}.</em>
           </h1>
@@ -116,10 +116,10 @@ const Home = () => {
               <div className="flex justify-between items-start relative z-10">
                 <div>
                   <div className="av-meta" style={{ color: '#B07A4E' }}>Your next hour</div>
-                  <div className="font-display mt-2" style={{ fontSize: 24, lineHeight: 1.15, fontWeight: 500 }}>
+                  <div className="font-display mt-2" style={{ fontSize: "1.5rem", lineHeight: 1.15, fontWeight: 500 }}>
                     {nextAppt.dateLine}
                   </div>
-                  <div className="mt-0.5 text-ink-2" style={{ fontSize: 15 }}>
+                  <div className="mt-0.5 text-ink-2" style={{ fontSize: "0.9375rem" }}>
                     {nextAppt.timeLine}
                   </div>
                 </div>
@@ -163,7 +163,7 @@ const Home = () => {
           ) : (
             <div className="relative z-10">
               <div className="av-meta" style={{ color: '#B07A4E' }}>A clear schedule</div>
-              <div className="font-display mt-2" style={{ fontSize: 22, lineHeight: 1.2, fontWeight: 500 }}>
+              <div className="font-display mt-2" style={{ fontSize: "1.375rem", lineHeight: 1.2, fontWeight: 500 }}>
                 No appointments on the books.
               </div>
               <div className="text-sm text-ink-2 mt-1">Find a time that suits you.</div>
@@ -195,10 +195,10 @@ const Home = () => {
               style={{ background: 'rgba(176,122,78,0.12)', borderColor: 'transparent' }}>
               <BrushLeaf size={36} color="#B07A4E" />
               <div className="flex-1">
-                <div className="font-display" style={{ fontSize: 15, lineHeight: 1.3, fontWeight: 500 }}>
+                <div className="font-display" style={{ fontSize: "0.9375rem", lineHeight: 1.3, fontWeight: 500 }}>
                   You last booked {lastBookingDaysAgo} days ago.
                 </div>
-                <div className="text-ink-2 mt-0.5" style={{ fontSize: 12.5 }}>
+                <div className="text-ink-2 mt-0.5" style={{ fontSize: "0.78125rem" }}>
                   Your shoulders miss you.
                 </div>
               </div>
@@ -229,8 +229,8 @@ const Row = ({ icon, label, children }) => (
 const QuickCard = ({ to, title, sub }) => (
   <Link to={to} className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-3.5
     hover:shadow-atelier-md transition block">
-    <div className="font-display" style={{ fontSize: 15, lineHeight: 1.3, fontWeight: 500 }}>{title}</div>
-    <div className="text-ink-3 mt-1" style={{ fontSize: 11.5 }}>{sub}</div>
+    <div className="font-display" style={{ fontSize: "0.9375rem", lineHeight: 1.3, fontWeight: 500 }}>{title}</div>
+    <div className="text-ink-3 mt-1" style={{ fontSize: "0.71875rem" }}>{sub}</div>
     <div className="mt-3.5 flex justify-end text-accent">
       <ArrowRight className="w-3.5 h-3.5" />
     </div>

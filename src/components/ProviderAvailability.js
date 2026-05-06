@@ -609,7 +609,7 @@ const formatTime = useCallback((time) => {
         <div className="hidden lg:flex justify-between items-center mb-6">
           <div>
             <div className="av-eyebrow mb-1">Your schedule</div>
-            <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
               Manage <em style={{ color: '#B07A4E' }}>availability</em>
             </h1>
           </div>

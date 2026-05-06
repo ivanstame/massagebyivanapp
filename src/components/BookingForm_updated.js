@@ -1061,7 +1061,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             />
           )}
           <div className="av-meta mb-2">The booking</div>
-          <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display" style={{ fontSize: "2.25rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Choose a{' '}
             <em style={{ color: '#B07A4E' }}>
               {DateTime.now().setZone(DEFAULT_TZ).hour < 12 ? 'morning' : 'afternoon'}

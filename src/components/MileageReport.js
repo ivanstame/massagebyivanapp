@@ -124,7 +124,7 @@ const MileageReport = () => {
               <Car className="w-5 h-5 text-accent" />
             </div>
             <div>
-              <h1 className="font-display" style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+              <h1 className="font-display" style={{ fontSize: "1.875rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
                 Mileage report
               </h1>
               <p className="text-sm text-ink-2 mt-0.5">Track driving miles for tax deductions</p>

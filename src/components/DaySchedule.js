@@ -92,7 +92,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
       {/* Schedule header */}
       <div className="py-2.5 px-4 flex-shrink-0 border-b border-line" style={{ background: 'var(--bg-deep)' }}>
         <div className="av-eyebrow text-ink-3 mb-0.5">Today</div>
-        <h2 className="font-display text-ink" style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.2 }}>
+        <h2 className="font-display text-ink" style={{ fontSize: "1rem", fontWeight: 500, lineHeight: 1.2 }}>
           {DateTime.fromJSDate(date)
             .setZone(DEFAULT_TZ)
             .toFormat('cccc, LLLL d')}

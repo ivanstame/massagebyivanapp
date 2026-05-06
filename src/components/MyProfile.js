@@ -279,7 +279,7 @@ const MyProfile = () => {
       <div className="max-w-3xl mx-auto px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Your details</div>
-          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Profile
           </h1>
         </div>

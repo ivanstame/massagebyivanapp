@@ -178,7 +178,7 @@ const ProviderWeeklyOutreach = () => {
       <div className="max-w-2xl mx-auto px-5 py-8">
         <div className="mb-7">
           <div className="av-eyebrow mb-2">Drum up business</div>
-          <h1 className="font-display" style={{ fontSize: 32, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Weekly <em style={{ color: '#B07A4E' }}>outreach</em>
           </h1>
           <p className="text-sm text-ink-2 mt-1.5">

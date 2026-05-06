@@ -133,7 +133,7 @@ const InstallPromptBanner = () => {
         role="dialog"
         aria-label="Install Avayble"
         className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[99] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg bg-paper-elev border border-line max-w-[92vw]"
-        style={{ fontSize: 14 }}
+        style={{ fontSize: "0.875rem" }}
       >
         <Download className="w-4 h-4 flex-shrink-0 text-[#B07A4E]" />
         <span className="text-slate-800">Add Avayble to your home screen.</span>

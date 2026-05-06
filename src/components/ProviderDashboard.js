@@ -10,7 +10,7 @@ const Stat = ({ label, value, sub, accent }) => (
   <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-5 relative overflow-hidden">
     <div className="av-meta text-ink-3">{label}</div>
     <div className="font-display mt-2"
-      style={{ fontSize: 30, lineHeight: 1, fontWeight: 500, color: accent ? '#B07A4E' : '#2A2520' }}>
+      style={{ fontSize: "1.875rem", lineHeight: 1, fontWeight: 500, color: accent ? '#B07A4E' : '#2A2520' }}>
       {value}
     </div>
     {sub && <div className="text-xs text-ink-3 mt-1">{sub}</div>}
@@ -112,7 +112,7 @@ const TimelineRow = ({ booking, formatTime, now, onMarkComplete, marking }) => {
         <div className="flex-1 min-w-0">
           <div
             className={`font-display ${state === 'done' ? 'text-ink-2' : ''}`}
-            style={{ fontSize: 15, lineHeight: 1.25, fontWeight: 500 }}
+            style={{ fontSize: "0.9375rem", lineHeight: 1.25, fontWeight: 500 }}
           >
             {booking.client?.profile?.fullName || booking.recipientInfo?.name || 'Client'}
           </div>
@@ -153,7 +153,7 @@ const ActionCard = ({ to, icon: Icon, title, sub }) => (
       hover:shadow-atelier-md transition block">
     <div className="flex items-center gap-2.5 mb-1.5">
       <Icon className="w-4 h-4 text-accent" />
-      <h3 className="font-display text-ink" style={{ fontSize: 16, fontWeight: 500 }}>{title}</h3>
+      <h3 className="font-display text-ink" style={{ fontSize: "1rem", fontWeight: 500 }}>{title}</h3>
     </div>
     <p className="text-[13px] text-ink-2">{sub}</p>
   </Link>
@@ -299,7 +299,7 @@ const ProviderDashboard = () => {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
             <div className="av-eyebrow mb-2">{todayLabel}</div>
-            <h1 className="font-display" style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            <h1 className="font-display" style={{ fontSize: "2.25rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
               {greeting}, <em style={{ color: '#B07A4E' }}>{firstName}.</em>
             </h1>
             <p className="mt-1.5 text-sm text-ink-2">{subtitle}</p>
@@ -343,7 +343,7 @@ const ProviderDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 mb-8">
           <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-6">
             <div className="flex justify-between items-center mb-5">
-              <div className="font-display" style={{ fontSize: 20, fontWeight: 500 }}>Today's rhythm</div>
+              <div className="font-display" style={{ fontSize: "1.25rem", fontWeight: 500 }}>Today's rhythm</div>
               <Link to="/provider/appointments" className="av-meta text-accent hover:text-accent-ink">
                 See all
               </Link>
@@ -383,7 +383,7 @@ const ProviderDashboard = () => {
                 <BrushLeaf size={100} color="#B07A4E" />
               </div>
               <div className="av-meta text-accent">All-time revenue</div>
-              <div className="font-display mt-2" style={{ fontSize: 26, fontWeight: 500, letterSpacing: '-0.01em' }}>
+              <div className="font-display mt-2" style={{ fontSize: "1.625rem", fontWeight: 500, letterSpacing: '-0.01em' }}>
                 {revenue ? `$${(revenue.totalRevenue || 0).toLocaleString()}` : '—'}
               </div>
               <div className="text-xs text-ink-2 mt-1">
