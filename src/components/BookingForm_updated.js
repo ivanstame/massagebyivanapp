@@ -180,8 +180,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
           } = servicesRes.data;
 
           if (providerMethods && providerMethods.length > 0) {
-            setAcceptedPaymentMethods(providerMethods);
-            setSelectedPaymentMethod(providerMethods[0]);
+            // Temporary: filter out 'card' until Stripe is on live keys.
+            // The provider can re-enable on the Services page once we
+            // flip from test to production; the option will reappear
+            // automatically since this is just a display filter.
+            const visibleMethods = providerMethods.filter(m => m !== 'card');
+            const safeMethods = visibleMethods.length > 0 ? visibleMethods : ['cash'];
+            setAcceptedPaymentMethods(safeMethods);
+            setSelectedPaymentMethod(safeMethods[0]);
           }
 
           if (basePricing && basePricing.length > 0) {
