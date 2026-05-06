@@ -255,11 +255,14 @@ const WeeklyTemplateEditor = () => {
   }
 
   return (
-    <div className="pt-16">
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Weekly hours</h1>
-          <p className="text-sm text-slate-500 mt-1">
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-2xl mx-auto px-3 sm:px-5 py-8">
+        <div className="mb-7">
+          <div className="av-eyebrow mb-2">Your schedule</div>
+          <h1 className="font-display" style={{ fontSize: "2rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
+            Weekly hours
+          </h1>
+          <p className="text-sm text-ink-2 mt-1.5">
             Set the hours you typically work each day. The Availability page
             uses this as the default and lets you adjust specific dates.
           </p>
@@ -315,15 +318,15 @@ const WeeklyTemplateEditor = () => {
           ))}
         </div>
 
-        {/* Day rows */}
-        <div className="space-y-2">
+        {/* Day rows — flush with hairline dividers; active vs
+            inactive carried by the toggle + opacity rather than a
+            card border. */}
+        <div>
           {days.map((day) => (
             <div
               key={day.dayOfWeek}
-              className={`p-3 rounded-lg border transition-colors ${
-                day.isActive
-                  ? 'bg-paper-elev border-[#B07A4E]/30 shadow-sm'
-                  : 'bg-paper-deep border-line'
+              className={`py-4 border-b border-line-soft last:border-b-0 transition-opacity ${
+                day.isActive ? '' : 'opacity-70'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -410,7 +413,7 @@ const WeeklyTemplateEditor = () => {
 
                   {/* Mode-specific config row */}
                   {day.kind === 'static' ? (
-                    <div className="p-2.5 bg-paper-deep rounded-lg border border-line-soft">
+                    <div className="pl-3 border-l-2 border-line">
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                         <span className="text-xs font-medium text-slate-600 flex-shrink-0">
@@ -444,7 +447,7 @@ const WeeklyTemplateEditor = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="p-2.5 bg-paper-deep rounded-lg border border-line-soft">
+                    <div className="pl-3 border-l-2 border-line">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
                         <span className="text-xs font-medium text-slate-600 flex-shrink-0">
