@@ -1310,6 +1310,138 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// PATCH /:id/payment-method
+//
+// Provider-only. Switches an existing booking's payment method to a
+// different one — most commonly when a client paid (or intended to
+// pay) with their package balance but the booking was recorded as
+// cash/zelle/card. The package balance must stay consistent with
+// what the booking claims, so this endpoint handles the swap atomically:
+//
+//   - Switching FROM a package: marks the existing redemption as
+//     returned (preserves history; frees the capacity).
+//   - Switching TO a package: reserves a fresh credit (atomic check
+//     against current balance). Optional `packageMinutesApplied` for
+//     partial redemption — defaults to the full booking duration.
+//   - Switching package → different package: returns the old
+//     redemption AFTER the new reservation succeeds. If the new
+//     reservation fails, the old stays in place.
+//
+// Body: { paymentMethod, packagePurchaseId?, packageMinutesApplied? }
+router.patch('/:id/payment-method', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can change payment method' });
+    }
+
+    const { paymentMethod, packagePurchaseId, packageMinutesApplied } = req.body;
+    if (!['cash', 'zelle', 'card', 'package'].includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
+
+    const usingPackage = paymentMethod === 'package' || !!packagePurchaseId;
+    const minutesToApply = packageMinutesApplied != null
+      ? Number(packageMinutesApplied)
+      : booking.duration;
+
+    // Sanity-check partial vs full when usingPackage
+    if (usingPackage) {
+      if (!packagePurchaseId) {
+        return res.status(400).json({ message: 'packagePurchaseId required when paying via package' });
+      }
+      if (!Number.isFinite(minutesToApply) || minutesToApply <= 0 || minutesToApply > booking.duration) {
+        return res.status(400).json({ message: 'packageMinutesApplied must be > 0 and ≤ booking duration' });
+      }
+    }
+
+    const oldRedemption = booking.packageRedemption?.packagePurchase;
+    const oldRedemptionId = oldRedemption ? String(oldRedemption) : null;
+    let newRedemptionDoc = null;
+
+    if (usingPackage) {
+      // Reserve the new credit FIRST. If it fails (capacity, ownership,
+      // duration mismatch on a sessions-mode pkg, etc.) we bail before
+      // touching the old one — booking's payment state stays intact.
+      newRedemptionDoc = await reservePackageCredit({
+        packageId: packagePurchaseId,
+        clientId: booking.client,
+        providerId: booking.provider,
+        duration: booking.duration,
+        bookingId: booking._id,
+        minutesToApply,
+      });
+      if (!newRedemptionDoc) {
+        return res.status(409).json({
+          message: 'Could not reserve a credit on the selected package — it may not have enough remaining balance, or it belongs to a different client / provider.',
+        });
+      }
+    }
+
+    // If the booking was previously package-paid AND we're either
+    // switching off-package OR switching to a different package,
+    // mark the old redemption as returned. Same-package re-reservation
+    // would double-count, so skip it in that case.
+    if (oldRedemptionId && oldRedemptionId !== String(packagePurchaseId || '')) {
+      await markRedemptionReturned({
+        packageId: oldRedemptionId,
+        bookingId: booking._id,
+      });
+    }
+
+    // Apply the payment fields. Package fully covering the duration =
+    // 'paid' immediately (the credit was prepaid at purchase). Partial
+    // package + cash/zelle for remainder = 'unpaid' until the provider
+    // confirms the cash side. Pure cash/zelle/card change = 'unpaid'.
+    if (usingPackage) {
+      const isPartial = minutesToApply < booking.duration;
+      booking.packageRedemption = {
+        packagePurchase: packagePurchaseId,
+        minutesApplied: minutesToApply,
+        redeemedAt: new Date(),
+      };
+      // 'package' is the canonical method when it covers the whole
+      // booking. For partial coverage, paymentMethod stays as the
+      // remainder method (so the provider knows what to collect).
+      booking.paymentMethod = isPartial ? paymentMethod : 'package';
+      // Wait — when isPartial, we expected the caller to pass a
+      // non-package paymentMethod for the remainder. If they passed
+      // 'package' but partial, fall back to 'cash'.
+      if (isPartial && paymentMethod === 'package') {
+        booking.paymentMethod = 'cash';
+      }
+      booking.paymentStatus = isPartial ? 'unpaid' : 'paid';
+      booking.paidAt = isPartial ? null : new Date();
+    } else {
+      // Non-package method. Clear any prior package redemption.
+      booking.packageRedemption = {
+        packagePurchase: null,
+        minutesApplied: null,
+        redeemedAt: null,
+      };
+      booking.paymentMethod = paymentMethod;
+      // Don't auto-flip paymentStatus when switching off-package —
+      // the provider toggles paid/unpaid separately. But if the
+      // booking was 'paid' purely because it was package-redeemed,
+      // it makes more sense to start back at 'unpaid' so the
+      // provider explicitly confirms the new method's payment.
+      if (oldRedemptionId) {
+        booking.paymentStatus = 'unpaid';
+        booking.paidAt = null;
+      }
+    }
+
+    await booking.save();
+    res.json(booking);
+  } catch (error) {
+    console.error('Error updating payment method:', error);
+    res.status(500).json({ message: 'Error updating payment method' });
+  }
+});
+
 // PATCH /:id/note (Set or clear the provider's private session note)
 //
 // Optional, free-form, capped at 5000 chars by the schema. Provider-

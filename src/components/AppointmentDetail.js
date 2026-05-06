@@ -127,8 +127,92 @@ const AppointmentDetail = () => {
   };
 
   const paymentMethodLabel = (method) => {
-    const labels = { cash: 'Cash', zelle: 'Zelle', card: 'Card' };
+    const labels = { cash: 'Cash', zelle: 'Zelle', card: 'Card', package: 'Package credit' };
     return labels[method] || method || 'Cash';
+  };
+
+  // ─── Change payment method (provider-only) ───────────────────────
+  // Used when the booking was recorded with the wrong method — most
+  // commonly cash recorded but the client meant to use their package.
+  // The server-side endpoint handles the atomic swap (returning the
+  // old credit if applicable, reserving the new one if applicable).
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [eligiblePackages, setEligiblePackages] = useState([]);
+  const [eligiblePackagesLoading, setEligiblePackagesLoading] = useState(false);
+  const [editPaymentMethod, setEditPaymentMethod] = useState('cash');
+  const [editPackageId, setEditPackageId] = useState(null);
+  const [editPackageMinutes, setEditPackageMinutes] = useState(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  // Fetch packages owned by this booking's client when the modal
+  // opens. Only paid + non-cancelled + with remaining balance count;
+  // sessions-mode packages must match the booking duration exactly.
+  useEffect(() => {
+    if (!showPaymentMethodModal || !booking?.client?._id) return;
+    let cancelled = false;
+    (async () => {
+      setEligiblePackagesLoading(true);
+      try {
+        const res = await axios.get(`/api/packages/client/${booking.client._id}`, {
+          withCredentials: true,
+        });
+        if (cancelled) return;
+        const eligible = (res.data || []).filter(p => {
+          if (p.paymentStatus !== 'paid' || p.cancelledAt) return false;
+          if (p.kind === 'minutes') {
+            return (p.minutesRemaining || 0) > 0;
+          }
+          // sessions-mode: must match this booking's duration exactly
+          return p.sessionDuration === booking.duration && (p.sessionsRemaining || 0) > 0;
+        });
+        setEligiblePackages(eligible);
+      } catch (err) {
+        console.error('Failed to load eligible packages:', err);
+        if (!cancelled) setEligiblePackages([]);
+      } finally {
+        if (!cancelled) setEligiblePackagesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showPaymentMethodModal, booking?.client?._id, booking?.duration]);
+
+  const openPaymentMethodModal = () => {
+    setEditPaymentMethod(booking?.paymentMethod === 'package' ? 'package' : (booking?.paymentMethod || 'cash'));
+    setEditPackageId(booking?.packageRedemption?.packagePurchase || null);
+    setEditPackageMinutes(booking?.packageRedemption?.minutesApplied || null);
+    setEditError(null);
+    setShowPaymentMethodModal(true);
+  };
+
+  const submitPaymentMethodChange = async () => {
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const body = { paymentMethod: editPaymentMethod };
+      if (editPaymentMethod === 'package') {
+        if (!editPackageId) {
+          throw new Error('Pick a package to redeem against.');
+        }
+        body.packagePurchaseId = editPackageId;
+        if (editPackageMinutes != null) {
+          body.packageMinutesApplied = editPackageMinutes;
+        }
+      }
+      const res = await axios.patch(`/api/bookings/${id}/payment-method`, body, {
+        withCredentials: true,
+      });
+      setBooking(res.data);
+      setShowPaymentMethodModal(false);
+    } catch (err) {
+      setEditError(
+        err.response?.data?.message
+        || err.message
+        || 'Failed to change payment method'
+      );
+    } finally {
+      setEditSubmitting(false);
+    }
   };
 
   const formatTime = (timeStr) => {
@@ -394,10 +478,31 @@ const AppointmentDetail = () => {
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-3">
               <Banknote className="w-5 h-5 text-[#B07A4E]" />
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-slate-500">Payment Method</p>
-                <p className="font-medium text-slate-900">{paymentMethodLabel(booking.paymentMethod)}</p>
+                <p className="font-medium text-slate-900">
+                  {paymentMethodLabel(booking.paymentMethod)}
+                  {booking.packageRedemption?.packagePurchase && booking.packageRedemption?.minutesApplied && (
+                    booking.packageRedemption.minutesApplied < booking.duration ? (
+                      <span className="ml-2 text-xs text-slate-500">
+                        ({booking.packageRedemption.minutesApplied} min from package + remainder via {paymentMethodLabel(booking.paymentMethod)})
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-xs text-slate-500">
+                        ({booking.packageRedemption.minutesApplied} min from package)
+                      </span>
+                    )
+                  )}
+                </p>
               </div>
+              {isProvider && booking.status !== 'cancelled' && (
+                <button
+                  onClick={openPaymentMethodModal}
+                  className="text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded-lg hover:bg-[#B07A4E]/10"
+                >
+                  Change
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <CheckCircle className={`w-5 h-5 ${booking.paymentStatus === 'paid' ? 'text-green-500' : 'text-amber-500'}`} />
@@ -724,6 +829,141 @@ const AppointmentDetail = () => {
           }}
           onClose={() => setShowReschedule(false)}
         />
+      )}
+
+      {/* Change payment method modal — provider-only. The "Carrie
+          paid cash but should've used her package minutes" reconcile
+          flow. Edits run through PATCH /:id/payment-method which
+          handles atomic redemption swaps server-side. */}
+      {showPaymentMethodModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPaymentMethodModal(false)}
+        >
+          <div className="bg-paper-elev rounded-xl shadow-2xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-line">
+              <h3 className="text-lg font-semibold text-slate-900">Change payment method</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                For reconciling what the client actually paid vs. what was recorded.
+              </p>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Method picker — card hidden until live Stripe keys */}
+              <div className="space-y-2">
+                {[
+                  { id: 'cash', label: 'Cash' },
+                  { id: 'zelle', label: 'Zelle' },
+                  { id: 'package', label: 'Package credit' },
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setEditPaymentMethod(opt.id);
+                      setEditError(null);
+                    }}
+                    className={`w-full p-3 rounded-lg border-2 text-left transition-colors
+                      ${editPaymentMethod === opt.id
+                        ? 'border-teal-600 bg-teal-50'
+                        : 'border-line hover:border-teal-300'}`}
+                  >
+                    <div className="font-medium text-slate-900 text-sm">{opt.label}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Package selector — only when 'package' chosen */}
+              {editPaymentMethod === 'package' && (
+                <div className="border-t border-line pt-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+                    Available packages
+                  </p>
+                  {eligiblePackagesLoading ? (
+                    <div className="text-sm text-slate-500 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading packages…
+                    </div>
+                  ) : eligiblePackages.length === 0 ? (
+                    <p className="text-sm text-slate-500">
+                      This client has no packages with enough remaining balance for this booking.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {eligiblePackages.map(p => {
+                        const remainingLabel = p.kind === 'minutes'
+                          ? `${p.minutesRemaining} min remaining`
+                          : `${p.sessionsRemaining} session${p.sessionsRemaining === 1 ? '' : 's'} remaining`;
+                        const enoughForFull = p.kind === 'minutes'
+                          ? (p.minutesRemaining || 0) >= booking.duration
+                          : true;
+                        return (
+                          <button
+                            key={p._id}
+                            type="button"
+                            onClick={() => {
+                              setEditPackageId(p._id);
+                              setEditPackageMinutes(
+                                enoughForFull ? booking.duration : p.minutesRemaining
+                              );
+                              setEditError(null);
+                            }}
+                            className={`w-full p-3 rounded-lg border-2 text-left transition-colors
+                              ${editPackageId === p._id
+                                ? 'border-teal-600 bg-teal-50'
+                                : 'border-line hover:border-teal-300'}`}
+                          >
+                            <div className="font-medium text-slate-900 text-sm">
+                              {p.name || (p.kind === 'minutes' ? 'Minutes package' : `${p.sessionDuration}-min package`)}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              {remainingLabel}
+                              {!enoughForFull && p.kind === 'minutes' && (
+                                <span className="ml-1 text-amber-700">
+                                  · partial only ({p.minutesRemaining} of {booking.duration} min)
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {editError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {editError}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-line flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowPaymentMethodModal(false)}
+                disabled={editSubmitting}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-line text-slate-700 hover:bg-paper-deep text-sm font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitPaymentMethodChange}
+                disabled={editSubmitting || (editPaymentMethod === 'package' && !editPackageId)}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-[#B07A4E] hover:bg-[#8A5D36] text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+              >
+                {editSubmitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
+                ) : (
+                  'Save'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
