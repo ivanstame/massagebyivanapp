@@ -845,8 +845,12 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
       acceptedPaymentMethods: user.providerProfile.acceptedPaymentMethods
     });
   } catch (error) {
+    // Surface the underlying error message so the client banner is
+    // diagnostic instead of just generic. Mongoose validation
+    // failures and DB errors often have message text that pinpoints
+    // the bad field.
     console.error('Error updating provider services:', error);
-    res.status(500).json({ message: 'Error updating services' });
+    res.status(500).json({ message: `Error updating services: ${error.message}` });
   }
 });
 
