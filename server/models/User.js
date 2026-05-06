@@ -250,7 +250,13 @@ const UserSchema = new mongoose.Schema({
     treatmentPreferences: {
       pressure: {
         type: String,
-        enum: ['light', 'medium', 'firm', 'deep'],
+        // null tolerated because the field exists on every User
+        // (providers + clients) but is only meaningful on clients.
+        // Provider docs sometimes carry pressure: null from earlier
+        // data shapes / imports — without null in the enum, every
+        // provider save (Services updates, etc.) hit
+        // ValidationError on the unrelated pressure field.
+        enum: ['light', 'medium', 'firm', 'deep', null],
         default: 'medium'
       },
       focusAreas: { type: [String], default: [] },
