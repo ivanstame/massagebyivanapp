@@ -509,37 +509,33 @@ const ProviderServices = () => {
           </div>
         </div>
 
-        {/* Pricing tab — unified card. Standard offerings (the default
-            menu every new client sees) and custom tiers (per-client
-            override price lists) used to live in two visually
-            identical cards stacked on top of each other. Same data
-            shape, same visual weight — providers regularly conflated
-            them. Now there's one Pricing card with collapsible
-            groups: Standard sits at the top, always expanded, marked
-            DEFAULT. Each custom tier renders below as a collapsed
-            disclosure (chevron + name + row count). One concept,
-            one card, one mental model. */}
+        {/* Pricing tab — flat / typographic. Earlier iterations
+            stacked four levels of card-in-card chrome (page → outer
+            Pricing card → Standard wrapper card → row card → input
+            fields). Even after tightening padding the boxes-within-
+            boxes were busy. This version drops every container that
+            wasn't carrying real information: no outer Pricing card,
+            no Standard wrapper card, no row cards. Hierarchy comes
+            from typography and hairline dividers; the DEFAULT badge
+            on Standard is the only colored chrome. */}
         {activeTab === 'pricing' && (
-        <div className="bg-paper-elev rounded-lg shadow-sm border border-line p-4 sm:p-6 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-[#B07A4E]" />
-              <h3 className="font-medium text-slate-900">Pricing</h3>
-            </div>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-5 h-5 text-[#B07A4E]" />
+            <h3 className="font-medium text-slate-900">Pricing</h3>
           </div>
-          <p className="text-xs text-slate-500 mb-5">
+          <p className="text-sm text-ink-2 mb-6">
             Standard is the default menu every new client sees.
             Custom tiers are alternate price lists you tag specific
             clients with (grandfathered, concierge, family, etc.) —
             their bookings resolve through their tagged tier instead.
           </p>
 
-          {/* Standard group — always expanded, copper-accented to
-              telegraph "this is the default everyone sees." */}
-          <div className="rounded-lg border-2 border-[#B07A4E]/30 bg-paper-deep mb-3 overflow-hidden">
-            <div className="px-4 py-3 bg-[#B07A4E]/5 border-b border-[#B07A4E]/20 flex items-center justify-between">
+          {/* Standard group — typographic header + flush rows. */}
+          <div className="mb-10">
+            <div className="flex items-center justify-between py-2 border-b border-line">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900">Standard</span>
+                <span className="font-display text-lg text-slate-900">Standard</span>
                 <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-[#B07A4E] text-white">
                   Default
                 </span>
@@ -549,289 +545,295 @@ const ProviderServices = () => {
               </span>
             </div>
 
-            <div className="p-4">
-              {basePricing.length > 1 && (
-                <div className="flex items-center gap-1.5 mb-3">
-                  <span className="text-xs text-slate-500 mr-1">Quick sort:</span>
-                  <button
-                    type="button"
-                    onClick={() => sortBasePricing('duration')}
-                    className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
-                  >
-                    By duration
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => sortBasePricing('name')}
-                    className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
-                  >
-                    By name
-                  </button>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                {basePricing.map((tier, index) => (
-                  <div
-                    key={tier._uid || index}
-                    ref={el => {
-                      if (el) rowRefs.current[tier._uid] = el;
-                      else delete rowRefs.current[tier._uid];
-                    }}
-                    className="flex items-start gap-2 p-3 bg-paper-elev rounded-lg border border-line-soft will-change-transform"
-                  >
-                    {basePricing.length > 1 && (
-                      <div className="flex flex-col gap-0.5 flex-shrink-0 mt-5">
-                        <button
-                          type="button"
-                          onClick={() => movePricingTier(index, -1)}
-                          disabled={index === 0}
-                          title="Move up"
-                          className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => movePricingTier(index, 1)}
-                          disabled={index === basePricing.length - 1}
-                          title="Move down"
-                          className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-2">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Offering name</label>
-                        <input
-                          type="text"
-                          value={tier.label || ''}
-                          onChange={(e) => handlePricingChange(index, 'label', e.target.value)}
-                          placeholder={tradePreset.packagePlaceholder}
-                          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1">Duration (min)</label>
-                          <select
-                            value={tier.duration}
-                            onChange={(e) => handlePricingChange(index, 'duration', Number(e.target.value))}
-                            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-                          >
-                            {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
-                              <option key={d} value={d}>{d} min</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1">Price ($)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={tier.price}
-                            onChange={(e) => handlePricingChange(index, 'price', e.target.value)}
-                            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemovePricingTier(index)}
-                      className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-6"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+            {basePricing.length > 1 && (
+              <div className="flex items-center gap-1.5 mt-3">
+                <span className="text-xs text-slate-500 mr-1">Quick sort:</span>
+                <button
+                  type="button"
+                  onClick={() => sortBasePricing('duration')}
+                  className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+                >
+                  By duration
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sortBasePricing('name')}
+                  className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+                >
+                  By name
+                </button>
               </div>
+            )}
 
-              <button
-                onClick={handleAddPricingTier}
-                className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Offering
-              </button>
-            </div>
-          </div>
-
-          {/* Custom tiers — collapsible disclosures, muted styling so
-              they read as alternates to Standard rather than peers. */}
-          {pricingTiers.length === 0 ? (
-            <div className="text-center py-4 px-3 bg-paper-deep rounded-lg border border-dashed border-slate-300">
-              <p className="text-xs text-slate-500">
-                No custom tiers yet — all clients use Standard pricing.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {pricingTiers.map((tier) => {
-                const isOpen = !!expandedTiers[tier._uid];
-                return (
-                  <div
-                    key={tier._uid}
-                    className="rounded-lg border border-line bg-paper-deep overflow-hidden"
-                  >
-                    {/* Collapsible header */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-line-soft">
+            <div>
+              {basePricing.map((tier, index) => (
+                <div
+                  key={tier._uid || index}
+                  ref={el => {
+                    if (el) rowRefs.current[tier._uid] = el;
+                    else delete rowRefs.current[tier._uid];
+                  }}
+                  className="flex items-start gap-2 py-4 border-b border-line-soft last:border-b-0 will-change-transform"
+                >
+                  {basePricing.length > 1 && (
+                    <div className="flex flex-col gap-0.5 flex-shrink-0 mt-5">
                       <button
                         type="button"
-                        onClick={() => toggleTierExpanded(tier._uid)}
-                        title={isOpen ? 'Collapse' : 'Expand'}
-                        className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-elev transition-colors flex-shrink-0"
+                        onClick={() => movePricingTier(index, -1)}
+                        disabled={index === 0}
+                        title="Move up"
+                        className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       >
-                        <ChevronDown
-                          className={`w-4 h-4 transition-transform ${isOpen ? '' : '-rotate-90'}`}
-                        />
+                        <ChevronUp className="w-4 h-4" />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => movePricingTier(index, 1)}
+                        disabled={index === basePricing.length - 1}
+                        title="Move down"
+                        className="p-1 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Offering name</label>
                       <input
                         type="text"
-                        value={tier.name}
-                        onChange={(e) => renameTier(tier._uid, e.target.value)}
-                        placeholder="Tier name (e.g. Discount, Concierge)"
-                        maxLength={60}
-                        className="flex-1 border border-slate-300 rounded px-2 py-1 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                        value={tier.label || ''}
+                        onChange={(e) => handlePricingChange(index, 'label', e.target.value)}
+                        placeholder={tradePreset.packagePlaceholder}
+                        className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
                       />
-                      <span className="text-xs text-slate-500 flex-shrink-0 hidden sm:inline">
-                        {tier.pricing.length} {tier.pricing.length === 1 ? 'row' : 'rows'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeTier(tier._uid)}
-                        className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
-                        title="Remove tier"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Duration (min)</label>
+                        <select
+                          value={tier.duration}
+                          onChange={(e) => handlePricingChange(index, 'duration', Number(e.target.value))}
+                          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                        >
+                          {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
+                            <option key={d} value={d}>{d} min</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Price ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tier.price}
+                          onChange={(e) => handlePricingChange(index, 'price', e.target.value)}
+                          className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemovePricingTier(index)}
+                    className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mt-6"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
 
-                    {/* Body — only when expanded */}
-                    {isOpen && (
-                      <div className="p-3 space-y-3">
-                        {tier.pricing.length > 1 && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-500 mr-1">Sort:</span>
-                            <button
-                              type="button"
-                              onClick={() => sortTierPricing(tier._uid, 'duration')}
-                              className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
-                            >
-                              By duration
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => sortTierPricing(tier._uid, 'name')}
-                              className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
-                            >
-                              By name
-                            </button>
-                          </div>
-                        )}
+            <button
+              onClick={handleAddPricingTier}
+              className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Offering
+            </button>
+          </div>
 
-                        <div className="space-y-2">
-                          {tier.pricing.map((row, rowIdx) => (
-                            <div
-                              key={row._uid || rowIdx}
-                              ref={el => {
-                                if (el) rowRefs.current[row._uid] = el;
-                                else delete rowRefs.current[row._uid];
-                              }}
-                              className="flex items-end gap-2 p-2 bg-paper-elev rounded border border-line-soft will-change-transform"
-                            >
-                              {tier.pricing.length > 1 && (
-                                <div className="flex flex-col gap-0.5 flex-shrink-0 mb-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => moveTierRowPosition(tier._uid, rowIdx, -1)}
-                                    disabled={rowIdx === 0}
-                                    title="Move up"
-                                    className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                  >
-                                    <ChevronUp className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveTierRowPosition(tier._uid, rowIdx, 1)}
-                                    disabled={rowIdx === tier.pricing.length - 1}
-                                    title="Move down"
-                                    className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              )}
-                              <div className="flex-1">
-                                <label className="block text-xs text-slate-500 mb-0.5">Label</label>
-                                <input
-                                  type="text"
-                                  value={row.label || ''}
-                                  onChange={(e) => updateTierTier(tier._uid, rowIdx, 'label', e.target.value)}
-                                  placeholder={`${row.duration} Minutes`}
-                                  className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                                />
-                              </div>
-                              <div className="w-20">
-                                <label className="block text-xs text-slate-500 mb-0.5">Min</label>
-                                <select
-                                  value={row.duration}
-                                  onChange={(e) => updateTierTier(tier._uid, rowIdx, 'duration', Number(e.target.value))}
-                                  className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                                >
-                                  {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
-                                    <option key={d} value={d}>{d}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div className="w-20">
-                                <label className="block text-xs text-slate-500 mb-0.5">$</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.price}
-                                  onChange={(e) => updateTierTier(tier._uid, rowIdx, 'price', e.target.value)}
-                                  className="w-full border border-slate-300 rounded px-2 py-1 text-sm"
-                                />
-                              </div>
+          {/* Custom tiers — typographic header + collapsible disclosures
+              with hairline dividers, no card chrome. */}
+          <div>
+            <div className="flex items-center justify-between py-2 border-b border-line mb-1">
+              <span className="font-display text-lg text-slate-900">Custom tiers</span>
+              <span className="text-xs text-slate-500">
+                {pricingTiers.length === 0
+                  ? 'None — all clients use Standard'
+                  : `${pricingTiers.length} ${pricingTiers.length === 1 ? 'tier' : 'tiers'}`}
+              </span>
+            </div>
+
+            {pricingTiers.length === 0 ? (
+              <p className="text-xs text-slate-500 mt-3 mb-2">
+                Add a custom tier to set alternate pricing for tagged clients.
+              </p>
+            ) : (
+              <div>
+                {pricingTiers.map((tier) => {
+                  const isOpen = !!expandedTiers[tier._uid];
+                  return (
+                    <div key={tier._uid} className="border-b border-line-soft last:border-b-0">
+                      {/* Header row — always visible */}
+                      <div className="flex items-center gap-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleTierExpanded(tier._uid)}
+                          title={isOpen ? 'Collapse' : 'Expand'}
+                          className="p-1 rounded text-slate-500 hover:text-[#B07A4E] transition-colors flex-shrink-0"
+                        >
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform ${isOpen ? '' : '-rotate-90'}`}
+                          />
+                        </button>
+                        <input
+                          type="text"
+                          value={tier.name}
+                          onChange={(e) => renameTier(tier._uid, e.target.value)}
+                          placeholder="Tier name (e.g. Discount, Concierge)"
+                          maxLength={60}
+                          className="flex-1 border border-slate-300 rounded px-2 py-1 text-sm font-medium focus:ring-[#B07A4E] focus:border-[#B07A4E] bg-paper-elev"
+                        />
+                        <span className="text-xs text-slate-500 flex-shrink-0 hidden sm:inline">
+                          {tier.pricing.length} {tier.pricing.length === 1 ? 'row' : 'rows'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeTier(tier._uid)}
+                          className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"
+                          title="Remove tier"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Body — flush rows when expanded, indented from
+                          the header so the parent/child relationship reads
+                          without needing a card around them. */}
+                      {isOpen && (
+                        <div className="pl-7 pb-3">
+                          {tier.pricing.length > 1 && (
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-xs text-slate-500 mr-1">Sort:</span>
                               <button
                                 type="button"
-                                onClick={() => removeTierRow(tier._uid, rowIdx)}
-                                disabled={tier.pricing.length <= 1}
-                                className="p-1 text-slate-500 hover:text-red-500 mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
-                                title="Remove row"
+                                onClick={() => sortTierPricing(tier._uid, 'duration')}
+                                className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                By duration
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => sortTierPricing(tier._uid, 'name')}
+                                className="text-xs px-2 py-1 rounded-full border border-line text-slate-600 hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors"
+                              >
+                                By name
                               </button>
                             </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => addTierRow(tier._uid)}
-                            className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs border border-dashed border-slate-300 text-slate-500 rounded hover:border-[#B07A4E] hover:text-[#B07A4E]"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Add a row
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                          )}
 
-          <button
-            onClick={addAlternateTier}
-            disabled={basePricing.length === 0}
-            className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title={basePricing.length === 0 ? 'Add a Standard offering first' : 'New tier seeded from your Standard pricing'}
-          >
-            <Plus className="w-4 h-4" />
-            Add a custom tier
-          </button>
+                          <div>
+                            {tier.pricing.map((row, rowIdx) => (
+                              <div
+                                key={row._uid || rowIdx}
+                                ref={el => {
+                                  if (el) rowRefs.current[row._uid] = el;
+                                  else delete rowRefs.current[row._uid];
+                                }}
+                                className="flex items-end gap-2 py-2 border-b border-line-soft/60 last:border-b-0 will-change-transform"
+                              >
+                                {tier.pricing.length > 1 && (
+                                  <div className="flex flex-col gap-0.5 flex-shrink-0 mb-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => moveTierRowPosition(tier._uid, rowIdx, -1)}
+                                      disabled={rowIdx === 0}
+                                      title="Move up"
+                                      className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                    >
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => moveTierRowPosition(tier._uid, rowIdx, 1)}
+                                      disabled={rowIdx === tier.pricing.length - 1}
+                                      title="Move down"
+                                      className="p-0.5 rounded text-slate-500 hover:text-[#B07A4E] hover:bg-paper-deep disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="flex-1">
+                                  <label className="block text-xs text-slate-500 mb-0.5">Label</label>
+                                  <input
+                                    type="text"
+                                    value={row.label || ''}
+                                    onChange={(e) => updateTierTier(tier._uid, rowIdx, 'label', e.target.value)}
+                                    placeholder={`${row.duration} Minutes`}
+                                    className="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-paper-elev"
+                                  />
+                                </div>
+                                <div className="w-20">
+                                  <label className="block text-xs text-slate-500 mb-0.5">Min</label>
+                                  <select
+                                    value={row.duration}
+                                    onChange={(e) => updateTierTier(tier._uid, rowIdx, 'duration', Number(e.target.value))}
+                                    className="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-paper-elev"
+                                  >
+                                    {[30, 45, 60, 75, 90, 105, 120, 150, 180].map(d => (
+                                      <option key={d} value={d}>{d}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="w-20">
+                                  <label className="block text-xs text-slate-500 mb-0.5">$</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={row.price}
+                                    onChange={(e) => updateTierTier(tier._uid, rowIdx, 'price', e.target.value)}
+                                    className="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-paper-elev"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeTierRow(tier._uid, rowIdx)}
+                                  disabled={tier.pricing.length <= 1}
+                                  className="p-1 text-slate-500 hover:text-red-500 mb-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Remove row"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => addTierRow(tier._uid)}
+                              className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs border border-dashed border-slate-300 text-slate-500 rounded hover:border-[#B07A4E] hover:text-[#B07A4E] mt-2"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Add a row
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              onClick={addAlternateTier}
+              disabled={basePricing.length === 0}
+              className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm border-2 border-dashed border-slate-300 text-slate-600 rounded-lg hover:border-[#B07A4E] hover:text-[#B07A4E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={basePricing.length === 0 ? 'Add a Standard offering first' : 'New tier seeded from your Standard pricing'}
+            >
+              <Plus className="w-4 h-4" />
+              Add a custom tier
+            </button>
+          </div>
         </div>
         )}
 
