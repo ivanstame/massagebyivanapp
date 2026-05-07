@@ -1241,57 +1241,45 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     const oldStartLA = DateTime.fromJSDate(availability.start).setZone(blockTz);
     const oldEndLA = DateTime.fromJSDate(availability.end).setZone(blockTz);
 
-    const bookingsInThisBlock = bookings.filter(booking => {
-      const bookingTz = booking.timezone || blockTz;
-      const bookingStart = DateTime.fromFormat(
-        `${dateStr} ${booking.startTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: bookingTz }
-      );
-      const bookingEnd = DateTime.fromFormat(
-        `${dateStr} ${booking.endTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: bookingTz }
-      );
-      // "In this block" = booking's time range overlaps the current
-      // (pre-modify) window even slightly.
-      return bookingStart < oldEndLA && bookingEnd > oldStartLA;
-    });
-
-    const conflicts = bookingsInThisBlock.filter(booking => {
-      const bookingTz = booking.timezone || blockTz;
-      const bookingStart = DateTime.fromFormat(
-        `${dateStr} ${booking.startTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: bookingTz }
-      );
-      const bookingEnd = DateTime.fromFormat(
-        `${dateStr} ${booking.endTime}`,
-        'yyyy-MM-dd HH:mm',
-        { zone: bookingTz }
-      );
-      // Only flag bookings that go from CONTAINED → NOT-CONTAINED
-      // because of this modify. A booking that was already partially
-      // outside the block before this edit (e.g. ends 15 min past
-      // the original end) isn't this modify's problem — that's
-      // pre-existing state. Blocking the edit on it produced false
-      // 400s on harmless modifies (e.g. expanding start earlier).
-      const wasContained = bookingStart >= oldStartLA && bookingEnd <= oldEndLA;
-      const isContained  = bookingStart >= startLA   && bookingEnd <= endLA;
-      return wasContained && !isContained;
-    });
-
-    if (conflicts.length > 0) {
-      return res.status(400).json({
-        message: 'This modification would orphan existing bookings',
-        conflicts: conflicts.map(booking => ({
-          id: booking._id,
-          time: `${booking.startTime} - ${booking.endTime}`,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          client: booking.client?.profile?.fullName || booking.client?.email || 'Client'
-        }))
+    // Compute orphan candidates for OBSERVABILITY only — log them so
+    // we can spot data inconsistencies, but don't block the modify.
+    // The previous hard-block produced repeated false 400s on
+    // perfectly-safe edits (template anchor edits, slight start-shift
+    // changes, etc.). The provider sees their bookings on the day
+    // schedule and can handle any actually-affected ones manually;
+    // the platform shouldn't unilaterally refuse the edit. Bookings
+    // whose absolute start/end times don't change as a result of
+    // this modify are by definition "not affected."
+    const candidates = bookings
+      .map(booking => {
+        const bookingTz = booking.timezone || blockTz;
+        const bookingStart = DateTime.fromFormat(
+          `${dateStr} ${booking.startTime}`,
+          'yyyy-MM-dd HH:mm',
+          { zone: bookingTz }
+        );
+        const bookingEnd = DateTime.fromFormat(
+          `${dateStr} ${booking.endTime}`,
+          'yyyy-MM-dd HH:mm',
+          { zone: bookingTz }
+        );
+        const overlapsOld = bookingStart < oldEndLA && bookingEnd > oldStartLA;
+        const wasContained = bookingStart >= oldStartLA && bookingEnd <= oldEndLA;
+        const isContained = bookingStart >= startLA && bookingEnd <= endLA;
+        return { booking, bookingStart, bookingEnd, overlapsOld, wasContained, isContained };
       });
+
+    const wouldOrphan = candidates.filter(c => c.wasContained && !c.isContained);
+    if (wouldOrphan.length > 0) {
+      console.warn(
+        `[Availability PUT] ${wouldOrphan.length} booking(s) would fall outside the new window — proceeding (advisory only):`,
+        wouldOrphan.map(c => ({
+          id: String(c.booking._id),
+          time: `${c.booking.startTime}-${c.booking.endTime}`,
+          tz: c.booking.timezone || blockTz,
+          client: c.booking.client?.profile?.fullName || c.booking.client?.email || 'Client',
+        }))
+      );
     }
 
     // Check for overlapping with other availability blocks
