@@ -155,8 +155,11 @@ const ProviderAvailability = () => {
         .setZone('America/Los_Angeles')
         .toFormat('yyyy-MM-dd');
 
+      // Cache-bust query param to force a fresh fetch even if the
+      // browser's HTTP cache wants to serve a 200 from before the
+      // most recent modify/add.
       const response = await axios.get(
-        `/api/availability/blocks/${laDate}`,
+        `/api/availability/blocks/${laDate}?_=${Date.now()}`,
         { withCredentials: true }
       );
       setAvailabilityBlocks(response.data);
@@ -328,6 +331,29 @@ const ProviderAvailability = () => {
         { withCredentials: true }
       );
       if (response.status === 200) {
+        // Print the saved state to the browser console so it's
+        // visible to anyone helping debug. The server returns the
+        // updated doc; if its start/end DON'T match what was
+        // submitted, the bug is server-side. If they DO match but
+        // the calendar still shows the old time, the bug is in
+        // the refetch / render path (likely browser cache).
+        try {
+          const saved = response.data || {};
+          // eslint-disable-next-line no-console
+          console.warn('[Modify Availability] saved doc:', {
+            _id: saved._id,
+            start: saved.start,
+            end: saved.end,
+            source: saved.source,
+            kind: saved.kind,
+            localDate: saved.localDate,
+          });
+        } catch {}
+        // Cache-bust the refetch — browsers can serve stale GETs
+        // even on same-origin XHR for routes without explicit
+        // Cache-Control headers. Service worker skips /api/* but
+        // the native http cache may still hold a copy. Forcing a
+        // unique URL guarantees a fresh fetch.
         await fetchAvailabilityBlocks(selectedDate);
         bumpCalendar();
         setError(null);
