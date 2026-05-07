@@ -35,6 +35,11 @@ const AvailabilitySchema = new mongoose.Schema({
     ref: 'SavedLocation',
     default: null
   },
+  // IANA timezone the block's local times are expressed in. Snapshotted
+  // at creation. Pre-save uses this with DEFAULT_TZ fallback for legacy
+  // rows. Keeps a provider's TZ-change from retroactively shifting
+  // already-generated days.
+  timezone: { type: String, default: 'America/Los_Angeles' },
   // Fixed location anchor info for this day (populated from template)
   anchor: {
     locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'SavedLocation', default: null },
@@ -50,16 +55,20 @@ const AvailabilitySchema = new mongoose.Schema({
 // Pre-save middleware to handle timezone conversion
 AvailabilitySchema.pre('save', function(next) {
   try {
-    // Convert UTC timestamps to LA DateTime for validation
-    const startDT = DateTime.fromJSDate(this.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-    const endDT = DateTime.fromJSDate(this.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-    
-    // Validate times are within same LA day
+    // Use the block's stored timezone (snapshot at creation) with
+    // DEFAULT_TZ fallback for legacy rows.
+    const tz = this.timezone || DEFAULT_TZ;
+
+    // Convert UTC timestamps to local DateTime in the block's TZ.
+    const startDT = DateTime.fromJSDate(this.start, { zone: 'UTC' }).setZone(tz);
+    const endDT = DateTime.fromJSDate(this.end, { zone: 'UTC' }).setZone(tz);
+
+    // Validate times are within same local day in this block's TZ.
     if (!startDT.hasSame(endDT, 'day')) {
       throw new Error('Start and end times must be within the same day');
     }
 
-    // Set derived date fields
+    // Set derived date fields, anchored to the block's TZ.
     this.localDate = startDT.toFormat(TIME_FORMATS.ISO_DATE);
     this.date = startDT.startOf('day').toUTC().toJSDate();
     

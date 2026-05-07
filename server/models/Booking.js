@@ -208,6 +208,12 @@ const BookingSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
     default: 'confirmed'
   },
+  // IANA timezone the booking's local times (startTime, endTime,
+  // localDate) are expressed in. Snapshotted from the provider AT
+  // CREATION TIME so a provider's later TZ change doesn't shift this
+  // booking's interpretation. Pre-save uses this with DEFAULT_TZ
+  // fallback for legacy bookings created before the field existed.
+  timezone: { type: String, default: 'America/Los_Angeles' },
   cancelledAt: { type: Date, default: null },
   cancelledBy: { type: String, enum: ['CLIENT', 'PROVIDER', null], default: null },
   lateCancellation: { type: Boolean, default: false },
@@ -226,21 +232,30 @@ const BookingSchema = new mongoose.Schema({
 // Pre-save middleware to handle timezone conversion
 BookingSchema.pre('save', function(next) {
   try {
-    // Convert to LA timezone for date/time handling
-    const laDateTime = LuxonService.convertToLA(this.date);
+    // Use the booking's stored timezone (snapshot at creation time)
+    // with fallback to DEFAULT_TZ for legacy rows. This is intentional
+    // history-preservation: if the provider changes TZ later, this
+    // booking's localDate / startTime / endTime stay in the TZ they
+    // were recorded in.
+    const tz = this.timezone || DEFAULT_TZ;
+
+    // Compute localDate from `date` in the booking's TZ.
+    const laDateTime = DateTime.fromJSDate(this.date, { zone: 'UTC' }).setZone(tz);
     this.localDate = laDateTime.toFormat(TIME_FORMATS.ISO_DATE);
 
     // Calculate endTime based on startTime and duration
     const startDT = DateTime.fromFormat(
       `${this.localDate} ${this.startTime}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: tz }
     );
     const endDT = startDT.plus({ minutes: this.duration });
     this.endTime = endDT.toFormat('HH:mm');
 
-    // Validate times are within the same day in LA timezone
-    if (!LuxonService.validateSameDay(startDT.toISO(), endDT.toISO())) {
+    // Validate times are within the same day in the booking's TZ.
+    // Hand explicit zone to validateSameDay so it doesn't fall back
+    // to LA for a non-LA booking.
+    if (!startDT.hasSame(endDT, 'day')) {
       throw new Error('Booking cannot span multiple days');
     }
 

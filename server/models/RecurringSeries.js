@@ -32,6 +32,11 @@ const RecurringSeriesSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  // IANA timezone the series' local-time fields (startTime, endTime,
+  // dayOfWeek alignment) are expressed in. Snapshotted at series
+  // creation. Materialized occurrences inherit this TZ on each
+  // Booking they spawn.
+  timezone: { type: String, default: 'America/Los_Angeles' },
 
   // Recurrence rule — kept narrow on purpose (see v2 doc for what's
   // deferred). startDate is the first occurrence (LA-local YYYY-MM-DD);

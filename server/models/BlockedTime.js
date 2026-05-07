@@ -46,7 +46,11 @@ const BlockedTimeSchema = new mongoose.Schema({
   // True for "block the entire day" — schema-level marker so the UI can
   // render "All day" instead of "12:00 AM – 11:59 PM" and so callers can
   // easily distinguish from a deliberately wide manual range.
-  allDay: { type: Boolean, default: false }
+  allDay: { type: Boolean, default: false },
+  // IANA timezone the block's local times are expressed in. Snapshotted
+  // at creation so a provider's TZ change doesn't shift historical
+  // blocks. Pre-validate uses with DEFAULT_TZ fallback for legacy.
+  timezone: { type: String, default: 'America/Los_Angeles' },
 }, { timestamps: true });
 
 // Derive localDate / date from `start` BEFORE validation runs — both
@@ -55,8 +59,9 @@ const BlockedTimeSchema = new mongoose.Schema({
 BlockedTimeSchema.pre('validate', function(next) {
   try {
     if (!this.start || !this.end) return next();
-    const startDT = DateTime.fromJSDate(this.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-    const endDT = DateTime.fromJSDate(this.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+    const tz = this.timezone || DEFAULT_TZ;
+    const startDT = DateTime.fromJSDate(this.start, { zone: 'UTC' }).setZone(tz);
+    const endDT = DateTime.fromJSDate(this.end, { zone: 'UTC' }).setZone(tz);
 
     if (!startDT.hasSame(endDT, 'day')) {
       return next(new Error('Start and end times must be within the same day'));
