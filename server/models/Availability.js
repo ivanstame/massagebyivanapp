@@ -40,16 +40,6 @@ const AvailabilitySchema = new mongoose.Schema({
   // rows. Keeps a provider's TZ-change from retroactively shifting
   // already-generated days.
   timezone: { type: String, default: 'America/Los_Angeles' },
-  // Fixed location anchor info for this day (populated from template)
-  anchor: {
-    locationId: { type: mongoose.Schema.Types.ObjectId, ref: 'SavedLocation', default: null },
-    name: { type: String, default: null },
-    address: { type: String, default: null },
-    lat: { type: Number, default: null },
-    lng: { type: Number, default: null },
-    startTime: { type: String, default: null }, // "HH:mm" LA time
-    endTime: { type: String, default: null }     // "HH:mm" LA time
-  }
 });
 
 // Pre-save middleware to handle timezone conversion

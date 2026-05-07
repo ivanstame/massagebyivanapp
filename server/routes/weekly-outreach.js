@@ -204,11 +204,11 @@ async function buildAvailabilityBody(providerId, weekStart) {
       const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(blockTz);
       const window = { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
 
-      // Anchor location for this block — Home/Studio if static, anchor
-      // SavedLocation if mobile-with-anchor. Used to decide which
-      // bookings need a cross-location drive buffer.
-      const anchorLat = block.staticLocation?.lat ?? block.anchor?.lat ?? null;
-      const anchorLng = block.staticLocation?.lng ?? block.anchor?.lng ?? null;
+      // Static blocks have a fixed studio location; mobile blocks
+      // depart from home base. Cross-location buffer math only fires
+      // for static blocks (where bookings off-site need drive time).
+      const anchorLat = block.staticLocation?.lat ?? null;
+      const anchorLng = block.staticLocation?.lng ?? null;
       const hasAnchor = Number.isFinite(anchorLat) && Number.isFinite(anchorLng);
 
       const isCrossLocation = (b) => {

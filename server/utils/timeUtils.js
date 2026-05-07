@@ -535,10 +535,8 @@ async function getAvailableTimeSlots(
     return slotsAfterBlocked;
   }
 
-  // Step 3: Use availability's own anchor if it has one, otherwise use provided homeBase
-  const effectiveHome = (adminAvailability.anchor?.lat)
-    ? { lat: adminAvailability.anchor.lat, lng: adminAvailability.anchor.lng }
-    : homeBase;
+  // Step 3: Mobile blocks always depart from home base.
+  const effectiveHome = homeBase;
 
   // Convert blocked times WITH location into booking-shaped objects
   // so they participate in travel time boundary calculations

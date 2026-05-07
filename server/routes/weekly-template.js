@@ -7,7 +7,7 @@ const Availability = require('../models/Availability');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 
-// Get all template entries for the logged-in provider (with anchor location populated)
+// Get all template entries for the logged-in provider
 router.get('/', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
@@ -15,7 +15,6 @@ router.get('/', ensureAuthenticated, async (req, res) => {
     }
 
     const templates = await WeeklyTemplate.find({ provider: req.user._id })
-      .populate('anchor.locationId', 'name address lat lng')
       .populate('staticLocation', 'name address lat lng staticConfig isStaticLocation')
       .sort({ dayOfWeek: 1 });
 
@@ -76,27 +75,13 @@ router.put('/', ensureAuthenticated, async (req, res) => {
         ? day.staticLocation
         : null;
 
-      // Anchor wiring. Refuse anchor on a static day — the day's whole
-      // window IS the location commitment, so a stray departure-location
-      // anchor would otherwise propagate into materialized Availability
-      // rows and render as a "Fixed" overlay on top of the in-studio
-      // block. This is the backend belt for the editor's suspenders.
-      if (incomingKind === 'static') {
-        update.anchor = { locationId: null, startTime: null, endTime: null };
-      } else if (day.anchor && day.anchor.locationId) {
-        update.anchor = {
-          locationId: day.anchor.locationId,
-          startTime: day.anchor.startTime || day.startTime || '09:00',
-          endTime: day.anchor.endTime || day.endTime || '17:00'
-        };
-      } else {
-        update.anchor = { locationId: null, startTime: null, endTime: null };
-      }
-
+      // Anchor was removed — explicitly $unset on every save so any
+      // legacy row carrying the field gets cleaned up on next write
+      // even if the migration script wasn't run.
       return {
         updateOne: {
           filter: { provider: req.user._id, dayOfWeek: day.dayOfWeek },
-          update: { $set: update },
+          update: { $set: update, $unset: { anchor: '' } },
           upsert: true
         }
       };

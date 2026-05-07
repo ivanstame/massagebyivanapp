@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Clock, AlertCircle, MapPin, ChevronDown, ChevronUp, Navigation, Home, Building2 } from 'lucide-react';
+import { AlertCircle, Navigation, Home, Building2 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
 import api from '../services/api';
-import PinDropMap from './PinDropMap';
 import { AuthContext } from '../AuthContext';
 
 const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
@@ -16,35 +15,21 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
   const [error, setError] = useState(null);
 
   // Mobile vs static (in-studio). Default mobile — that's the historical
-  // behavior and what most providers do most days.
+  // behavior and what most providers do most days. Mobile blocks
+  // implicitly depart from the provider's home base; there's no
+  // separate departure picker anymore.
   const [kind, setKind] = useState('mobile');
   const [staticLocations, setStaticLocations] = useState([]);
   const [selectedStaticLocationId, setSelectedStaticLocationId] = useState('');
-
-  // Departure location state (only relevant when kind === 'mobile')
-  const [savedLocations, setSavedLocations] = useState([]);
-  const [homeBase, setHomeBase] = useState(null);
-  const [locationsLoading, setLocationsLoading] = useState(true);
-  const [departureMode, setDepartureMode] = useState('homebase'); // 'homebase' | 'saved' | 'pin'
-  const [selectedLocationId, setSelectedLocationId] = useState(null);
-  const [pinLocation, setPinLocation] = useState(null);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   useEffect(() => {
     const fetchLocations = async () => {
       try {
         const res = await api.get('/api/saved-locations');
         const locs = res.data || [];
-        setSavedLocations(locs);
-        const home = locs.find(l => l.isHomeBase);
-        setHomeBase(home || null);
-        // Static locations are now just saved locations tagged with the
-        // isStaticLocation role — no separate endpoint.
         setStaticLocations(locs.filter(l => l.isStaticLocation));
       } catch (err) {
         console.error('Failed to fetch locations:', err);
-      } finally {
-        setLocationsLoading(false);
       }
     };
     fetchLocations();
@@ -66,24 +51,6 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
     return slots;
   };
 
-  const getSelectedAnchor = () => {
-    if (departureMode === 'homebase') {
-      return homeBase ? { locationId: homeBase._id } : null;
-    }
-    if (departureMode === 'saved' && selectedLocationId) {
-      return { locationId: selectedLocationId };
-    }
-    if (departureMode === 'pin' && pinLocation) {
-      return {
-        name: 'Pinned Location',
-        address: pinLocation.address || '',
-        lat: pinLocation.lat,
-        lng: pinLocation.lng,
-      };
-    }
-    return null;
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     setError(null);
@@ -103,20 +70,9 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
       return;
     }
 
-    if (kind === 'static') {
-      if (!selectedStaticLocationId) {
-        setError('Please pick the in-studio location for this window');
-        return;
-      }
-    } else {
-      if (departureMode === 'pin' && !pinLocation) {
-        setError('Please drop a pin on the map to set your departure location');
-        return;
-      }
-      if (departureMode === 'saved' && !selectedLocationId) {
-        setError('Please select a saved location');
-        return;
-      }
+    if (kind === 'static' && !selectedStaticLocationId) {
+      setError('Please pick the in-studio location for this window');
+      return;
     }
 
     const availability = {
@@ -124,17 +80,11 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
       start: startTime,
       end: endTime,
       kind,
-      // Static availability is anchored to its location, not a separate
-      // departure point — skip the anchor field entirely.
-      ...(kind === 'static'
-        ? { staticLocation: selectedStaticLocationId }
-        : { anchor: getSelectedAnchor() }),
+      ...(kind === 'static' ? { staticLocation: selectedStaticLocationId } : {}),
     };
 
     onAdd(availability);
   };
-
-  const nonHomeSavedLocations = savedLocations.filter(l => !l.isHomeBase);
 
   return (
     <div className="fixed inset-0 bg-slate-600 bg-opacity-50 overflow-y-auto h-full w-full
@@ -188,8 +138,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </div>
           </div>
 
-          {/* Mobile vs Static toggle. Static disables the departure picker
-              entirely — those bookings happen at one fixed location. */}
+          {/* Mobile vs Static toggle. */}
           <div className="border-t border-line pt-4">
             <p className="text-sm font-medium text-slate-700 mb-2">What kind of availability is this?</p>
             <div className="grid grid-cols-2 gap-2">
@@ -206,7 +155,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                   <Navigation className={`w-4 h-4 ${kind === 'mobile' ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
                   <span className="text-sm font-medium text-slate-900">Mobile</span>
                 </div>
-                <span className="text-xs text-slate-500">You travel to clients</span>
+                <span className="text-xs text-slate-500">You travel to clients (departing from home base)</span>
               </button>
               <button
                 type="button"
@@ -264,131 +213,6 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 Bookings within this window will be at this location. Turnover buffer comes from the location settings.
               </p>
             </div>
-          )}
-
-          {/* Departure Location (only when kind === 'mobile') */}
-          {kind === 'mobile' && (
-          <div className="border-t border-line pt-4">
-            <button
-              type="button"
-              onClick={() => setShowLocationPicker(!showLocationPicker)}
-              className="w-full flex items-center justify-between text-left"
-            >
-              <div className="flex items-center gap-2">
-                <Navigation className="w-4 h-4 text-[#B07A4E]" />
-                <div>
-                  <p className="text-sm font-medium text-slate-700">Departure Location</p>
-                  <p className="text-xs text-slate-500">
-                    {locationsLoading ? 'Loading...' :
-                     departureMode === 'homebase' && homeBase ? homeBase.address :
-                     departureMode === 'homebase' && !homeBase ? 'No home base set' :
-                     departureMode === 'saved' ? (savedLocations.find(l => l._id === selectedLocationId)?.address || 'Select a location') :
-                     departureMode === 'pin' && pinLocation ? pinLocation.address :
-                     'Drop a pin'}
-                  </p>
-                </div>
-              </div>
-              {showLocationPicker ?
-                <ChevronUp className="w-4 h-4 text-slate-500" /> :
-                <ChevronDown className="w-4 h-4 text-slate-500" />
-              }
-            </button>
-
-            {showLocationPicker && (
-              <div className="mt-3 space-y-3">
-                {/* Home base option */}
-                {homeBase && (
-                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'homebase' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="departure"
-                      checked={departureMode === 'homebase'}
-                      onChange={() => setDepartureMode('homebase')}
-                      className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5" />
-                        Home Base
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">{homeBase.address}</p>
-                    </div>
-                  </label>
-                )}
-
-                {!homeBase && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-700">
-                      No home base set. <a href="/provider/locations" className="font-medium underline">Set one in Locations</a>.
-                    </p>
-                  </div>
-                )}
-
-                {/* Saved locations */}
-                {nonHomeSavedLocations.length > 0 && (
-                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    departureMode === 'saved' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="departure"
-                      checked={departureMode === 'saved'}
-                      onChange={() => setDepartureMode('saved')}
-                      className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900">Saved Location</p>
-                      {departureMode === 'saved' && (
-                        <select
-                          value={selectedLocationId || ''}
-                          onChange={(e) => setSelectedLocationId(e.target.value)}
-                          className="mt-2 w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
-                        >
-                          <option value="">Choose a location...</option>
-                          {nonHomeSavedLocations.map(loc => (
-                            <option key={loc._id} value={loc._id}>{loc.name} — {loc.address}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </label>
-                )}
-
-                {/* Pin drop */}
-                <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  departureMode === 'pin' ? 'border-[#B07A4E] bg-teal-50' : 'border-line hover:bg-paper-deep'
-                }`}>
-                  <input
-                    type="radio"
-                    name="departure"
-                    checked={departureMode === 'pin'}
-                    onChange={() => setDepartureMode('pin')}
-                    className="mt-1 text-[#B07A4E] focus:ring-[#B07A4E]"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900">Drop a Pin</p>
-                    <p className="text-xs text-slate-500">Tap the map to set a custom departure point</p>
-                  </div>
-                </label>
-
-                {departureMode === 'pin' && (
-                  <div className="rounded-lg overflow-hidden border border-line">
-                    <PinDropMap
-                      onLocationConfirmed={(loc) => setPinLocation(loc)}
-                      initialLocation={pinLocation}
-                    />
-                    {pinLocation && (
-                      <div className="p-2 bg-paper-deep text-xs text-slate-600">
-                        {pinLocation.address || `${pinLocation.lat.toFixed(4)}, ${pinLocation.lng.toFixed(4)}`}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
           )}
 
           {/* Actions */}

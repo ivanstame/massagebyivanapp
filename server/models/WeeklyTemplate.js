@@ -36,16 +36,6 @@ const WeeklyTemplateSchema = new mongoose.Schema({
     ref: 'SavedLocation',
     default: null
   },
-  // Fixed location anchor for this day (e.g., "Tuesday at Peters Chiropractic 9-5")
-  anchor: {
-    locationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'SavedLocation',
-      default: null
-    },
-    startTime: { type: String, default: null }, // "HH:mm" — when the anchor block starts
-    endTime: { type: String, default: null }     // "HH:mm" — when the anchor block ends
-  },
   // Per-date opt-outs: dates (YYYY-MM-DD in LA) where the provider has
   // explicitly removed this template's occurrence. Materialization skips
   // any date in this list, so deleting a single template-derived

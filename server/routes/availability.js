@@ -75,26 +75,6 @@ async function generateFromTemplate(providerId, laDate) {
     staticLocation: template.kind === 'static' ? template.staticLocation : null
   };
 
-  // Propagate anchor info if the template has one. Skip for static
-  // templates — the day's whole window is the in-studio commitment, so
-  // a leftover anchor would render as a "Fixed" overlay on top of the
-  // in-studio block. (Defensive in case any historical template still
-  // carries both kind=static AND anchor.locationId.)
-  if (template.kind !== 'static' && template.anchor && template.anchor.locationId) {
-    const loc = await SavedLocation.findById(template.anchor.locationId);
-    if (loc) {
-      availData.anchor = {
-        locationId: loc._id,
-        name: loc.name,
-        address: loc.address,
-        lat: loc.lat,
-        lng: loc.lng,
-        startTime: template.anchor.startTime,
-        endTime: template.anchor.endTime
-      };
-    }
-  }
-
   const availability = new Availability(availData);
   await availability.save();
   return availability;
@@ -112,18 +92,6 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
   const templateByDay = {};
   for (const t of templates) {
     templateByDay[t.dayOfWeek] = t;
-  }
-
-  // Pre-fetch all anchor locations referenced by templates
-  const anchorLocationIds = templates
-    .filter(t => t.anchor && t.anchor.locationId)
-    .map(t => t.anchor.locationId);
-  const anchorLocations = anchorLocationIds.length > 0
-    ? await SavedLocation.find({ _id: { $in: anchorLocationIds } })
-    : [];
-  const locationById = {};
-  for (const loc of anchorLocations) {
-    locationById[loc._id.toString()] = loc;
   }
 
   // Get all existing availability in the range. We only need the
@@ -183,23 +151,6 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
         kind: template.kind || 'mobile',
         staticLocation: template.kind === 'static' ? template.staticLocation : null
       };
-
-      // Propagate anchor info. Skip for static templates — see the
-      // matching guard in generateFromTemplate above for rationale.
-      if (template.kind !== 'static' && template.anchor && template.anchor.locationId) {
-        const loc = locationById[template.anchor.locationId.toString()];
-        if (loc) {
-          doc.anchor = {
-            locationId: loc._id,
-            name: loc.name,
-            address: loc.address,
-            lat: loc.lat,
-            lng: loc.lng,
-            startTime: template.anchor.startTime,
-            endTime: template.anchor.endTime
-          };
-        }
-      }
 
       toCreate.push(doc);
     }
@@ -970,34 +921,6 @@ router.post('/', ensureAuthenticated, async (req, res) => {
         : null
     });
 
-    // Set departure location (anchor) if provided. Static blocks never
-    // get an anchor — the day's whole window IS the in-studio commitment,
-    // so a stray departure location would render as a "Fixed" overlay on
-    // top of the in-studio block. Belt for the modal's suspenders.
-    if (incomingKind === 'mobile') {
-      const anchorData = availabilityData.anchor;
-      if (anchorData?.locationId) {
-        const loc = await SavedLocation.findById(anchorData.locationId);
-        if (loc && loc.provider.equals(req.user._id)) {
-          newAvailability.anchor = {
-            locationId: loc._id,
-            name: loc.name,
-            address: loc.address,
-            lat: loc.lat,
-            lng: loc.lng,
-          };
-        }
-      } else if (anchorData?.lat && anchorData?.lng) {
-        newAvailability.anchor = {
-          locationId: null,
-          name: anchorData.name || 'Custom Location',
-          address: anchorData.address || '',
-          lat: anchorData.lat,
-          lng: anchorData.lng,
-        };
-      }
-    }
-    
     console.log('POST /api/availability - New availability object:', JSON.stringify(newAvailability, null, 2));
 
     await newAvailability.save();
@@ -1345,43 +1268,10 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     availability.start = startLA.toUTC().toJSDate();
     availability.end = endLA.toUTC().toJSDate();
 
-    // Anchor reconciliation. Template-derived mobile rows can carry
-    // a fixed-location anchor (a sub-window inside the day where the
-    // provider works at a specific saved location). When the parent
-    // window changes, the anchor must follow — otherwise the day
-    // schedule renders the anchor at its OLD times while the parent
-    // shifted, producing a "second window behind the fixed one"
-    // visual artifact and a data inconsistency.
-    //
-    // Clip the anchor to [new start, new end]. If the resulting
-    // window has zero or negative width (anchor falls completely
-    // outside the new parent), drop the anchor entirely.
-    if (availability.anchor && availability.anchor.startTime && availability.anchor.endTime) {
-      const newStartMin = startLA.hour * 60 + startLA.minute;
-      const newEndMin = endLA.hour * 60 + endLA.minute;
-      const [aSh, aSm] = availability.anchor.startTime.split(':').map(Number);
-      const [aEh, aEm] = availability.anchor.endTime.split(':').map(Number);
-      const aStartMin = aSh * 60 + aSm;
-      const aEndMin = aEh * 60 + aEm;
-
-      const clippedStart = Math.max(aStartMin, newStartMin);
-      const clippedEnd = Math.min(aEndMin, newEndMin);
-
-      if (clippedEnd <= clippedStart) {
-        // Anchor doesn't fit at all in the new window — drop it.
-        availability.anchor = {
-          locationId: null, name: null, address: null,
-          lat: null, lng: null,
-          startTime: null, endTime: null,
-        };
-        console.log(`[Availability PUT] anchor dropped — fell outside new window`);
-      } else if (clippedStart !== aStartMin || clippedEnd !== aEndMin) {
-        const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-        availability.anchor.startTime = fmt(clippedStart);
-        availability.anchor.endTime = fmt(clippedEnd);
-        availability.markModified('anchor');
-        console.log(`[Availability PUT] anchor clipped to ${fmt(clippedStart)}-${fmt(clippedEnd)}`);
-      }
+    // Anchor was removed — defensively unset on any legacy doc that
+    // still carries the field so the client never re-renders it.
+    if (availability.anchor !== undefined) {
+      availability.anchor = undefined;
     }
 
     // Save the updated block (this will trigger the pre-save middleware)
@@ -1408,65 +1298,6 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     res.json(availability);
   } catch (error) {
     console.error('Error updating availability:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// PATCH /:id/anchor (Update departure location for a day)
-router.patch('/:id/anchor', ensureAuthenticated, async (req, res) => {
-  try {
-    const availability = await Availability.findById(req.params.id);
-
-    if (!availability) {
-      return res.status(404).json({ message: 'Availability not found' });
-    }
-
-    if (!availability.provider.equals(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    // Anchor only applies to mobile days. A static window's location
-    // commitment IS the studio; storing a separate departure anchor would
-    // surface as a "Fixed" overlay on top of the in-studio block.
-    if (availability.kind === 'static') {
-      return res.status(400).json({
-        message: 'Cannot set a departure anchor on an in-studio (static) block. Anchor only applies to mobile availability.'
-      });
-    }
-
-    const { locationId, name, address, lat, lng } = req.body;
-
-    if (locationId) {
-      // Using a saved location
-      const loc = await SavedLocation.findById(locationId);
-      if (!loc || !loc.provider.equals(req.user._id)) {
-        return res.status(404).json({ message: 'Location not found' });
-      }
-      availability.anchor = {
-        locationId: loc._id,
-        name: loc.name,
-        address: loc.address,
-        lat: loc.lat,
-        lng: loc.lng,
-      };
-    } else if (lat && lng) {
-      // Using a pin drop / manual coordinates
-      availability.anchor = {
-        locationId: null,
-        name: name || 'Custom Location',
-        address: address || '',
-        lat,
-        lng,
-      };
-    } else {
-      // Clear anchor — revert to home base
-      availability.anchor = undefined;
-    }
-
-    await availability.save();
-    res.json(availability);
-  } catch (error) {
-    console.error('Error updating availability anchor:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
