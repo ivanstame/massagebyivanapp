@@ -18,6 +18,7 @@ const passport = require('passport');
 require('./config/passport')(passport);
 const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const User = require('./models/User');
 const bookingRoutes = require('./routes/bookings');
@@ -81,6 +82,53 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.error('MongoDB Atlas connection error:', err);
   process.exit(1); // Exit process on connection failure
 });
+
+// Security headers — set before any route handler so every response
+// (including errors and webhooks) carries them.
+//
+// CSP is permissive enough to keep Stripe Elements + Google Maps +
+// the Resend transactional emails working: scripts from Stripe and
+// Google, frames from Stripe (Payment Element + 3DS), and connections
+// to Stripe + Google APIs. Tightening further means breaking the
+// payment + map flows.
+//
+// crossOriginEmbedderPolicy disabled because the Stripe iframe loads
+// without COEP and would otherwise be blocked.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'", // CRA inline runtime script — required until ejected
+        "https://js.stripe.com",
+        "https://maps.googleapis.com",
+        "https://maps.gstatic.com",
+      ],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: [
+        "'self'",
+        "https://api.stripe.com",
+        "https://maps.googleapis.com",
+        "https://*.googleapis.com",
+      ],
+      frameSrc: [
+        "'self'",
+        "https://js.stripe.com",
+        "https://hooks.stripe.com",
+      ],
+      workerSrc: ["'self'", "blob:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
 
 app.use((req, res, next) => {
   console.log('Incoming request:', {

@@ -165,6 +165,13 @@ const PackagePurchaseSchema = new mongoose.Schema({
     index: true,
     sparse: true,
   },
+  // Stripe webhook event ID that flipped this to paid (idempotency
+  // record). See matching field on Booking.
+  stripeEventId: {
+    type: String,
+    default: null,
+    index: true,
+  },
   purchasedAt: {
     type: Date,
     default: null, // set when paymentStatus flips to 'paid'

@@ -222,7 +222,15 @@ router.post('/webhook', requireStripe, async (req, res) => {
   let event;
   let lastErr;
   if (secrets.length === 0) {
-    // Dev fallback: no secret configured, just parse and trust.
+    // Production must have at least one signing secret configured.
+    // The earlier "parse and trust" dev fallback is a foot-gun: any
+    // misconfigured prod deploy would silently accept forged events
+    // and mark bookings/packages paid. Refuse outright instead.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Webhook reached server with no STRIPE_WEBHOOK_SECRET / STRIPE_CONNECT_WEBHOOK_SECRET set');
+      return res.status(500).send('Webhook secret not configured');
+    }
+    // Local dev only: parse without verification.
     try {
       event = JSON.parse(req.body.toString());
     } catch (err) {
@@ -251,13 +259,22 @@ router.post('/webhook', requireStripe, async (req, res) => {
       const bookingId = paymentIntent.metadata?.bookingId;
       const packagePurchaseId = paymentIntent.metadata?.packagePurchaseId;
 
+      // Idempotency: Stripe retries webhooks. Skip if the doc was
+      // already marked paid so paidAt/purchasedAt reflect the FIRST
+      // successful event, not the latest retry. Without this the
+      // original timestamp gets stomped on every replay.
       if (bookingId) {
         try {
-          await Booking.findByIdAndUpdate(bookingId, {
-            paymentStatus: 'paid',
-            paidAt: new Date()
-          });
-          console.log(`Booking ${bookingId} marked as paid via webhook`);
+          const booking = await Booking.findById(bookingId);
+          if (booking && booking.paymentStatus !== 'paid') {
+            booking.paymentStatus = 'paid';
+            booking.paidAt = new Date();
+            booking.stripeEventId = event.id;
+            await booking.save();
+            console.log(`Booking ${bookingId} marked as paid via webhook (event ${event.id})`);
+          } else if (booking) {
+            console.log(`Booking ${bookingId} already paid; skipping webhook ${event.id}`);
+          }
         } catch (err) {
           console.error('Error updating booking from webhook:', err);
         }
@@ -265,11 +282,16 @@ router.post('/webhook', requireStripe, async (req, res) => {
 
       if (packagePurchaseId) {
         try {
-          await PackagePurchase.findByIdAndUpdate(packagePurchaseId, {
-            paymentStatus: 'paid',
-            purchasedAt: new Date(),
-          });
-          console.log(`Package purchase ${packagePurchaseId} marked as paid via webhook`);
+          const purchase = await PackagePurchase.findById(packagePurchaseId);
+          if (purchase && purchase.paymentStatus !== 'paid') {
+            purchase.paymentStatus = 'paid';
+            purchase.purchasedAt = new Date();
+            purchase.stripeEventId = event.id;
+            await purchase.save();
+            console.log(`Package purchase ${packagePurchaseId} marked as paid via webhook (event ${event.id})`);
+          } else if (purchase) {
+            console.log(`Package purchase ${packagePurchaseId} already paid; skipping webhook ${event.id}`);
+          }
         } catch (err) {
           console.error('Error updating package purchase from webhook:', err);
         }

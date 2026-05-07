@@ -145,6 +145,15 @@ const BookingSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Stripe webhook event ID that flipped this to paid. Lets us
+  // distinguish first-success from retries — the webhook handler
+  // checks paymentStatus before writing, so this records the event
+  // that actually triggered the transition.
+  stripeEventId: {
+    type: String,
+    default: null,
+    index: true,
+  },
   // Provider's private notes for this session — free-form, optional.
   // What the provider wants to remember about how the session went.
   // Visible only to the provider on this booking; the client never sees

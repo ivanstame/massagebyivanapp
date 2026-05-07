@@ -872,25 +872,40 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
 });
 
 // Get provider info for booking (accessible route)
-router.get('/provider/:providerId', async (req, res) => {
+// Public-facing provider projection — every field a client/booking flow
+// actually needs to render or transact, with everything sensitive
+// (OAuth tokens, home address, Stripe internals, emergency contacts,
+// admin-only flags) excluded. Mongoose select string built positively
+// so adding a new field to User defaults to NOT exposed.
+const PROVIDER_PUBLIC_PROJECTION = [
+  '_id',
+  'accountType',
+  'profile.fullName',
+  'profile.phoneNumber',
+  'providerProfile.businessName',
+  'providerProfile.logoUrl',
+  'providerProfile.bio',
+  'providerProfile.timezone',
+  'providerProfile.basePricing',
+  'providerProfile.pricingTiers',
+  'providerProfile.addons',
+  'providerProfile.acceptedPaymentMethods',
+  'providerProfile.sameAddressTurnoverBuffer',
+  'providerProfile.cancellationPolicy',
+  'providerProfile.serviceAreaRadius',
+].join(' ');
+
+router.get('/provider/:providerId', ensureAuthenticated, async (req, res) => {
   try {
-    console.log('Fetching provider info for providerId:', req.params.providerId);
-    
     const provider = await User.findOne({
       _id: req.params.providerId,
       accountType: 'PROVIDER'
-    }).select('-password'); // Exclude password but include everything else
+    }).select(PROVIDER_PUBLIC_PROJECTION);
 
     if (!provider) {
-      console.log('Provider not found for ID:', req.params.providerId);
       return res.status(404).json({ message: 'Provider not found' });
     }
 
-    console.log('Provider found with full data');
-    console.log('Provider business name:', provider.providerProfile?.businessName);
-    console.log('Full providerProfile:', provider.providerProfile);
-    
-    // Return the full provider object (minus password)
     res.json(provider);
   } catch (error) {
     console.error('Error fetching provider info:', error);
@@ -898,26 +913,17 @@ router.get('/provider/:providerId', async (req, res) => {
   }
 });
 
-// Get provider public profile
-router.get('/provider/:providerId/profile', async (req, res) => {
+router.get('/provider/:providerId/profile', ensureAuthenticated, async (req, res) => {
   try {
-    console.log('Fetching provider profile for providerId:', req.params.providerId);
-    
     const provider = await User.findOne({
       _id: req.params.providerId,
       accountType: 'PROVIDER'
-    }).select('-password'); // Exclude password but include everything else
+    }).select(PROVIDER_PUBLIC_PROJECTION);
 
     if (!provider) {
-      console.log('Provider not found for ID:', req.params.providerId);
       return res.status(404).json({ message: 'Provider not found' });
     }
 
-    console.log('Provider found:', provider);
-    console.log('Provider business name:', provider.providerProfile?.businessName);
-    console.log('Full providerProfile:', JSON.stringify(provider.providerProfile, null, 2));
-    
-    // Return the full provider object (minus password)
     res.json(provider);
   } catch (error) {
     console.error('Error fetching provider profile:', error);
