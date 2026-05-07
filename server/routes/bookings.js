@@ -8,6 +8,7 @@ const User = require('../models/User');
 const SavedLocation = require('../models/SavedLocation');
 const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const { audit } = require('../utils/auditLog');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
 const { createChainBookings } = require('../services/chainBookingService');
@@ -1287,6 +1288,15 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     }
     const siblingsCancelled = siblingsDeleted; // back-compat field name
 
+    audit({
+      action: 'delete', resource: 'booking', resourceId: booking._id,
+      details: {
+        cancelledBy: req.user.accountType,
+        clientId: booking.client,
+        siblingsCancelled, seriesCancelled, chainSiblingsCancelled,
+      }, req,
+    });
+
     res.json({
       message: 'Booking cancelled successfully',
       siblingsCancelled,
@@ -1318,9 +1328,19 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'Invalid payment status' });
     }
 
+    const previousStatus = booking.paymentStatus;
     booking.paymentStatus = paymentStatus;
     booking.paidAt = paymentStatus === 'paid' ? new Date() : null;
     await booking.save();
+
+    if (previousStatus !== paymentStatus) {
+      audit({
+        action: 'update', resource: 'booking_payment_status',
+        resourceId: booking._id,
+        details: { from: previousStatus, to: paymentStatus, clientId: booking.client },
+        req,
+      });
+    }
 
     res.json(booking);
   } catch (error) {

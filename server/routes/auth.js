@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Invitation = require('../models/Invitation');
 const { ensureAuthenticated, ensureGuest } = require('../middleware/passportMiddleware');
 const { sendPasswordResetEmail } = require('../utils/email');
+const { audit } = require('../utils/auditLog');
 
 // Brute-force guard for the provider-signup password gate. The endpoint
 // exists to keep the literal out of the client bundle; without a limiter
@@ -131,13 +132,18 @@ router.post('/register', ensureGuest, async (req, res) => {
       user.providerId = user._id;
       await user.save();
     }
-    
+
     if (accountType === 'CLIENT' && invitationToken) {
       await Invitation.findOneAndUpdate(
         { token: invitationToken },
         { status: 'ACCEPTED' }
       );
     }
+
+    audit({
+      userId: user._id, action: 'create', resource: 'account',
+      resourceId: user._id, details: { accountType: user.accountType }, req,
+    });
     
     req.login(user, async (err) => {
       if (err) {
@@ -192,10 +198,18 @@ router.post('/login', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       console.error('Login error:', err);
+      audit({
+        action: 'auth', resource: 'login', outcome: 'failure',
+        details: { reason: 'server_error', email: req.body?.email }, req,
+      });
       return res.status(500).json({ message: 'Login error occurred' });
     }
 
     if (!user) {
+      audit({
+        action: 'auth', resource: 'login', outcome: 'failure',
+        details: { reason: info?.message || 'invalid_credentials', email: req.body?.email }, req,
+      });
       return res.status(401).json({ message: info.message || 'Invalid credentials' });
     }
 
@@ -219,6 +233,11 @@ router.post('/login', (req, res, next) => {
         if (user.accountType === 'CLIENT' && user.providerId) {
           userData.providerId = user.providerId;
         }
+
+        audit({
+          userId: user._id, action: 'auth', resource: 'login',
+          outcome: 'success', details: { accountType: user.accountType }, req,
+        });
 
         return res.json({
           message: 'Login successful',

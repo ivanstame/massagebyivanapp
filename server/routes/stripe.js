@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
+const { audit } = require('../utils/auditLog');
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('⚠️  STRIPE_SECRET_KEY is not set — Stripe routes will return 503');
@@ -272,6 +273,15 @@ router.post('/webhook', requireStripe, async (req, res) => {
             booking.stripeEventId = event.id;
             await booking.save();
             console.log(`Booking ${bookingId} marked as paid via webhook (event ${event.id})`);
+            audit({
+              userId: booking.client,
+              action: 'update', resource: 'booking_payment_status',
+              resourceId: booking._id,
+              details: {
+                from: 'unpaid', to: 'paid', via: 'stripe_webhook',
+                stripeEventId: event.id,
+              },
+            });
           } else if (booking) {
             console.log(`Booking ${bookingId} already paid; skipping webhook ${event.id}`);
           }

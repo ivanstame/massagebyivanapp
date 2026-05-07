@@ -13,6 +13,7 @@ const WeeklyTemplate = require('../models/WeeklyTemplate');
 const BlockedTime = require('../models/BlockedTime');
 const ClaimToken = require('../models/ClaimToken');
 const { ensureAuthenticated, ensureAdmin } = require('../middleware/passportMiddleware');
+const { audit } = require('../utils/auditLog');
 
 // @route   GET /api/users/profile
 // @desc    Get user profile
@@ -1097,6 +1098,11 @@ router.delete('/account', ensureAuthenticated, async (req, res) => {
     // Delete the user record last so a mid-cascade failure leaves the
     // account intact and the user can retry.
     await User.findByIdAndDelete(userId);
+
+    audit({
+      userId, action: 'delete', resource: 'account', resourceId: userId,
+      details: { accountType: user.accountType }, req,
+    });
 
     req.logout((err) => {
       if (err) {
