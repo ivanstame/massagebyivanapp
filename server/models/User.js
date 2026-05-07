@@ -1,6 +1,7 @@
 // server/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { encryptString, decryptString } = require('../utils/fieldCrypto');
 
 const UserSchema = new mongoose.Schema({
   smsConsent: {
@@ -187,10 +188,25 @@ const UserSchema = new mongoose.Schema({
       lateCancelFee: { type: Number, default: 0 },  // fee in dollars (0 = no fee, just warning)
       enabled: { type: Boolean, default: false }
     },
-    // Google Calendar integration
+    // Google Calendar integration. accessToken + refreshToken are
+    // encrypted at rest (AES-256-GCM via server/utils/fieldCrypto).
+    // The refresh token grants indefinite calendar access, so a
+    // breach of plaintext tokens lets an attacker read/modify every
+    // provider's calendar without further auth — encryption raises
+    // the bar to also needing FIELD_ENCRYPTION_KEY.
     googleCalendar: {
-      accessToken: { type: String, default: null },
-      refreshToken: { type: String, default: null },
+      accessToken: {
+        type: String,
+        default: null,
+        set: encryptString,
+        get: decryptString,
+      },
+      refreshToken: {
+        type: String,
+        default: null,
+        set: encryptString,
+        get: decryptString,
+      },
       tokenExpiry: { type: Date, default: null },
       connected: { type: Boolean, default: false },
       connectedEmail: { type: String, default: null },
@@ -214,7 +230,16 @@ const UserSchema = new mongoose.Schema({
   },
   // Add the new clientProfile field here
   clientProfile: {
-    notes: String,  // For storing client notes, preferences, special instructions
+    // Provider's notes about this client. Encrypted at rest because
+    // notes routinely include CMIA-protected medical context (recent
+    // injuries, post-op recovery notes, contraindications). See
+    // server/utils/fieldCrypto.
+    notes: {
+      type: String,
+      default: '',
+      set: encryptString,
+      get: decryptString,
+    },
     preferences: mongoose.Schema.Types.Mixed,  // Flexible field for client-specific options
     // Optional reference to one of the provider's pricingTiers subdocs
     // (providerProfile.pricingTiers[]._id). When set, booking flows
@@ -278,12 +303,30 @@ const UserSchema = new mongoose.Schema({
       },
       focusAreas: { type: [String], default: [] },
       avoidAreas: { type: [String], default: [] },
-      oilSensitivities: { type: String, default: '' },
-      notes: { type: String, default: '' }
+      // Allergy-adjacent free-text. Encrypted at rest (CMIA).
+      oilSensitivities: {
+        type: String,
+        default: '',
+        set: encryptString,
+        get: decryptString,
+      },
+      // Free-form clinical notes. Encrypted at rest (CMIA).
+      notes: {
+        type: String,
+        default: '',
+        set: encryptString,
+        get: decryptString,
+      }
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  // Encrypted fields use Mongoose getters to decrypt on read; without
+  // these toJSON/toObject getters, JSON.stringify(user) would expose
+  // the raw "enc:v1:..." blob instead of the plaintext. Apply
+  // selectively (id transform left default).
+  toJSON: { getters: true, virtuals: false },
+  toObject: { getters: true, virtuals: false },
 });
 
 // Password hashing middleware
