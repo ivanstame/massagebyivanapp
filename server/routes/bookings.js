@@ -88,13 +88,19 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       }
     }
 
-    const bookingDateLA = DateTime.fromISO(date, { zone: 'America/Los_Angeles' }).startOf('day');
+    // Resolve the provider's IANA timezone — every time-math op below
+    // anchors here. Falls back to LA if the provider hasn't set one
+    // (legacy / single-provider deployment).
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(providerId);
+
+    const bookingDateLA = DateTime.fromISO(date, { zone: providerTz }).startOf('day');
     const bookingDate = bookingDateLA.toUTC().toJSDate();
 
-    // Create booking start time in LA timezone
-    const bookingStartTimeLA = DateTime.fromFormat(`${bookingDateLA.toFormat('yyyy-MM-dd')} ${time}`, 
-      'yyyy-MM-dd HH:mm', 
-      { zone: 'America/Los_Angeles' }
+    // Create booking start time in provider's timezone
+    const bookingStartTimeLA = DateTime.fromFormat(`${bookingDateLA.toFormat('yyyy-MM-dd')} ${time}`,
+      'yyyy-MM-dd HH:mm',
+      { zone: providerTz }
     );
     
     // Convert to UTC for storage
@@ -164,18 +170,18 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       allSlots = allSlots.concat(slots);
     }
 
-    // Deduplicate by time string
+    // Deduplicate by time string (in provider's TZ)
     const seenTimes = new Set();
     const availableSlots = allSlots.filter(slot => {
-      const key = DateTime.fromJSDate(slot).setZone('America/Los_Angeles').toFormat('HH:mm');
+      const key = DateTime.fromJSDate(slot).setZone(providerTz).toFormat('HH:mm');
       if (seenTimes.has(key)) return false;
       seenTimes.add(key);
       return true;
     });
 
-    // Convert available slots to LA time strings for comparison
+    // Convert available slots to provider-TZ time strings for comparison
     const availableTimeStrings = availableSlots.map(slot => {
-      const slotLA = DateTime.fromJSDate(slot).setZone('America/Los_Angeles');
+      const slotLA = DateTime.fromJSDate(slot).setZone(providerTz);
       return slotLA.toFormat('HH:mm');
     });
 
@@ -283,6 +289,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       _id: bookingObjectId,
       provider: providerId,
       client: clientId,
+      timezone: providerTz,
       date: bookingDate,
       localDate: bookingDateLA.toFormat('yyyy-MM-dd'),
       startTime: time,
@@ -757,7 +764,11 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Only providers can view revenue' });
     }
 
-    const now = DateTime.now().setZone('America/Los_Angeles');
+    // Provider's TZ defines week / month boundaries — a NY provider's
+    // "this week" starts/ends on NY time, not server-host LA.
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+    const now = DateTime.now().setZone(providerTz);
     const startOfWeek = now.startOf('week').toJSDate();
     const startOfMonth = now.startOf('month').toJSDate();
 
@@ -1044,12 +1055,17 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
       const policy = provider?.providerProfile?.cancellationPolicy;
 
       if (policy?.enabled && policy.windowHours > 0) {
+        // Use the booking's stored TZ (where the appointment is
+        // happening) for the "hours until" check. A NY booking
+        // viewed by a client in LA still counts down against the
+        // appointment's local clock, not the client's.
+        const bookingTz = booking.timezone || 'America/Los_Angeles';
         const bookingStartLA = DateTime.fromFormat(
           `${booking.localDate} ${booking.startTime}`,
           'yyyy-MM-dd HH:mm',
-          { zone: 'America/Los_Angeles' }
+          { zone: bookingTz }
         );
-        const hoursUntil = bookingStartLA.diff(DateTime.now().setZone('America/Los_Angeles'), 'hours').hours;
+        const hoursUntil = bookingStartLA.diff(DateTime.now(), 'hours').hours;
 
         if (hoursUntil < policy.windowHours) {
           const force = req.body?.force === true;
@@ -1224,7 +1240,10 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
         const series = await RecurringSeries.findById(booking.series);
 
         if (series) {
-          const todayStr = DateTime.now().setZone('America/Los_Angeles').toFormat('yyyy-MM-dd');
+          // "Today" in the series' TZ — a NY provider's series ending
+          // "today" means NY today, not LA today.
+          const seriesTz = series.timezone || booking.timezone || 'America/Los_Angeles';
+          const todayStr = DateTime.now().setZone(seriesTz).toFormat('yyyy-MM-dd');
           const siblingFilter = {
             series: series._id,
             _id: { $ne: booking._id },
@@ -1525,7 +1544,12 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
     const duration = booking.duration;
     const location = booking.location;
 
-    const bookingDateLA = DateTime.fromISO(date, { zone: 'America/Los_Angeles' }).startOf('day');
+    // Use the booking's stored TZ for parsing the new date/time.
+    // The reschedule keeps the booking in its original TZ (the
+    // appointment is happening where it's happening); changing the
+    // provider's TZ later doesn't move existing bookings.
+    const rescheduleTz = booking.timezone || 'America/Los_Angeles';
+    const bookingDateLA = DateTime.fromISO(date, { zone: rescheduleTz }).startOf('day');
     const localDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
 
     // Direct conflict check (not slot-list membership). Reschedule is
@@ -1577,8 +1601,12 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
       overridden: { $ne: true }
     }).select('start end source reason');
     const overlapBlock = dayBlocks.find(bt => {
-      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone('America/Los_Angeles');
-      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone('America/Los_Angeles');
+      // Each block carries its own timezone; the comparison happens in
+      // local-of-block time so a block stored in NY but viewed via an
+      // LA-defaulted system still produces correct minute counts.
+      const blockTz = bt.timezone || rescheduleTz;
+      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone(blockTz);
+      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone(blockTz);
       const btStart = sLA.hour * 60 + sLA.minute;
       const btEnd = eLA.hour * 60 + eLA.minute;
       return newStartMin < btEnd && newEndMin > btStart;
@@ -1592,8 +1620,9 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
     const oldDate = booking.localDate;
     const oldTime = booking.startTime;
 
-    // Update the booking
-    const newStartLA = DateTime.fromFormat(`${localDateStr} ${time}`, 'yyyy-MM-dd HH:mm', { zone: 'America/Los_Angeles' });
+    // Update the booking — parse the new time in the booking's
+    // stored TZ to keep its semantics consistent.
+    const newStartLA = DateTime.fromFormat(`${localDateStr} ${time}`, 'yyyy-MM-dd HH:mm', { zone: rescheduleTz });
     const newEndLA = newStartLA.plus({ minutes: duration });
 
     booking.date = bookingDateLA.toUTC().toJSDate();
