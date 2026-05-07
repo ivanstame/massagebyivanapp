@@ -1210,9 +1210,15 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
         'yyyy-MM-dd HH:mm',
         { zone: DEFAULT_TZ }
       );
-      // Of the bookings this block owns, a conflict is one the new
-      // window can't fully contain.
-      return bookingStart < startLA || bookingEnd > endLA;
+      // Only flag bookings that go from CONTAINED → NOT-CONTAINED
+      // because of this modify. A booking that was already partially
+      // outside the block before this edit (e.g. ends 15 min past
+      // the original end) isn't this modify's problem — that's
+      // pre-existing state. Blocking the edit on it produced false
+      // 400s on harmless modifies (e.g. expanding start earlier).
+      const wasContained = bookingStart >= oldStartLA && bookingEnd <= oldEndLA;
+      const isContained  = bookingStart >= startLA   && bookingEnd <= endLA;
+      return wasContained && !isContained;
     });
 
     if (conflicts.length > 0) {
