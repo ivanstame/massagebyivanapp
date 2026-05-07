@@ -1345,6 +1345,45 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     availability.start = startLA.toUTC().toJSDate();
     availability.end = endLA.toUTC().toJSDate();
 
+    // Anchor reconciliation. Template-derived mobile rows can carry
+    // a fixed-location anchor (a sub-window inside the day where the
+    // provider works at a specific saved location). When the parent
+    // window changes, the anchor must follow — otherwise the day
+    // schedule renders the anchor at its OLD times while the parent
+    // shifted, producing a "second window behind the fixed one"
+    // visual artifact and a data inconsistency.
+    //
+    // Clip the anchor to [new start, new end]. If the resulting
+    // window has zero or negative width (anchor falls completely
+    // outside the new parent), drop the anchor entirely.
+    if (availability.anchor && availability.anchor.startTime && availability.anchor.endTime) {
+      const newStartMin = startLA.hour * 60 + startLA.minute;
+      const newEndMin = endLA.hour * 60 + endLA.minute;
+      const [aSh, aSm] = availability.anchor.startTime.split(':').map(Number);
+      const [aEh, aEm] = availability.anchor.endTime.split(':').map(Number);
+      const aStartMin = aSh * 60 + aSm;
+      const aEndMin = aEh * 60 + aEm;
+
+      const clippedStart = Math.max(aStartMin, newStartMin);
+      const clippedEnd = Math.min(aEndMin, newEndMin);
+
+      if (clippedEnd <= clippedStart) {
+        // Anchor doesn't fit at all in the new window — drop it.
+        availability.anchor = {
+          locationId: null, name: null, address: null,
+          lat: null, lng: null,
+          startTime: null, endTime: null,
+        };
+        console.log(`[Availability PUT] anchor dropped — fell outside new window`);
+      } else if (clippedStart !== aStartMin || clippedEnd !== aEndMin) {
+        const fmt = (m) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+        availability.anchor.startTime = fmt(clippedStart);
+        availability.anchor.endTime = fmt(clippedEnd);
+        availability.markModified('anchor');
+        console.log(`[Availability PUT] anchor clipped to ${fmt(clippedStart)}-${fmt(clippedEnd)}`);
+      }
+    }
+
     // Save the updated block (this will trigger the pre-save middleware)
     await availability.save();
 
