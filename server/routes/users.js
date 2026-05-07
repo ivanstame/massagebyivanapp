@@ -6,6 +6,12 @@ const Booking = require('../models/Booking');
 const Availability = require('../models/Availability');
 const Invitation = require('../models/Invitation');
 const SavedLocation = require('../models/SavedLocation');
+const PackagePurchase = require('../models/PackagePurchase');
+const PackageTemplate = require('../models/PackageTemplate');
+const RecurringSeries = require('../models/RecurringSeries');
+const WeeklyTemplate = require('../models/WeeklyTemplate');
+const BlockedTime = require('../models/BlockedTime');
+const ClaimToken = require('../models/ClaimToken');
 const { ensureAuthenticated, ensureAdmin } = require('../middleware/passportMiddleware');
 
 // @route   GET /api/users/profile
@@ -1040,32 +1046,58 @@ router.delete('/account', ensureAuthenticated, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Provider-specific cleanup
+    const userId = req.user.id;
+
+    // CCPA §1798.105 (Right to Delete): cascade through every model
+    // that references this user. Run as a single Promise.all so an
+    // early failure leaves a partial state that's still recoverable —
+    // the user record is deleted last, after dependents are gone.
     if (user.accountType === 'PROVIDER') {
-      // Delete all bookings for this provider
-      await Booking.deleteMany({ provider: req.user.id });
-      
-      // Delete all availability blocks for this provider
-      await Availability.deleteMany({ provider: req.user.id });
-      
-      // Delete all invitations from this provider
-      await Invitation.deleteMany({ provider: req.user.id });
-      
-      // Remove provider association from all clients
-      await User.updateMany(
-        { providerId: req.user.id },
-        { $set: { providerId: null } }
-      );
+      // Find managed clients first so we can purge their downstream
+      // records (bookings, packages, claim tokens) along with the
+      // provider's. Managed clients have no login of their own and
+      // are useless without their provider.
+      const managedClients = await User.find({
+        managedBy: userId,
+        isManaged: true,
+      }).select('_id').lean();
+      const managedClientIds = managedClients.map(c => c._id);
+
+      await Promise.all([
+        Booking.deleteMany({ provider: userId }),
+        Availability.deleteMany({ provider: userId }),
+        BlockedTime.deleteMany({ provider: userId }),
+        Invitation.deleteMany({ provider: userId }),
+        SavedLocation.deleteMany({ provider: userId }),
+        PackageTemplate.deleteMany({ provider: userId }),
+        PackagePurchase.deleteMany({ provider: userId }),
+        RecurringSeries.deleteMany({ provider: userId }),
+        WeeklyTemplate.deleteMany({ provider: userId }),
+        ClaimToken.deleteMany({ createdBy: userId }),
+        // Clients keep their accounts — null out the link so they
+        // can attach to a different provider later.
+        User.updateMany(
+          { providerId: userId, isManaged: { $ne: true } },
+          { $set: { providerId: null } }
+        ),
+        // Managed clients are deleted with the provider.
+        managedClientIds.length > 0
+          ? User.deleteMany({ _id: { $in: managedClientIds } })
+          : Promise.resolve(),
+      ]);
     } else if (user.accountType === 'CLIENT') {
-      // Client-specific cleanup (if any)
-      // For now, just remove any bookings for this client
-      await Booking.deleteMany({ client: req.user.id });
+      await Promise.all([
+        Booking.deleteMany({ client: userId }),
+        PackagePurchase.deleteMany({ client: userId }),
+        RecurringSeries.deleteMany({ client: userId }),
+        ClaimToken.deleteMany({ managedClient: userId }),
+      ]);
     }
 
-    // Delete the user
-    await User.findByIdAndDelete(req.user.id);
+    // Delete the user record last so a mid-cascade failure leaves the
+    // account intact and the user can retry.
+    await User.findByIdAndDelete(userId);
 
-    // Logout the user
     req.logout((err) => {
       if (err) {
         console.error('Error during logout after account deletion:', err);
