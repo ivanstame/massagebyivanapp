@@ -136,6 +136,15 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // guest by name/phone — guests do NOT add to the roster).
   const [wizardStepIdx, setWizardStepIdx] = useState(0);
 
+  // When the time step shows the empty-slots empty state, we offer the
+  // user buttons to jump back to date or duration without having to
+  // step backwards repeatedly. This flag remembers that they came from
+  // the time step — Continue from the jumped-to step then sends them
+  // straight back to time instead of advancing one step at a time
+  // through fields they've already filled in (address, addons, etc.).
+  // Cleared when they hit Back (abandoning the jump-back flow).
+  const [returnToTimeAfterJump, setReturnToTimeAfterJump] = useState(false);
+
   // Provider guest-recipient mode flag — set by the wizard's recipient
   // step when the provider chooses "someone new (one-off)" instead of
   // picking from their managed-client list. Drives whether the form
@@ -1374,6 +1383,19 @@ const BookingForm = ({ googleMapsLoaded }) => {
                     hasValidDuration={selectedDuration !== null}
                     isComplete={selectedTime !== null}
                     selectedDate={selectedDate}
+                    selectedDuration={selectedDuration}
+                    onPickDifferentDate={() => {
+                      const idx = wizardOrder.indexOf('date');
+                      if (idx < 0) return;
+                      setReturnToTimeAfterJump(true);
+                      setWizardStepIdx(idx);
+                    }}
+                    onPickDifferentDuration={() => {
+                      const idx = wizardOrder.indexOf('duration');
+                      if (idx < 0) return;
+                      setReturnToTimeAfterJump(true);
+                      setWizardStepIdx(idx);
+                    }}
                   />
                   {staleTimeNotice && (
                     <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-card text-sm text-amber-800">
@@ -1489,7 +1511,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setWizardStepIdx(i => Math.max(0, i - 1))}
+                  onClick={() => {
+                    // Hitting Back abandons the jump-back-to-time flow —
+                    // user has changed their mind, let normal navigation
+                    // resume.
+                    setReturnToTimeAfterJump(false);
+                    setWizardStepIdx(i => Math.max(0, i - 1));
+                  }}
                   disabled={wizardStepIdx === 0}
                   className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2
                     px-5 py-3 rounded-btn border border-line bg-transparent text-ink
@@ -1501,7 +1529,24 @@ const BookingForm = ({ googleMapsLoaded }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWizardStepIdx(i => Math.min(i + 1, wizardOrder.length))}
+                  onClick={() => {
+                    // If the user jumped back from time step to fix
+                    // their date or duration, Continue jumps straight
+                    // back to time — skipping the steps they've already
+                    // filled in. The slot fetcher reruns automatically
+                    // when date or duration changes, so by the time
+                    // they land on time again the slots reflect the
+                    // new choice.
+                    if (returnToTimeAfterJump) {
+                      const timeIdx = wizardOrder.indexOf('time');
+                      if (timeIdx >= 0) {
+                        setReturnToTimeAfterJump(false);
+                        setWizardStepIdx(timeIdx);
+                        return;
+                      }
+                    }
+                    setWizardStepIdx(i => Math.min(i + 1, wizardOrder.length));
+                  }}
                   disabled={!isWizardStepValid(currentWizardStep)}
                   className={`flex-1 inline-flex items-center justify-center gap-2
                     px-6 py-3.5 rounded-btn text-[15px] font-medium transition
@@ -1644,6 +1689,19 @@ const BookingForm = ({ googleMapsLoaded }) => {
                 hasValidDuration={selectedDuration !== null}
                 isComplete={selectedTime !== null}
                 selectedDate={selectedDate}
+                selectedDuration={selectedDuration}
+                onPickDifferentDate={() => {
+                  const idx = wizardOrder.indexOf('date');
+                  if (idx < 0) return;
+                  setReturnToTimeAfterJump(true);
+                  setWizardStepIdx(idx);
+                }}
+                onPickDifferentDuration={() => {
+                  const idx = wizardOrder.indexOf('duration');
+                  if (idx < 0) return;
+                  setReturnToTimeAfterJump(true);
+                  setWizardStepIdx(idx);
+                }}
               />
 
               {staleTimeNotice && (

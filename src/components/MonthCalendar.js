@@ -257,11 +257,14 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
               const hasSlots = hasMobile || hasStatic;
 
               // Cell shading by kind. Past wins (greys out everything).
-              // Mixed days get a diagonal gradient so both colors read.
+              // "Both" gets a hard 50/50 diagonal split — a smooth
+              // gradient reads as solid emerald at small sizes, which
+              // is indistinguishable from the mobile-only color.
               let kindBg = '';
+              let kindStyle = undefined;
               if (!isPast && hasSlots) {
                 if (hasMobile && hasStatic) {
-                  kindBg = 'bg-gradient-to-br from-emerald-100 to-sky-100';
+                  kindStyle = { background: 'linear-gradient(135deg, #d1fae5 0%, #d1fae5 50%, #bae6fd 50%, #bae6fd 100%)' };
                 } else if (hasMobile) {
                   kindBg = 'bg-emerald-100';
                 } else {
@@ -275,6 +278,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                     onClick={() => !isPast && onDateChange(date)}
 
                     disabled={isPast}
+                    style={kindStyle}
                     className={`
                       relative h-12 flex items-center justify-center rounded-lg
                       transition-all duration-200 ease-in-out

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset, Moon, Calendar, Hourglass } from 'lucide-react';
 import { DateTime } from 'luxon';
 
 // Period bins. Hour-of-day reads in the slot's own offset (the server
@@ -18,6 +18,9 @@ const AvailableTimeSlots = ({
   onTimeSelected,
   hasValidDuration = false,
   selectedDate,
+  selectedDuration,
+  onPickDifferentDate,
+  onPickDifferentDuration,
 }) => {
   // Bin slots into the four period buckets. Unmatched slots (shouldn't
   // happen with valid availability) get dropped silently.
@@ -119,10 +122,68 @@ const AvailableTimeSlots = ({
       </div>
 
       {(!availableSlots || availableSlots.length === 0) ? (
-        <div className="text-center py-12">
-          <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500 text-lg">No available times for this date</p>
-          <p className="text-sm text-slate-500 mt-2">Please try selecting a different date</p>
+        // Two paths out of the dead-end: change the date (keep this
+        // duration) or change the duration (keep this date). Both
+        // route back into the wizard's earlier steps, and Continue
+        // from there jumps straight back here so the user doesn't
+        // re-walk address/addons.
+        <div className="py-8 px-2 sm:px-6">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="bg-amber-100 p-3 rounded-full mb-3">
+              <AlertCircle className="w-7 h-7 text-amber-700" />
+            </div>
+            <h4 className="text-lg font-semibold text-slate-900 mb-1">
+              We're sorry — that doesn't fit this date
+            </h4>
+            <p className="text-sm text-slate-600 max-w-md">
+              {selectedDuration
+                ? <>There's no opening long enough for a <span className="font-medium">{selectedDuration}-minute</span> massage on this date. What would you like to do?</>
+                : <>There's no available time on this date for the duration you selected. What would you like to do?</>
+              }
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3 max-w-xl mx-auto">
+            <button
+              type="button"
+              onClick={onPickDifferentDate}
+              disabled={!onPickDifferentDate}
+              className="flex flex-col items-start gap-2 p-4 rounded-lg border-2 border-line
+                bg-paper-elev hover:border-teal-400 hover:bg-teal-50/40
+                focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-teal-700" />
+                <span className="font-medium text-slate-900">
+                  Keep {selectedDuration ? `${selectedDuration} minutes` : 'this length'}, pick a different date
+                </span>
+              </div>
+              <span className="text-xs text-slate-500">
+                Goes back to the calendar. After you pick, you'll come straight back here.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onPickDifferentDuration}
+              disabled={!onPickDifferentDuration}
+              className="flex flex-col items-start gap-2 p-4 rounded-lg border-2 border-line
+                bg-paper-elev hover:border-teal-400 hover:bg-teal-50/40
+                focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-2">
+                <Hourglass className="w-5 h-5 text-teal-700" />
+                <span className="font-medium text-slate-900">
+                  Keep this date, pick a shorter session
+                </span>
+              </div>
+              <span className="text-xs text-slate-500">
+                Jumps to the duration step. Continue from there will bring you back here.
+              </span>
+            </button>
+          </div>
         </div>
       ) : (
         <>

@@ -18,7 +18,10 @@ const CalendarSection = ({ selectedDate, setSelectedDate, onDateChange, availabl
           In-studio (you go to provider)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block w-4 h-4 rounded bg-gradient-to-br from-emerald-100 to-sky-100 border border-emerald-300" />
+          <span
+            className="inline-block w-4 h-4 rounded border border-emerald-300"
+            style={{ background: 'linear-gradient(135deg, #d1fae5 0%, #d1fae5 50%, #bae6fd 50%, #bae6fd 100%)' }}
+          />
           Both available
         </span>
       </div>

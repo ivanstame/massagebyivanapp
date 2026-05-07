@@ -195,35 +195,57 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
               const hasStatic = kinds.has('static');
               const hasSlots = hasMobile || hasStatic;
 
-              // Selected pill keeps the copper background — its ring is
-              // the primary signal. Otherwise paint the kind tint.
+              // Always paint the kind tint when a date has availability,
+              // even when selected — the user needs to still see WHAT
+              // kind of day it is after picking it. The copper ring +
+              // shadow do the selection signaling. Smooth gradients
+              // read as solid emerald at small pill widths, so "both"
+              // gets a hard 50/50 diagonal split via inline style.
               let kindBg = '';
-              if (!isPast && hasSlots && !isSelected) {
+              let kindBorder = '';
+              let kindStyle = undefined;
+              if (!isPast && hasSlots) {
                 if (hasMobile && hasStatic) {
-                  kindBg = 'bg-gradient-to-br from-emerald-100 to-sky-100 border-emerald-300';
+                  kindStyle = { background: 'linear-gradient(135deg, #d1fae5 0%, #d1fae5 50%, #bae6fd 50%, #bae6fd 100%)' };
+                  kindBorder = 'border-emerald-300';
                 } else if (hasMobile) {
-                  kindBg = 'bg-emerald-100 border-emerald-300';
+                  kindBg = 'bg-emerald-100';
+                  kindBorder = 'border-emerald-300';
                 } else {
-                  kindBg = 'bg-sky-100 border-sky-300';
+                  kindBg = 'bg-sky-100';
+                  kindBorder = 'border-sky-300';
                 }
               }
+
+              // Background priority for the className branch:
+              // 1) past → greyed
+              // 2) selected w/ no kind tint → copper cream (so the
+              //    selection is visible at all on dead/no-availability
+              //    dates the user can still tap on)
+              // 3) has kind → kind classes (style takes over for "both")
+              // 4) plain → paper
+              const baseClasses = isPast
+                ? 'text-slate-300 line-through cursor-not-allowed border-line-soft'
+                : hasSlots
+                  ? `text-slate-800 ${kindBg} ${kindBorder} hover:brightness-95`
+                  : isSelected
+                    ? 'bg-[#FBF7EF] text-[#8A5D36] border-[#B07A4E]'
+                    : 'text-slate-500 hover:bg-paper-deep border-line-soft';
 
               return (
 <button
   key={date.toISOString()}
   onClick={() => !isPast && onDateChange(date)}
   disabled={isPast}
+  style={kindStyle}
   title={isPast ? "Past dates cannot be selected" : !hasSlots ? "No availability set" : ""}
   className={`
     relative flex flex-col items-center justify-center
     min-w-[4rem] py-2 px-3 rounded-lg
     transition-all duration-200 ease-in-out
     border
-    ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-line-soft' :
-      hasSlots ? `text-slate-800 ${kindBg} hover:brightness-95` :
-      'text-slate-500 hover:bg-paper-deep border-line-soft'}
-    ${isSelected ?
-      'bg-[#FBF7EF] border-[#B07A4E] text-[#8A5D36] shadow-md ring-2 ring-[#B07A4E] ring-opacity-50' : ''}
+    ${baseClasses}
+    ${isSelected ? 'shadow-md ring-2 ring-[#B07A4E] ring-opacity-70 ring-offset-1' : ''}
   `}
 >
   <span className={`text-xs font-medium mb-1
@@ -232,7 +254,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
   </span>
   <div className="relative flex flex-col items-center">
     <span className={`text-lg font-semibold
-      ${isToday ? 'text-[#8A5D36]' : ''}`}>
+      ${isSelected ? 'text-[#8A5D36]' : (isToday ? 'text-[#8A5D36]' : '')}`}>
       {date.getDate()}
     </span>
   </div>
