@@ -138,7 +138,7 @@ function markSyncEnd(providerId, calendarId, success) {
  * Returns array of { start, end, localDate, date, googleEventId } objects,
  * or 'DELETE' string for cancelled events.
  */
-async function mapEventToBlockedTimes(event) {
+async function mapEventToBlockedTimes(event, providerTz = DEFAULT_TZ) {
   // Cancelled/deleted events → mark for deletion
   if (event.status === 'cancelled') {
     return 'DELETE';
@@ -165,9 +165,11 @@ async function mapEventToBlockedTimes(event) {
   const slices = [];
 
   if (isAllDay) {
-    // All-day event: start.date is inclusive, end.date is exclusive
-    const startDate = DateTime.fromISO(event.start.date, { zone: DEFAULT_TZ });
-    const endDate = DateTime.fromISO(event.end.date, { zone: DEFAULT_TZ });
+    // All-day event: start.date is inclusive, end.date is exclusive.
+    // "All day" is anchored to the provider's TZ — a Chicago provider's
+    // all-day event blocks Chicago midnight-to-midnight, not LA's.
+    const startDate = DateTime.fromISO(event.start.date, { zone: providerTz });
+    const endDate = DateTime.fromISO(event.end.date, { zone: providerTz });
 
     let current = startDate;
     while (current < endDate) {
@@ -187,9 +189,14 @@ async function mapEventToBlockedTimes(event) {
       current = current.plus({ days: 1 });
     }
   } else {
-    // Timed event
-    const eventStart = DateTime.fromISO(event.start.dateTime).setZone(DEFAULT_TZ);
-    const eventEnd = DateTime.fromISO(event.end.dateTime).setZone(DEFAULT_TZ);
+    // Timed event. event.start.dateTime is an ISO string with offset
+    // ("2026-05-09T15:00:00-05:00") — the absolute instant is correct
+    // regardless of TZ. We zone to the provider's TZ so day-slice
+    // bucketing and localDate strings reflect the provider's calendar
+    // perception. event.start.timeZone (Google's IANA name on the
+    // event) is informational; provider TZ wins for sync output.
+    const eventStart = DateTime.fromISO(event.start.dateTime).setZone(providerTz);
+    const eventEnd = DateTime.fromISO(event.end.dateTime).setZone(providerTz);
 
     // Apply buffer
     const bufferedStart = eventStart.minus({ minutes: bufferMinutes });
@@ -238,8 +245,13 @@ async function applyEventChanges(providerId, events, calendarId = null) {
   let deleted = 0;
   const upsertedIds = [];
 
+  // Resolve provider TZ once for this batch so each event uses the
+  // same TZ for day-slicing.
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = await tzForProviderId(providerId);
+
   for (const event of events) {
-    const result = await mapEventToBlockedTimes(event);
+    const result = await mapEventToBlockedTimes(event, providerTz);
 
     if (result === 'DELETE') {
       // Delete all day-slices for this event
@@ -264,6 +276,7 @@ async function applyEventChanges(providerId, events, calendarId = null) {
             source: 'google_calendar',
             googleEventId: slice.googleEventId,
             googleCalendarId: calendarId,
+            timezone: providerTz,
             location: slice.location || { address: null, lat: null, lng: null }
           }
         },
