@@ -115,12 +115,24 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     return date < today;
   };
 
-  const hasAvailability = (date) => {
+  // Set of availability kinds for `date` — empty if nothing available.
+  // Drives the date-pill shading: emerald = mobile, sky = static, both
+  // when the day has windows of each kind.
+  const getKindsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
-    return availabilityData.some(block => {
+    const kinds = new Set();
+    for (const block of availabilityData) {
       const blockDateStr = new Date(block.date).toISOString().split('T')[0];
-      return blockDateStr === dateStr;
-    });
+      if (blockDateStr !== dateStr) continue;
+      if (Array.isArray(block.kinds)) {
+        for (const k of block.kinds) kinds.add(k);
+      } else if (block.kind) {
+        kinds.add(block.kind);
+      } else {
+        kinds.add('mobile');
+      }
+    }
+    return kinds;
   };
   
 
@@ -178,7 +190,23 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
               const isPast = isPastDate(date);
               const isToday = date.toDateString() === new Date().toDateString();
               const isSelected = date.toDateString() === selectedDate.toDateString();
-              const hasSlots = !isLoading && hasAvailability(date);
+              const kinds = isLoading ? new Set() : getKindsForDate(date);
+              const hasMobile = kinds.has('mobile');
+              const hasStatic = kinds.has('static');
+              const hasSlots = hasMobile || hasStatic;
+
+              // Selected pill keeps the copper background — its ring is
+              // the primary signal. Otherwise paint the kind tint.
+              let kindBg = '';
+              if (!isPast && hasSlots && !isSelected) {
+                if (hasMobile && hasStatic) {
+                  kindBg = 'bg-gradient-to-br from-emerald-100 to-sky-100 border-emerald-300';
+                } else if (hasMobile) {
+                  kindBg = 'bg-emerald-100 border-emerald-300';
+                } else {
+                  kindBg = 'bg-sky-100 border-sky-300';
+                }
+              }
 
               return (
 <button
@@ -191,27 +219,22 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     min-w-[4rem] py-2 px-3 rounded-lg
     transition-all duration-200 ease-in-out
     border
-    ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-line-soft' : 
-      hasSlots ? 'hover:bg-[#FBF7EF] hover:border-[#B07A4E] border-line' :
+    ${isPast ? 'text-slate-300 line-through cursor-not-allowed border-line-soft' :
+      hasSlots ? `text-slate-800 ${kindBg} hover:brightness-95` :
       'text-slate-500 hover:bg-paper-deep border-line-soft'}
     ${isSelected ?
       'bg-[#FBF7EF] border-[#B07A4E] text-[#8A5D36] shadow-md ring-2 ring-[#B07A4E] ring-opacity-50' : ''}
   `}
 >
-  <span className={`text-xs font-medium mb-1 
+  <span className={`text-xs font-medium mb-1
     ${isSelected ? 'text-[#8A5D36]' : 'text-slate-500'}`}>
     {dayNames[date.getDay()]}
   </span>
-  <div className="relative flex flex-col items-center gap-1">
+  <div className="relative flex flex-col items-center">
     <span className={`text-lg font-semibold
       ${isToday ? 'text-[#8A5D36]' : ''}`}>
       {date.getDate()}
     </span>
-    {!isPast && hasSlots && (
-      <div className="w-1.5 h-1.5 bg-green-500 rounded-full z-20" 
-        style={{ filter: isSelected ? 'brightness(1.2)' : '' }}
-      />
-    )}
   </div>
 </button>
               );

@@ -148,17 +148,26 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
     onDateChange(firstOfMonthInTz(selectedDate.getFullYear(), selectedDate.getMonth() + 1, viewerTz));
   };
 
-  // The truth about whether we can book this shit or not
-  const hasAvailability = (day) => {
-    // First, let's construct our temporal truth with the purity of Platonic forms
+  // Returns the set of availability kinds on the given day-of-month.
+  // 'mobile' = traveling/at-client, 'static' = in-studio. Empty set means
+  // no availability that day. The calendar shades the cell off this:
+  // emerald for mobile-only, sky for static-only, gradient for both.
+  const getKindsForDay = (day) => {
     const targetDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    // Now we're searching for our date in the quantum foam of availability
-    return availabilityData.some(block => {
-      // Strip away the metaphysical bullshit and get to the raw essence of time
+    const kinds = new Set();
+    for (const block of availabilityData) {
       const blockDate = new Date(block.date).toISOString().split('T')[0];
-      return blockDate === targetDate;
-    });
+      if (blockDate !== targetDate) continue;
+      if (Array.isArray(block.kinds)) {
+        for (const k of block.kinds) kinds.add(k);
+      } else if (block.kind) {
+        kinds.add(block.kind);
+      } else {
+        // Old/unknown shape — assume mobile so the indicator still shows.
+        kinds.add('mobile');
+      }
+    }
+    return kinds;
   };
   
   
@@ -242,7 +251,23 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                            selectedDate.getMonth() === new Date().getMonth() &&
                            selectedDate.getFullYear() === new Date().getFullYear();
               const isSelected = day === selectedDate.getDate();
-              const hasSlots = !isLoading && hasAvailability(day);
+              const kinds = isLoading ? new Set() : getKindsForDay(day);
+              const hasMobile = kinds.has('mobile');
+              const hasStatic = kinds.has('static');
+              const hasSlots = hasMobile || hasStatic;
+
+              // Cell shading by kind. Past wins (greys out everything).
+              // Mixed days get a diagonal gradient so both colors read.
+              let kindBg = '';
+              if (!isPast && hasSlots) {
+                if (hasMobile && hasStatic) {
+                  kindBg = 'bg-gradient-to-br from-emerald-100 to-sky-100';
+                } else if (hasMobile) {
+                  kindBg = 'bg-emerald-100';
+                } else {
+                  kindBg = 'bg-sky-100';
+                }
+              }
 
               return (
                   <button
@@ -253,12 +278,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                     className={`
                       relative h-12 flex items-center justify-center rounded-lg
                       transition-all duration-200 ease-in-out
-                      ${isPast ? 'text-slate-300 line-through bg-paper-deep' : 
-                        hasSlots ? 'text-slate-700 hover:bg-[#FBF7EF]' :
+                      ${isPast ? 'text-slate-300 line-through bg-paper-deep' :
+                        hasSlots ? `text-slate-800 ${kindBg} hover:brightness-95` :
                         'text-slate-500 hover:bg-paper-deep'
                       }
                       ${isSelected ? 'ring-2 ring-[#B07A4E] ring-offset-2' : ''}
-                      ${hasSlots ? 'border-green-200' : ''}
                     `}
                   >
                   <span className={`
@@ -267,9 +291,6 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                   `}>
                     {day}
                   </span>
-                  {!isPast && hasSlots && (
-                    <span className="absolute bottom-1.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-green-500 rounded-full" />
-                  )}
                 </button>
               );
             })}

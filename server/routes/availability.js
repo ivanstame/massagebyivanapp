@@ -331,7 +331,7 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
     // second round-trip per row.
     const [availabilityRows, bookingRows, blockedRows] = await Promise.all([
       Availability.find(query)
-        .select('date localDate start end timezone')
+        .select('date localDate start end timezone kind')
         .lean()
         .sort({ date: 1 }),
       Booking.find({
@@ -393,11 +393,29 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
       if (viable) viableByDate.set(a.localDate, true);
     }
 
-    // Return one row per viable date in the same shape the frontend was
-    // already deduping on (`{ date, localDate }`).
-    const response = availabilityRows
-      .filter(a => viableByDate.get(a.localDate))
-      .map(a => ({ date: a.date, localDate: a.localDate }));
+    // One row per viable date, with the union of kinds present that day
+    // (mobile / static / both). The calendar shades each cell by kind so
+    // the client/provider sees at a glance whether a day is travel,
+    // in-studio, or mixed.
+    const kindsByDate = new Map();
+    for (const a of availabilityRows) {
+      if (!viableByDate.get(a.localDate)) continue;
+      const set = kindsByDate.get(a.localDate) || new Set();
+      set.add(a.kind === 'static' ? 'static' : 'mobile');
+      kindsByDate.set(a.localDate, set);
+    }
+    const seen = new Set();
+    const response = [];
+    for (const a of availabilityRows) {
+      if (!viableByDate.get(a.localDate)) continue;
+      if (seen.has(a.localDate)) continue;
+      seen.add(a.localDate);
+      response.push({
+        date: a.date,
+        localDate: a.localDate,
+        kinds: Array.from(kindsByDate.get(a.localDate)),
+      });
+    }
 
     res.json(response);
   } catch (error) {
