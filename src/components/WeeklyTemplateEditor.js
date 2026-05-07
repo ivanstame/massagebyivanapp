@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Clock, Save, CheckCircle, AlertCircle, ExternalLink, Building2 } from 'lucide-react';
+import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink, Building2, Navigation } from 'lucide-react';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
