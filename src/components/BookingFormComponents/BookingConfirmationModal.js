@@ -1,6 +1,5 @@
 import React from 'react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../../utils/timeConstants';
 import { buildStandingRequestSmsLink } from '../../utils/standingAppointmentRequest';
 
 const BookingConfirmationModal = ({
@@ -52,9 +51,9 @@ const BookingConfirmationModal = ({
     package: 'Package credit',
   };
   const formatDate = (date) => {
-    return DateTime.fromJSDate(date)
-      .setZone(DEFAULT_TZ)
-      .toFormat('cccc, LLLL d, yyyy');
+    // selectedDate is the user's date-picker JS Date; the wall-clock
+    // weekday/month/day is invariant under TZ for this label.
+    return DateTime.fromJSDate(date).toFormat('cccc, LLLL d, yyyy');
   };
 
   const getServiceName = () => {

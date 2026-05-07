@@ -34,15 +34,18 @@ const Eyebrow = ({ children }) => (
 function deriveSessionState(booking, now) {
   if (booking.status === 'completed') return 'done';
   if (!booking.localDate || !booking.startTime || !booking.endTime) return 'upcoming';
+  // Each booking carries its own TZ — interpret startTime/endTime in
+  // that TZ so a Chicago booking shows "now" at Chicago wall clock.
+  const bookingTz = booking.timezone || 'America/Los_Angeles';
   const startsAt = DateTime.fromFormat(
     `${booking.localDate} ${booking.startTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: 'America/Los_Angeles' }
+    { zone: bookingTz }
   );
   const endsAt = DateTime.fromFormat(
     `${booking.localDate} ${booking.endTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: 'America/Los_Angeles' }
+    { zone: bookingTz }
   );
   if (!startsAt.isValid || !endsAt.isValid) return 'upcoming';
   if (now >= endsAt) return 'overdue';
@@ -54,10 +57,11 @@ function deriveSessionState(booking, now) {
 // sessions. Falls back to start time if it's >12h out.
 function countdownFromNow(booking, now) {
   if (!booking.localDate || !booking.startTime) return '';
+  const bookingTz = booking.timezone || 'America/Los_Angeles';
   const startsAt = DateTime.fromFormat(
     `${booking.localDate} ${booking.startTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: 'America/Los_Angeles' }
+    { zone: bookingTz }
   );
   if (!startsAt.isValid) return '';
   const diffMin = Math.max(0, Math.round(startsAt.diff(now, 'minutes').minutes));

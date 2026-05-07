@@ -54,7 +54,7 @@ const validateBookingInput = (req, res, next) => {
         const totalDuration = sessionDurations.reduce((sum, dur) => sum + dur, 0);
         const endDT = startDT.plus({ minutes: totalDuration });
 
-        if (LuxonService.checkDSTTransition(startDT.toISO(), endDT.toISO())) {
+        if (LuxonService.checkDSTTransition(startDT.toISO(), endDT.toISO(), reqTz)) {
           errors.push('Multi-session booking cannot span DST transition');
         }
       }

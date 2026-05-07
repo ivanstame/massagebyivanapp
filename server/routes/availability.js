@@ -215,7 +215,7 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
       const docTz = doc.timezone || DEFAULT_TZ;
       const startDT = DateTime.fromJSDate(doc.start, { zone: 'UTC' }).setZone(docTz);
       const endDT = DateTime.fromJSDate(doc.end, { zone: 'UTC' }).setZone(docTz);
-      const slots = LuxonService.generateTimeSlots(startDT.toISO(), endDT.toISO(), 30);
+      const slots = LuxonService.generateTimeSlots(startDT.toISO(), endDT.toISO(), 30, 60, docTz);
       doc.availableSlots = slots.map(slot =>
         DateTime.fromISO(slot.start).setZone(docTz).toFormat(TIME_FORMATS.TIME_24H)
       );

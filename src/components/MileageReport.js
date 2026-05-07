@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import { DateTime } from 'luxon';
+import { tzOf } from '../utils/timeConstants';
 import {
   Car,
   Download,
@@ -23,8 +24,9 @@ const MileageReport = () => {
   const [error, setError] = useState(null);
   const [expandedDays, setExpandedDays] = useState({});
 
-  // Default: current month
-  const now = DateTime.now().setZone('America/Los_Angeles');
+  // Default: current month, anchored to the provider's TZ.
+  const viewerTz = tzOf(user);
+  const now = DateTime.now().setZone(viewerTz);
   const [startDate, setStartDate] = useState(now.startOf('month').toFormat('yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(now.endOf('month').toFormat('yyyy-MM-dd'));
 
@@ -50,7 +52,7 @@ const MileageReport = () => {
 
   // Quick range presets
   const setRange = (preset) => {
-    const n = DateTime.now().setZone('America/Los_Angeles');
+    const n = DateTime.now().setZone(viewerTz);
     switch (preset) {
       case 'thisMonth':
         setStartDate(n.startOf('month').toFormat('yyyy-MM-dd'));

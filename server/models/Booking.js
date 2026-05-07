@@ -259,8 +259,8 @@ BookingSchema.pre('save', function(next) {
       throw new Error('Booking cannot span multiple days');
     }
 
-    // For multi-session bookings, validate DST
-    if (this.groupId && LuxonService.checkDSTTransition(startDT.toISO(), endDT.toISO())) {
+    // For multi-session bookings, validate DST in the booking's TZ
+    if (this.groupId && LuxonService.checkDSTTransition(startDT.toISO(), endDT.toISO(), tz)) {
       throw new Error('Multi-session booking cannot span DST transition');
     }
 

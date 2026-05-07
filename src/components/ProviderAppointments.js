@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import moment from 'moment-timezone';
 import { AuthContext } from '../AuthContext';
+import { tzOf } from '../utils/timeConstants';
 import {
   AlertTriangle, ArrowRight, Search, Repeat, Users,
   CircleDollarSign, CheckCircle, ChevronDown, ChevronRight,
@@ -85,12 +86,14 @@ const ProviderAppointments = () => {
     // appointments as "past" any time after ~late morning (LA) — so
     // a same-day booking added in the afternoon disappeared from the
     // Upcoming list entirely.
-    const endLA = moment.tz(
+    // Each booking's localDate/endTime is in its own stored TZ.
+    const bookingTz = tzOf(a);
+    const endLocal = moment.tz(
       `${a.localDate} ${a.endTime}`,
       'YYYY-MM-DD HH:mm',
-      'America/Los_Angeles'
+      bookingTz
     );
-    return endLA.isSameOrBefore(moment.tz('America/Los_Angeles'));
+    return endLocal.isSameOrBefore(moment.tz(bookingTz));
   };
 
   const getRecipientName = (a) => {
@@ -133,7 +136,9 @@ const ProviderAppointments = () => {
     // the immediate Today/Tomorrow/This week/Next week (or Last week)
     // bucket roll up by month so the list stays scannable instead of
     // dumping years' worth of data into a single "Earlier" pile.
-    const today = moment.tz('America/Los_Angeles').startOf('day');
+    // "Today" is the auth provider's local today.
+    const viewerTz = tzOf(user);
+    const today = moment.tz(viewerTz).startOf('day');
     const tomorrow = today.clone().add(1, 'day');
     const endOfThisWeek = today.clone().endOf('week');
     const endOfNextWeek = endOfThisWeek.clone().add(7, 'days');
@@ -157,7 +162,9 @@ const ProviderAppointments = () => {
       return upcomingMap.get(key);
     };
     for (const a of upcoming) {
-      const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
+      // Bucket by the booking's own day boundary in the viewer's TZ
+      // (so a Chicago provider's "Today" matches Chicago midnight).
+      const d = moment.utc(a.date).tz(viewerTz).startOf('day');
       if (d.isSame(today, 'day')) ensureUp('today', 'Today').list.push(a);
       else if (d.isSame(tomorrow, 'day')) ensureUp('tomorrow', 'Tomorrow').list.push(a);
       else if (d.isSameOrBefore(endOfThisWeek)) ensureUp('this-week', 'This week').list.push(a);
@@ -177,7 +184,7 @@ const ProviderAppointments = () => {
       return pastMap.get(key);
     };
     for (const a of past) {
-      const d = moment.utc(a.date).tz('America/Los_Angeles').startOf('day');
+      const d = moment.utc(a.date).tz(viewerTz).startOf('day');
       if (d.isSameOrAfter(startOfLastWeek)) ensurePast('last-week', 'Last week').list.push(a);
       else ensurePast(`m-${monthKey(d)}`, monthLabel(d)).list.push(a);
     }
@@ -443,7 +450,7 @@ const AppointmentRow = ({ booking, provider }) => {
           Thu 5/14 at a glance. */}
       <div className="flex flex-col items-start" style={{ width: 78 }}>
         <span className={`text-[11px] font-semibold uppercase tracking-wide ${isCancelled || isCompleted ? 'text-ink-3' : 'text-ink'}`}>
-          {moment.utc(booking.date).tz('America/Los_Angeles').format('ddd M/D')}
+          {moment.utc(booking.date).tz(tzOf(booking)).format('ddd M/D')}
         </span>
         <span className={`av-meta mt-0.5 ${isCancelled || isCompleted ? 'text-ink-3' : 'text-accent'}`}>
           {formatTime(booking.startTime)}

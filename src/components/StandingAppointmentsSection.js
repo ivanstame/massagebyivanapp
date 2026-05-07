@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import {
   Repeat, Plus, AlertCircle, CheckCircle, Loader2, XCircle, Trash2, Users,
 } from 'lucide-react';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 
 // Provider-side panel for creating + managing standing appointments for
 // a single client. Lives on /provider/clients/:id between the packages
@@ -222,8 +222,10 @@ const SeriesRow = ({ series, onCancel, working }) => {
 };
 
 const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onError }) => {
-  // Today (LA) gives us a sensible default startDate.
-  const todayStr = DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+  // Today in the provider's TZ — providerServices is the auth user's
+  // own profile, so its timezone is the wall clock to anchor "today".
+  const providerTz = tzOf(providerServices);
+  const todayStr = DateTime.now().setZone(providerTz).toFormat('yyyy-MM-dd');
 
   // Default service / pricing from the provider's first basePricing tier.
   const firstTier = providerServices?.basePricing?.[0];
@@ -268,8 +270,8 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
   // Time options every 30 min, full day. Same as ModifyAvailabilityModal.
   const timeOptions = [];
   {
-    let cur = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: DEFAULT_TZ });
-    const last = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: DEFAULT_TZ });
+    let cur = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: providerTz });
+    const last = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: providerTz });
     while (cur <= last) {
       timeOptions.push({ value: cur.toFormat('HH:mm'), label: cur.toFormat('h:mm a') });
       cur = cur.plus({ minutes: 30 });

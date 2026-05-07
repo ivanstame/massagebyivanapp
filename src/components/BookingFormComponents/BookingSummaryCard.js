@@ -1,7 +1,6 @@
 import React from 'react';
 import { Calendar, Clock, MapPin, DollarSign, User, Info, Sparkles, Banknote } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../../utils/timeConstants';
 
 const BookingSummaryCard = ({
   selectedDuration,
@@ -33,10 +32,10 @@ const BookingSummaryCard = ({
     card: 'Card',
     package: 'Package credit',
   };
+  // selectedDate is a JS Date built from the user's "yyyy-MM-dd"
+  // selection — the wall-clock weekday/month is invariant under TZ.
   const formattedDate = selectedDate
-    ? DateTime.fromJSDate(selectedDate)
-        .setZone(DEFAULT_TZ)
-        .toFormat('cccc, MMMM d, yyyy')
+    ? DateTime.fromJSDate(selectedDate).toFormat('cccc, MMMM d, yyyy')
     : null;
 
   const formattedTime = selectedTime?.display || selectedTime?.local;

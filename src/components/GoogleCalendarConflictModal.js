@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { AlertCircle, Calendar } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 
-const formatTime = (date) => {
-  return DateTime.fromISO(date).setZone(DEFAULT_TZ).toFormat('h:mm a');
+// Conflicts are BlockedTime docs synced from the provider's Google
+// Calendar — each carries its own `timezone` (provider-local at sync).
+const formatTime = (date, conflict) => {
+  return DateTime.fromISO(date).setZone(tzOf(conflict)).toFormat('h:mm a');
 };
 
 const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
@@ -62,7 +64,7 @@ const GoogleCalendarConflictModal = ({ conflicts, onConfirm, onCancel }) => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  {formatTime(conflict.start)} &ndash; {formatTime(conflict.end)}
+                  {formatTime(conflict.start, conflict)} &ndash; {formatTime(conflict.end, conflict)}
                 </div>
                 {conflict.location?.address && (
                   <p className="text-xs text-slate-500 mt-0.5 truncate">{conflict.location.address}</p>

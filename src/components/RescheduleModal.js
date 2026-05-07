@@ -10,15 +10,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { DateTime } from 'luxon';
 import { X, AlertCircle, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 
 const RescheduleModal = ({ booking, onSuccess, onClose }) => {
   // Default the date picker to the booking's current date so the user
-  // sees the cohort of slots near their existing one.
+  // sees the cohort of slots near their existing one. "Today" falls back
+  // to the booking's TZ (matches the provider's wall clock).
+  const bookingTz = tzOf(booking);
   const initialDate = useMemo(() => {
-    if (!booking?.localDate) return DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+    if (!booking?.localDate) return DateTime.now().setZone(bookingTz).toFormat('yyyy-MM-dd');
     return booking.localDate;
-  }, [booking?.localDate]);
+  }, [booking?.localDate, bookingTz]);
 
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [slots, setSlots] = useState([]);
@@ -133,7 +135,7 @@ const RescheduleModal = ({ booking, onSuccess, onClose }) => {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              min={DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd')}
+              min={DateTime.now().setZone(bookingTz).toFormat('yyyy-MM-dd')}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
             />
           </div>

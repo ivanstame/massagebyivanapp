@@ -104,7 +104,7 @@ function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDurat
 
   while (currentSlot <= endDT.minus({ minutes: maxDuration })) {
     const slotEnd = currentSlot.plus({ minutes: maxDuration });
-    if (!LuxonService.checkDSTTransition(currentSlot.toISO(), slotEnd.toISO())) {
+    if (!LuxonService.checkDSTTransition(currentSlot.toISO(), slotEnd.toISO(), tz)) {
       slots.push(currentSlot.toJSDate());
     }
     currentSlot = currentSlot.plus({ minutes: intervalMinutes });

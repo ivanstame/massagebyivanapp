@@ -76,14 +76,17 @@ AvailabilitySchema.pre('save', function(next) {
       throw new Error('Start and end times must be within the same day');
     }
 
-  // Generate available slots
+  // Generate available slots — anchor in this block's TZ so HH:MM
+  // strings reflect the provider's wall clock, not always-LA.
   const slots = LuxonService.generateTimeSlots(
     startDT.toISO(),
     endDT.toISO(),
-    30 // 30-minute intervals
+    30, // 30-minute intervals
+    60, // appointmentDuration (default kept)
+    tz
   );
   this.availableSlots = slots.map(slot =>
-    DateTime.fromISO(slot.start).setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.TIME_24H)
+    DateTime.fromISO(slot.start).setZone(tz).toFormat(TIME_FORMATS.TIME_24H)
   );
 
     next();

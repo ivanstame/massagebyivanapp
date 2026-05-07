@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Clock, Check, AlertCircle, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../../utils/timeConstants';
 
-// Period bins. Times are LA hour-of-day. Boundaries chosen for natural
-// mental cohesion ("morning" ends at noon, "late" starts at 9 PM).
+// Period bins. Hour-of-day reads in the slot's own offset (the server
+// emits each slot's ISO in the provider's TZ), so "Morning" means the
+// provider's local morning, not LA's.
 const PERIODS = [
   { key: 'Morning',   icon: Sunrise, startHour: 5,  endHour: 12 },
   { key: 'Afternoon', icon: Sun,     startHour: 12, endHour: 17 },
@@ -25,7 +25,10 @@ const AvailableTimeSlots = ({
     const buckets = Object.fromEntries(PERIODS.map(p => [p.key, []]));
     if (!availableSlots) return buckets;
     for (const slot of availableSlots) {
-      const dt = DateTime.fromISO(slot.iso, { zone: DEFAULT_TZ });
+      // setZone: true preserves the offset baked into the ISO by the
+      // server (provider-local), so dt.hour reflects the provider's
+      // wall clock — required for cross-state providers.
+      const dt = DateTime.fromISO(slot.iso, { setZone: true });
       if (!dt.isValid) continue;
       const hour = dt.hour;
       // Late bucket also catches early-morning hours (0–5) since those
@@ -69,7 +72,10 @@ const AvailableTimeSlots = ({
 
   const formatDate = (date) => {
     if (!date) return '';
-    return DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('cccc, MMMM d');
+    // selectedDate is the user's date-picker value (a JS Date built
+    // from "yyyy-MM-dd"). The wall-clock month/day is invariant under
+    // TZ for this label, so plain JSDate→format works.
+    return DateTime.fromJSDate(date).toFormat('cccc, MMMM d');
   };
 
   if (!hasValidDuration) {

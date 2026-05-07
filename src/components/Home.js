@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, Clock, MapPin, ArrowRight, User, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from 'luxon';
+import { tzOf } from '../utils/timeConstants';
 import { BrushBlob, BrushCircle, BrushLeaf } from './brush/BrushMotifs';
 
 const Home = () => {
@@ -42,15 +43,21 @@ const Home = () => {
   }, []);
 
   const firstName = user?.profile?.fullName?.split(' ')[0] || 'there';
-  const now = DateTime.now().setZone('America/Los_Angeles');
+  // For "now" derivations, anchor to the auth user's TZ if they're a
+  // provider; otherwise fall back to DEFAULT_TZ. Clients see the
+  // greeting in their browser's local TZ would be misleading too —
+  // the system fallback is fine.
+  const viewerTz = tzOf(user);
+  const now = DateTime.now().setZone(viewerTz);
   const greeting = now.hour < 12 ? 'Good morning' : now.hour < 18 ? 'Good afternoon' : 'Good evening';
   const todayLabel = now.toFormat('EEEE · d LLLL').toLowerCase();
 
   const nextAppt = nextBooking ? (() => {
     try {
+      // The booking carries its own TZ; format wall clock in that TZ.
       const dt = DateTime.fromISO(
         new Date(nextBooking.date).toISOString().split('T')[0] + 'T' + nextBooking.startTime,
-        { zone: 'America/Los_Angeles' }
+        { zone: tzOf(nextBooking, viewerTz) }
       );
       const end = dt.plus({ minutes: nextBooking.duration });
       return {

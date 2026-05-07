@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import { Calendar, Phone, MessageSquare, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 import { buildStandingRequestSmsLink } from '../utils/standingAppointmentRequest';
 
 const TABS = [
@@ -72,11 +72,12 @@ const BookingList = () => {
   };
 
   const handleAddToCalendar = (booking) => {
-    const start = DateTime.fromISO(booking.date).setZone(DEFAULT_TZ).set({
+    const bookingTz = tzOf(booking);
+    const start = DateTime.fromISO(booking.date).setZone(bookingTz).set({
       hour: parseInt(booking.startTime.split(':')[0]),
       minute: parseInt(booking.startTime.split(':')[1])
     });
-    const end = DateTime.fromISO(booking.date).setZone(DEFAULT_TZ).set({
+    const end = DateTime.fromISO(booking.date).setZone(bookingTz).set({
       hour: parseInt(booking.endTime.split(':')[0]),
       minute: parseInt(booking.endTime.split(':')[1])
     });
@@ -91,11 +92,14 @@ const BookingList = () => {
   const isFuture = (booking) => {
     if (booking.status === 'cancelled' || booking.status === 'completed') return false;
     try {
-      const end = DateTime.fromISO(booking.date).setZone(DEFAULT_TZ).set({
+      const bookingTz = tzOf(booking);
+      const end = DateTime.fromISO(booking.date).setZone(bookingTz).set({
         hour: parseInt(booking.endTime.split(':')[0]),
         minute: parseInt(booking.endTime.split(':')[1])
       });
-      return end > DateTime.now().setZone(DEFAULT_TZ);
+      // Comparison is on absolute instants — UTC "now" is correct
+      // regardless of bookingTz.
+      return end > DateTime.utc();
     } catch {
       return false;
     }
@@ -116,13 +120,16 @@ const BookingList = () => {
     return [...up, ...past];
   })();
 
+  // Format an "HH:mm" string into "h:mm a". Pure clock-face math —
+  // no TZ conversion needed; we just need a Luxon DateTime to render
+  // the format.
   const formatTime = (timeString) => {
     const [h, m] = timeString.split(':').map(Number);
-    return DateTime.now().setZone(DEFAULT_TZ).set({ hour: h, minute: m }).toFormat('h:mm a');
+    return DateTime.fromObject({ hour: h, minute: m }).toFormat('h:mm a');
   };
 
   const renderBooking = (booking, idx) => {
-    const dt = DateTime.fromISO(booking.date).setZone(DEFAULT_TZ);
+    const dt = DateTime.fromISO(booking.date).setZone(tzOf(booking));
     const day = dt.toFormat('dd');
     const month = dt.toFormat('LLL').toUpperCase();
     const weekday = dt.toFormat('EEEE');
