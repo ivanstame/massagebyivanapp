@@ -58,6 +58,23 @@ const UserSchema = new mongoose.Schema({
   },
   providerProfile: {
     businessName: String,
+    // IANA timezone the provider operates in (e.g. America/Los_Angeles,
+    // America/New_York, America/Chicago, America/Denver, America/Phoenix,
+    // Pacific/Honolulu, America/Anchorage). All time math anchored to a
+    // provider — slot generation, booking creation, weekly template
+    // materialization, reminders, outreach, GCal sync — uses this. Stored
+    // bookings carry their times in the provider's TZ AT THE TIME OF
+    // BOOKING; if the provider later changes TZ, old bookings stay in the
+    // old TZ (the appointment happened where it happened) and new ones
+    // use the new TZ.
+    //
+    // Default LA so existing single-provider deployments don't shift.
+    // The settings UI offers a US-centric short list; admins can set any
+    // valid IANA name via API if needed.
+    timezone: {
+      type: String,
+      default: 'America/Los_Angeles',
+    },
     // Provider's brand logo, displayed in white-label email headers and the
     // public provider profile. Stored as the secure_url returned from a
     // Cloudinary unsigned upload — host validation enforced at the route

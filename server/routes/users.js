@@ -573,6 +573,23 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
       }
     }
 
+    // Validate timezone — must be a real IANA name. Untrusted strings
+    // here would cascade into every time-math operation downstream
+    // (slot generation, reminders, cron). Use Intl.DateTimeFormat to
+    // probe whether the runtime accepts the zone; throws if invalid.
+    if (settings.timezone !== undefined) {
+      const tz = settings.timezone;
+      if (typeof tz !== 'string' || tz.length === 0) {
+        return res.status(400).json({ message: 'timezone must be a non-empty string' });
+      }
+      try {
+        // eslint-disable-next-line no-new
+        new Intl.DateTimeFormat('en-US', { timeZone: tz });
+      } catch {
+        return res.status(400).json({ message: `Invalid timezone: ${tz}` });
+      }
+    }
+
     // Update provider profile settings (businessName, scheduling, etc)
     user.providerProfile = {
       ...user.providerProfile,

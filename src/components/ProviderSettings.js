@@ -42,7 +42,8 @@ const ProviderSettings = () => {
     trade: 'other',
     phoneNumber: '',
     address: { street: '', unit: '', city: '', state: '', zip: '' },
-    services: []
+    services: [],
+    timezone: 'America/Los_Angeles',
   });
 
   useEffect(() => {
@@ -65,7 +66,8 @@ const ProviderSettings = () => {
         // Strict-true read so an explicit false defeats the schema
         // default; undefined/null falls back to ON (schema default).
         sameAddressTurnoverBuffer: user.providerProfile?.sameAddressTurnoverBuffer !== false,
-        cancellationPolicy: user.providerProfile?.cancellationPolicy || { enabled: false, windowHours: 24, lateCancelFee: 0 }
+        cancellationPolicy: user.providerProfile?.cancellationPolicy || { enabled: false, windowHours: 24, lateCancelFee: 0 },
+        timezone: user.providerProfile?.timezone || 'America/Los_Angeles',
       }));
     }
   }, [user]);
@@ -371,6 +373,31 @@ const ProviderSettings = () => {
               />
               <p className="mt-1 text-xs text-slate-500">
                 Used for client text messaging
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Timezone <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={settings.timezone}
+                onChange={(e) => setSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-[#B07A4E] focus:border-[#B07A4E]"
+              >
+                <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+                <option value="America/Denver">Mountain Time (Denver)</option>
+                <option value="America/Phoenix">Mountain Time, no DST (Phoenix)</option>
+                <option value="America/Chicago">Central Time (Chicago)</option>
+                <option value="America/New_York">Eastern Time (New York)</option>
+                <option value="America/Anchorage">Alaska Time (Anchorage)</option>
+                <option value="Pacific/Honolulu">Hawaii Time (Honolulu)</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Drives every time you and your clients see — booking
+                hours, reminders, weekly availability, the whole thing.
+                Changes apply to NEW bookings only; existing bookings
+                stay in the timezone they were created in.
               </p>
             </div>
           </div>
