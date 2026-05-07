@@ -225,12 +225,12 @@ PackagePurchaseSchema.virtual('minutesRemaining').get(function() {
 
 // Eligible for use in a new booking of `duration` minutes?
 //
-// `opts.allowPartial` (minutes-mode only) qualifies the package when it
-// has any positive remaining balance — even if less than `duration` —
-// so the caller can offer a partial redemption (apply X min from the
-// package, pay the difference via cash/card/venmo). Defaults to false
-// to preserve the original "must cover the full booking" semantics for
-// callers that don't expect partial behavior yet.
+// `opts.allowPartial` (minutes-mode only) qualifies the package when
+// it has any positive remaining balance — even if less than
+// `duration` — so the caller can offer a partial redemption (apply
+// X min from the package, pay the difference via cash/card/zelle).
+// Defaults to false to preserve the original "must cover the full
+// booking" semantics for callers that don't expect partial behavior.
 PackagePurchaseSchema.methods.canRedeemFor = function(duration, opts = {}) {
   if (this.paymentStatus !== 'paid' || this.cancelledAt) return false;
   if (this.kind === 'minutes') {
@@ -253,11 +253,11 @@ PackagePurchaseSchema.methods.canRedeem = function() {
 
 // Find all packages a client can currently redeem against a booking of
 // `duration` minutes. For sessions-mode, duration must match exactly.
-// For minutes-mode, the package qualifies when it has ≥duration minutes
-// remaining — OR, when `opts.allowPartial` is true, any positive
-// balance counts (the caller can apply some minutes from the package
-// and collect the rest via cash/card/venmo). Caller passes
-// duration = the booking length being planned.
+// For minutes-mode, the package qualifies when it has ≥duration
+// minutes remaining — OR, when `opts.allowPartial` is true, any
+// positive balance counts (the caller can apply some minutes from
+// the package and collect the rest via cash/card/zelle). Caller
+// passes duration = the booking length being planned.
 PackagePurchaseSchema.statics.redeemableForClient = function(clientId, { duration, provider, allowPartial } = {}) {
   const baseQuery = {
     client: clientId,

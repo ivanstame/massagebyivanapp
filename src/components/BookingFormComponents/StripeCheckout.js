@@ -5,10 +5,8 @@ import { CreditCard, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
 /**
  * StripeCheckout - Handles card payment after a booking is created.
  *
- * Uses Stripe Payment Element (card only — Venmo was removed for
- * compliance reasons; bouncing into the Venmo app violates their TOS
- * for commercial transactions).
- * Payment goes directly to the provider's connected Stripe account.
+ * Uses Stripe Payment Element (card only). Payment goes directly to
+ * the provider's connected Stripe account.
  *
  * Props:
  *   bookingId - The booking to pay for

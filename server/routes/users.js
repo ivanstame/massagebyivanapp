@@ -604,18 +604,6 @@ router.put('/provider/settings', ensureAuthenticated, async (req, res) => {
     // Remove address from providerProfile — it belongs in profile.address
     delete user.providerProfile.address;
 
-    // Strip 'venmo' from acceptedPaymentMethods if it somehow snuck in
-    // (legacy data). Venmo was removed from the platform; this guards
-    // against any client UI that hasn't been redeployed yet.
-    if (Array.isArray(user.providerProfile.acceptedPaymentMethods)) {
-      user.providerProfile.acceptedPaymentMethods =
-        user.providerProfile.acceptedPaymentMethods.filter(m => m !== 'venmo');
-    }
-    // Drop the legacy venmoHandle field if present so it's tombstoned.
-    if (user.providerProfile.venmoHandle !== undefined) {
-      user.providerProfile.venmoHandle = undefined;
-    }
-
     // Update phone number if provided
     if (settings.phoneNumber !== undefined) {
       user.profile = {
@@ -766,8 +754,7 @@ router.get('/provider/:providerId/services', async (req, res) => {
       basePricing: resolvedPricing,
       pricingTierName: resolvedTierName, // null = Standard / no tier applied
       addons: (provider.providerProfile?.addons || []).filter(a => a.isActive),
-      acceptedPaymentMethods: (provider.providerProfile?.acceptedPaymentMethods || ['cash'])
-        .filter(m => m !== 'venmo')
+      acceptedPaymentMethods: provider.providerProfile?.acceptedPaymentMethods || ['cash'],
     });
   } catch (error) {
     console.error('Error fetching provider services:', error);

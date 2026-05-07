@@ -383,7 +383,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
   //
   // Minutes-mode packages with positive but insufficient balance are also
   // included — those qualify for PARTIAL redemption (apply the remaining
-  // minutes from the package, pay the rest via cash/card/venmo/zelle).
+  // minutes from the package, pay the rest via cash/card/zelle).
   // Sessions-mode keeps the strict "duration must match exactly" filter
   // since one session credit is one fixed-duration unit.
   const matchingPackages = redeemablePackages.filter(p => {

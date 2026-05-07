@@ -316,14 +316,9 @@ router.post('/purchase', ensureAuthenticated, async (req, res) => {
     }
 
     // For paid packages, create the Stripe intent FIRST so a failure
-    // (venmo error, account misconfig, etc.) doesn't leave a pending
-    // zombie purchase behind. Only after Stripe confirms the intent
-    // do we persist the PackagePurchase doc with the intent id.
-    //
-    // payment_method_types limited to 'card' for now. Venmo requires
-    // explicit activation in the Stripe dashboard (and is US-only) —
-    // we'll add it back as opt-in once a provider has it enabled and
-    // the dashboard activation is part of the provider onboarding flow.
+    // (account misconfig, etc.) doesn't leave a pending zombie
+    // purchase behind. Only after Stripe confirms the intent do we
+    // persist the PackagePurchase doc with the intent id.
     let intent;
     try {
       intent = await stripe.paymentIntents.create({

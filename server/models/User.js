@@ -102,10 +102,9 @@ const UserSchema = new mongoose.Schema({
       },
       expiresAt: Date
     },
-    // Provider-accepted payment methods. Venmo was removed because
-    // bouncing the client into the Venmo app violated Venmo's TOS for
-    // commercial transactions and created a compliance exposure; all
-    // card payments flow through Stripe Connect instead.
+    // Provider-accepted payment methods. Card payments flow through
+    // Stripe Connect; cash and zelle are out-of-band on the provider's
+    // side (the platform records but doesn't process them).
     acceptedPaymentMethods: {
       type: [String],
       enum: ['cash', 'zelle', 'card'],

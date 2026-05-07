@@ -121,15 +121,11 @@ const BookingSchema = new mongoose.Schema({
   // Payment information
   paymentMethod: {
     type: String,
-    // 'package' = paid via a previously-purchased package credit; in that
-    // case paymentStatus flips to 'paid' immediately at booking time and
-    // packageRedemption holds a back-reference to the consumed credit.
-    // 'venmo' kept as read-only legacy value so old bookings created
-    // before Venmo was removed don't 500 on every booking.save()
-    // (cancel, reschedule, status update, payment method swap, etc.).
-    // The booking flow no longer surfaces it as a choice; this just
-    // tolerates already-stored data so save validation passes.
-    enum: ['cash', 'zelle', 'card', 'package', 'venmo'],
+    // 'package' = paid via a previously-purchased package credit; in
+    // that case paymentStatus flips to 'paid' immediately at booking
+    // time and packageRedemption holds a back-reference to the
+    // consumed credit.
+    enum: ['cash', 'zelle', 'card', 'package'],
     default: 'cash'
   },
   paymentStatus: {
@@ -166,17 +162,17 @@ const BookingSchema = new mongoose.Schema({
     default: null,
     maxlength: 5000,
   },
-  // Set when this booking consumed a credit from a PackagePurchase. The
-  // credit is returned to the package on in-window cancellations (per
-  // provider policy) and stays consumed on late cancellations. If null,
-  // this booking was paid in cash/card/venmo/zelle, not a package.
+  // Set when this booking consumed a credit from a PackagePurchase.
+  // The credit is returned to the package on in-window cancellations
+  // (per provider policy) and stays consumed on late cancellations.
+  // If null, this booking was paid via cash/card/zelle, not a package.
   //
-  // `minutesApplied` is the minutes-mode portion of the booking covered
-  // by the package. When equal to `duration` the booking is fully
-  // package-paid; when less, the difference is paid via the booking's
-  // primary `paymentMethod` field (cash/card/venmo/zelle). Sessions-mode
-  // redemptions always cover the full session, so minutesApplied equals
-  // duration there too.
+  // `minutesApplied` is the minutes-mode portion of the booking
+  // covered by the package. When equal to `duration` the booking is
+  // fully package-paid; when less, the difference is paid via the
+  // booking's primary `paymentMethod` field (cash/card/zelle).
+  // Sessions-mode redemptions always cover the full session, so
+  // minutesApplied equals duration there too.
   packageRedemption: {
     packagePurchase: {
       type: mongoose.Schema.Types.ObjectId,

@@ -23,7 +23,7 @@ const PackagePurchase = require('../models/PackagePurchase');
 // portion of that duration to cover from the package; defaults to
 // `duration` (full coverage). Pass a smaller value for partial
 // redemption — e.g., a client with 30 minutes left booking a 60-min
-// session covers 30 from the package and the rest via cash/card/venmo.
+// session covers 30 from the package and the rest via cash/card/zelle.
 //
 // Sessions-mode does not support partial redemption: a session credit
 // is one fixed-duration unit. If `minutesToApply` is supplied for a

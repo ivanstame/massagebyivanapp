@@ -237,7 +237,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     // `packageMinutesApplied` (optional, minutes-mode only) supports
     // partial redemption: a client with 30 minutes left in their package
     // booking a 60-min session can apply 30 from the package and pay the
-    // rest via cash/card/venmo/zelle. When omitted, the full duration is
+    // rest via cash/card/zelle. When omitted, the full duration is
     // applied (the original behavior). When less than `duration`, the
     // booking's `paymentMethod` must be a non-package method to cover
     // the difference.
@@ -338,7 +338,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       // Payment method — when fully paid via package, mark 'package' +
       // 'paid' immediately (the package itself was paid for at purchase).
       // For PARTIAL redemption, the package covers some minutes and the
-      // body's paymentMethod (cash/card/venmo/zelle) covers the rest, so
+      // body's paymentMethod (cash/card/zelle) covers the rest, so
       // the booking shows that secondary method and stays 'unpaid' until
       // the remainder is collected at the appointment.
       paymentMethod: (usingPackage && !isPartialRedemption)
