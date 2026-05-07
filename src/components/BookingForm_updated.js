@@ -918,7 +918,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // configured. Skipping the step entirely when there are zero
   // add-ons means a clean wizard for providers who don't offer them.
   if (availableAddons.length > 0) wizardOrder.push('addons');
-  wizardOrder.push('time', 'addanother');
+  wizardOrder.push('time', 'addanother', 'payment');
 
   const wizardComplete = wizardStepIdx >= wizardOrder.length;
   const currentWizardStep = wizardOrder[wizardStepIdx] || null;
@@ -971,6 +971,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
         // The step exists so the question is in the user's face, but
         // "no thanks, just one" is a perfectly valid answer.
         return true;
+      case 'payment':
+        // selectedPaymentMethod is initialized to the provider's first
+        // accepted method, so this is always truthy in practice — the
+        // step exists so the user explicitly confirms their pick (or
+        // applies a package credit) before they reach Confirm.
+        return !!selectedPaymentMethod;
       default:
         return true;
     }
@@ -1502,6 +1508,28 @@ const BookingForm = ({ googleMapsLoaded }) => {
                       : 'Add one more session'}
                   </button>
                 </div>
+              )}
+
+              {/* Payment step. Lives after 'addanother' so the chain
+                  total is known by the time partial-package detection
+                  runs. v1 pattern: chain shares the first session's
+                  payment method. */}
+              {currentWizardStep === 'payment' && (
+                <PaymentMethodSelector
+                  selectedMethod={selectedPaymentMethod}
+                  onMethodChange={setSelectedPaymentMethod}
+                  acceptedMethods={acceptedPaymentMethods}
+                  isComplete={selectedPaymentMethod !== null}
+                  redeemablePackages={matchingPackages}
+                  selectedPackageId={selectedPackageId}
+                  onPackageSelect={setSelectedPackageId}
+                  bookingDuration={selectedDuration}
+                  bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+                    + selectedAddons.reduce((sum, n) => {
+                        const a = availableAddons.find(x => x.name === n);
+                        return sum + (a?.price || 0);
+                      }, 0)}
+                />
               )}
 
               {/* Back + Continue. Back is disabled on step 1.
