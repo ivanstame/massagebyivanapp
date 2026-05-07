@@ -87,7 +87,10 @@ const RecurringSeriesSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'zelle', 'card', 'package'],
+    // 'venmo' tolerated for legacy series created before removal.
+    // New writes don't surface it; this just keeps existing series
+    // saving cleanly when something else on the doc changes.
+    enum: ['cash', 'zelle', 'card', 'package', 'venmo'],
     default: 'cash',
   },
   // If the series is paid via packages, each occurrence will try to
@@ -147,7 +150,7 @@ const RecurringSeriesSchema = new mongoose.Schema({
     },
     paymentMethod: {
       type: String,
-      enum: ['cash', 'zelle', 'card', 'package'],
+      enum: ['cash', 'zelle', 'card', 'package', 'venmo'],
       default: 'cash',
     },
     packagePurchase: {

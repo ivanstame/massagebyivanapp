@@ -124,7 +124,12 @@ const BookingSchema = new mongoose.Schema({
     // 'package' = paid via a previously-purchased package credit; in that
     // case paymentStatus flips to 'paid' immediately at booking time and
     // packageRedemption holds a back-reference to the consumed credit.
-    enum: ['cash', 'zelle', 'card', 'package'],
+    // 'venmo' kept as read-only legacy value so old bookings created
+    // before Venmo was removed don't 500 on every booking.save()
+    // (cancel, reschedule, status update, payment method swap, etc.).
+    // The booking flow no longer surfaces it as a choice; this just
+    // tolerates already-stored data so save validation passes.
+    enum: ['cash', 'zelle', 'card', 'package', 'venmo'],
     default: 'cash'
   },
   paymentStatus: {

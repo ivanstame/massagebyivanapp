@@ -1276,7 +1276,7 @@ router.delete('/:id', ensureAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error cancelling booking:', error);
-    res.status(500).json({ message: 'Server error while cancelling booking' });
+    res.status(500).json({ message: `Server error while cancelling booking: ${error.message}` });
   }
 });
 
