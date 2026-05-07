@@ -206,7 +206,7 @@ const ProviderAppointments = () => {
       pastCountAll,
       unpaidUpcomingCount: unpaidUpcoming,
     };
-  }, [appointments, filter, search]);
+  }, [appointments, filter, search, user]);
 
   return (
     <div className="av-paper pt-16 min-h-screen">

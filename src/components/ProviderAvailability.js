@@ -256,7 +256,7 @@ const ProviderAvailability = () => {
       const btEndMin = btEnd.hour * 60 + btEnd.minute;
       return newStartMin < btEndMin && newEndMin > btStartMin;
     });
-  }, [blockedTimes]);
+  }, [blockedTimes, viewerTz]);
 
   const doAddAvailability = useCallback(async (newAvailability) => {
     try {
