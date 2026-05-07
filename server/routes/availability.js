@@ -44,20 +44,27 @@ async function generateFromTemplate(providerId, laDate) {
   });
   if (existingTemplate) return null; // Template already generated for this day
 
+  // Resolve the provider's TZ — template hours like "11:00" are
+  // expressed in the provider's local time. Generated Availability
+  // doc inherits this TZ.
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = await tzForProviderId(providerId);
+
   // Create availability from template (even if manual blocks exist — they may cover different hours)
   const startLA = DateTime.fromFormat(
     `${localDateStr} ${template.startTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: DEFAULT_TZ }
+    { zone: providerTz }
   );
   const endLA = DateTime.fromFormat(
     `${localDateStr} ${template.endTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: DEFAULT_TZ }
+    { zone: providerTz }
   );
 
   const availData = {
     provider: providerId,
+    timezone: providerTz,
     date: laDate.startOf('day').toUTC().toJSDate(),
     localDate: localDateStr,
     start: startLA.toUTC().toJSDate(),
@@ -131,6 +138,11 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
   }).select('localDate').lean();
   const existingDates = new Set(existing.map(a => a.localDate));
 
+  // Resolve provider TZ once for the whole range — template hours
+  // parse in this TZ and each generated doc inherits it.
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = await tzForProviderId(providerId);
+
   // Generate for each day in range that doesn't have availability yet
   const toCreate = [];
   let current = startDate.startOf('day');
@@ -151,16 +163,17 @@ async function generateFromTemplateRange(providerId, startDate, endDate) {
       const startLA = DateTime.fromFormat(
         `${localDateStr} ${template.startTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: providerTz }
       );
       const endLA = DateTime.fromFormat(
         `${localDateStr} ${template.endTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: providerTz }
       );
 
       const doc = {
         provider: providerId,
+        timezone: providerTz,
         date: current.startOf('day').toUTC().toJSDate(),
         localDate: localDateStr,
         start: startLA.toUTC().toJSDate(),
@@ -837,23 +850,28 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       }
     }
 
-    // Convert and validate date
-    const laDate = DateTime.fromISO(date, { zone: DEFAULT_TZ });
+    // Resolve provider TZ — manually-added availability blocks get
+    // stamped with the provider's current TZ.
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+
+    // Convert and validate date in the provider's TZ
+    const laDate = DateTime.fromISO(date, { zone: providerTz });
     if (!laDate.isValid) {
       console.log('POST /api/availability - Invalid date format:', date);
       return res.status(400).json({ message: 'Invalid date format' });
     }
 
-    // Create start and end DateTime objects in LA timezone
+    // Create start and end DateTime objects in provider TZ
     const startLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${start}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: providerTz }
     );
     const endLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${end}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: providerTz }
     );
 
     // Validate times
@@ -907,6 +925,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const incomingKind = availabilityData.kind === 'static' ? 'static' : 'mobile';
     const newAvailability = new Availability({
       provider: req.user._id,
+      timezone: providerTz,
       date: laDate.toJSDate(),
       start: startLA.toJSDate(),
       end: endLA.toJSDate(),
@@ -1124,20 +1143,24 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'Start and end times are required' });
     }
 
-    // Create DateTime objects in LA timezone
+    // Use the block's stored TZ for parsing — the block lives in
+    // its own timezone, not whatever the server defaults to. This
+    // also avoids retroactively shifting a block when the provider
+    // changes their TZ later.
+    const blockTz = availability.timezone || DEFAULT_TZ;
     const laDate = DateTime.fromJSDate(availability.date, { zone: 'UTC' })
-      .setZone(DEFAULT_TZ);
-    
+      .setZone(blockTz);
+
     const startLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${start}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: blockTz }
     );
-    
+
     const endLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${end}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: blockTz }
     );
 
     // Validate times
@@ -1180,19 +1203,20 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     // as "orphaned by this modify" — false positives that blocked
     // legitimate edits (e.g., "expand my Saturday block earlier" got
     // rejected because of an unrelated booking later in the day).
-    const oldStartLA = DateTime.fromJSDate(availability.start).setZone(DEFAULT_TZ);
-    const oldEndLA = DateTime.fromJSDate(availability.end).setZone(DEFAULT_TZ);
+    const oldStartLA = DateTime.fromJSDate(availability.start).setZone(blockTz);
+    const oldEndLA = DateTime.fromJSDate(availability.end).setZone(blockTz);
 
     const bookingsInThisBlock = bookings.filter(booking => {
+      const bookingTz = booking.timezone || blockTz;
       const bookingStart = DateTime.fromFormat(
         `${dateStr} ${booking.startTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: bookingTz }
       );
       const bookingEnd = DateTime.fromFormat(
         `${dateStr} ${booking.endTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: bookingTz }
       );
       // "In this block" = booking's time range overlaps the current
       // (pre-modify) window even slightly.
@@ -1200,15 +1224,16 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     });
 
     const conflicts = bookingsInThisBlock.filter(booking => {
+      const bookingTz = booking.timezone || blockTz;
       const bookingStart = DateTime.fromFormat(
         `${dateStr} ${booking.startTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: bookingTz }
       );
       const bookingEnd = DateTime.fromFormat(
         `${dateStr} ${booking.endTime}`,
         'yyyy-MM-dd HH:mm',
-        { zone: DEFAULT_TZ }
+        { zone: bookingTz }
       );
       // Only flag bookings that go from CONTAINED → NOT-CONTAINED
       // because of this modify. A booking that was already partially
