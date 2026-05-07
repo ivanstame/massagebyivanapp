@@ -4,6 +4,7 @@ const smsService = require('./smsService');
 const { formatPhoneNumber } = require('../../src/utils/phoneUtils');
 const { DateTime } = require('luxon');
 const logger = require('../utils/logger');
+const { FALLBACK_TZ } = require('../utils/providerTz');
 
 // Hourly check for bookings that need 24h or 1h reminders.
 //
@@ -47,14 +48,14 @@ const startReminderScheduler = () => {
 
       for (const booking of bookings) {
         // Each booking's "start" is in its own TZ — interpret
-        // startTime against booking.timezone with DEFAULT_TZ fallback.
-        const bookingTz = booking.timezone || 'America/Los_Angeles';
-        const startLA = DateTime.fromFormat(
+        // startTime against booking.timezone with FALLBACK_TZ fallback.
+        const bookingTz = booking.timezone || FALLBACK_TZ;
+        const startLocal = DateTime.fromFormat(
           `${booking.localDate} ${booking.startTime}`,
           'yyyy-MM-dd HH:mm',
           { zone: bookingTz }
         );
-        const hoursUntil = startLA.diff(now, 'hours').hours;
+        const hoursUntil = startLocal.diff(now, 'hours').hours;
         if (hoursUntil <= 0) continue; // already started/past — skip
 
         // Fire 24h first so a booking that crossed both thresholds since

@@ -1,5 +1,6 @@
 const { Resend } = require('resend');
 const { DateTime } = require('luxon');
+const { FALLBACK_TZ } = require('./providerTz');
 
 const getResendClient = () => {
   const apiKey = process.env.RESEND_API_KEY;
@@ -189,14 +190,14 @@ function bookingToUTCDates(booking) {
   // Use the booking's stored TZ — calendar invite (.ics) start/end
   // need to anchor to where the appointment is, not where the server
   // happens to be configured.
-  const bookingTz = booking.timezone || 'America/Los_Angeles';
-  const startLA = DateTime.fromFormat(
+  const bookingTz = booking.timezone || FALLBACK_TZ;
+  const startLocal = DateTime.fromFormat(
     `${booking.localDate} ${booking.startTime}`,
     'yyyy-MM-dd HH:mm',
     { zone: bookingTz }
   );
-  const endLA = startLA.plus({ minutes: booking.duration });
-  return { startUTC: startLA.toUTC().toJSDate(), endUTC: endLA.toUTC().toJSDate() };
+  const endLocal = startLocal.plus({ minutes: booking.duration });
+  return { startUTC: startLocal.toUTC().toJSDate(), endUTC: endLocal.toUTC().toJSDate() };
 }
 
 // ---------------------------------------------------------------------------
