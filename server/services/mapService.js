@@ -132,8 +132,19 @@ async function calculateTravelTime(origin, destination, departureTime, providerI
       }
     }
 
-    // Check cache first using centralized cache manager
-    const cacheKey = cacheManager.getTravelTimeKey(origin, destination, departureTime, trafficModel);
+    // Check cache first using centralized cache manager. Bucket the
+    // travel-time key in the provider's local TZ so two providers in
+    // different zones don't pollute each other's caches.
+    let providerTz = 'America/Los_Angeles';
+    if (providerId) {
+      try {
+        const { tzForProviderId } = require('./../utils/providerTz');
+        providerTz = await tzForProviderId(providerId);
+      } catch {
+        // fall back to default
+      }
+    }
+    const cacheKey = cacheManager.getTravelTimeKey(origin, destination, departureTime, trafficModel, providerTz);
     const cachedDuration = cacheManager.get('travelTime', cacheKey);
     if (cachedDuration !== null) {
       console.log(`[Cache] Travel time cache hit for ${cacheKey}: ${cachedDuration} mins`);

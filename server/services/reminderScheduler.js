@@ -22,27 +22,37 @@ const logger = require('../utils/logger');
 const startReminderScheduler = () => {
   setInterval(async () => {
     try {
-      const now = DateTime.now().setZone('America/Los_Angeles');
+      // The scheduler runs absolute time math against per-booking TZ,
+      // not server-host TZ. UTC-anchored "now" is fine for the
+      // hours-until calculation; the localDate query bracket uses a
+      // wide buffer (yesterday → +25h's date) so we don't miss
+      // bookings whose providers live in TZs east of UTC.
+      const now = DateTime.now();
       logger.info(`Running reminder scheduler at ${now.toISO()}`);
 
       const cutoff = now.plus({ hours: 25 });
+      // Widen the localDate bracket by one day on each side to cover
+      // every TZ. localDate is per-booking provider-local; the
+      // hours-until check below filters precisely.
+      const fromDate = now.minus({ hours: 24 }).toFormat('yyyy-MM-dd');
+      const toDate = cutoff.plus({ hours: 24 }).toFormat('yyyy-MM-dd');
       const bookings = await Booking.find({
         status: 'confirmed',
         $or: [{ 'reminders.sent24h': false }, { 'reminders.sent1h': false }],
-        localDate: {
-          $gte: now.toFormat('yyyy-MM-dd'),
-          $lte: cutoff.toFormat('yyyy-MM-dd'),
-        },
+        localDate: { $gte: fromDate, $lte: toDate },
       }).populate('provider client');
 
       let sent24h = 0;
       let sent1h = 0;
 
       for (const booking of bookings) {
+        // Each booking's "start" is in its own TZ — interpret
+        // startTime against booking.timezone with DEFAULT_TZ fallback.
+        const bookingTz = booking.timezone || 'America/Los_Angeles';
         const startLA = DateTime.fromFormat(
           `${booking.localDate} ${booking.startTime}`,
           'yyyy-MM-dd HH:mm',
-          { zone: 'America/Los_Angeles' }
+          { zone: bookingTz }
         );
         const hoursUntil = startLA.diff(now, 'hours').hours;
         if (hoursUntil <= 0) continue; // already started/past — skip

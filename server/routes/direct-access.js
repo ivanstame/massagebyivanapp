@@ -7,6 +7,7 @@ const { ensureAuthenticated, ensureProviderOrAdmin } = require('../middleware/pa
 const Availability = require('../models/Availability');
 const { DateTime } = require('luxon');
 const { DEFAULT_TZ } = require('../../src/utils/timeConstants');
+const { tzForProviderId } = require('../utils/providerTz');
 
 // Route to directly add availability
 router.post('/add-availability-direct', ensureAuthenticated, ensureProviderOrAdmin, async (req, res) => {
@@ -32,23 +33,27 @@ router.post('/add-availability-direct', ensureAuthenticated, ensureProviderOrAdm
       return res.status(400).json({ message: 'Missing required fields' });
     }
     
+    // Resolve the provider's TZ — this route is provider-only, so the
+    // start/end strings are wall-clock in the provider's local zone.
+    const providerTz = await tzForProviderId(req.user._id);
+
     // Convert and validate date
-    const laDate = DateTime.fromISO(date, { zone: DEFAULT_TZ });
+    const laDate = DateTime.fromISO(date, { zone: providerTz });
     if (!laDate.isValid) {
       console.log('Invalid date format:', date);
       return res.status(400).json({ message: 'Invalid date format' });
     }
-    
-    // Create start and end DateTime objects in LA timezone
+
+    // Create start and end DateTime objects in provider's zone
     const startLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${start}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: providerTz }
     );
     const endLA = DateTime.fromFormat(
       `${laDate.toFormat('yyyy-MM-dd')} ${end}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: providerTz }
     );
     
     // Validate times
@@ -69,7 +74,8 @@ router.post('/add-availability-direct', ensureAuthenticated, ensureProviderOrAdm
       start: startLA.toJSDate(),
       end: endLA.toJSDate(),
       type,
-      localDate: laDate.toFormat('yyyy-MM-dd')
+      localDate: laDate.toFormat('yyyy-MM-dd'),
+      timezone: providerTz,
     });
     
     // Save to database

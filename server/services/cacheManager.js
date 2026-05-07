@@ -31,17 +31,18 @@ class CacheManager {
    * @param {string} trafficModel - Traffic model used ('best_guess', 'pessimistic', 'optimistic')
    * @returns {string} - Cache key
    */
-  getTravelTimeKey(origin, destination, departureTime, trafficModel = 'pessimistic') {
-    // Convert to LA timezone for consistent bucketing
-    const dt = DateTime.fromJSDate(departureTime, { zone: 'America/Los_Angeles' });
-    
-    // Create day-of-week + hour bucket: "Mon_14", "Fri_17", etc.
-    // This creates 168 possible buckets (7 days × 24 hours) instead of infinite timestamps
-    // Traffic patterns are consistent for same day-of-week and hour across weeks
+  getTravelTimeKey(origin, destination, departureTime, trafficModel = 'pessimistic', tz = 'America/Los_Angeles') {
+    // Bucket by day-of-week + hour in the requesting provider's TZ so a
+    // Chicago provider's "Mon 9am" doesn't collide with an LA provider's
+    // (those are different real-world traffic windows). The TZ is also
+    // baked into the key to prevent cross-provider key collisions.
+    const dt = DateTime.fromJSDate(departureTime, { zone: tz });
+
+    // Day-of-week + hour bucket: "Mon_14", "Fri_17", etc. 168 possible
+    // buckets per TZ — traffic patterns are consistent week-over-week.
     const dayHourKey = `${dt.weekdayShort}_${dt.hour}`;
-    
-    // Include traffic model in cache key since different models return different durations
-    return `travel_${this.getLocationKey(origin)}_to_${this.getLocationKey(destination)}_${dayHourKey}_${trafficModel}`;
+
+    return `travel_${this.getLocationKey(origin)}_to_${this.getLocationKey(destination)}_${tz}_${dayHourKey}_${trafficModel}`;
   }
 
   /**

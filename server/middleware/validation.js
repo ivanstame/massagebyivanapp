@@ -7,13 +7,21 @@ const validateTimeFormat = (timeStr) => {
   return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeStr);
 };
 
+// Best-effort TZ for synchronous middleware. For provider-owned resources
+// (the user is creating their own availability, etc.) prefer their TZ;
+// otherwise fall back to DEFAULT_TZ. Routes downstream still resolve the
+// authoritative TZ asynchronously when persisting.
+const tzFromReq = (req) =>
+  req?.user?.providerProfile?.timezone || DEFAULT_TZ;
+
 const validateBookingInput = (req, res, next) => {
   try {
     const { date, time, duration, location } = req.body;
     const errors = [];
 
+    const reqTz = tzFromReq(req);
     // Validate date format
-    const bookingDate = DateTime.fromISO(date, { zone: DEFAULT_TZ });
+    const bookingDate = DateTime.fromISO(date, { zone: reqTz });
     if (!bookingDate.isValid) {
       errors.push('Invalid date format. Use YYYY-MM-DD');
     }
@@ -42,7 +50,7 @@ const validateBookingInput = (req, res, next) => {
         });
 
         // Check for DST transitions in multi-session blocks
-        const startDT = DateTime.fromFormat(`${date} ${time}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+        const startDT = DateTime.fromFormat(`${date} ${time}`, 'yyyy-MM-dd HH:mm', { zone: reqTz });
         const totalDuration = sessionDurations.reduce((sum, dur) => sum + dur, 0);
         const endDT = startDT.plus({ minutes: totalDuration });
 
@@ -72,7 +80,7 @@ const validateBookingInput = (req, res, next) => {
     }
 
     // Add validated and parsed date/time to request
-    req.bookingDateTime = DateTime.fromFormat(`${date} ${time}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    req.bookingDateTime = DateTime.fromFormat(`${date} ${time}`, 'yyyy-MM-dd HH:mm', { zone: reqTz });
     next();
   } catch (error) {
     console.error('Validation error:', error);
@@ -88,10 +96,12 @@ const validateAvailabilityInput = (req, res, next) => {
     console.log('validateAvailabilityInput - Method:', req.method);
     console.log('validateAvailabilityInput - Body:', JSON.stringify(req.body, null, 2));
     console.log('validateAvailabilityInput - Params:', JSON.stringify(req.params, null, 2));
-    
+
+    const reqTz = tzFromReq(req);
+
     if (req.method === 'GET') {
       const { date } = req.params;
-      const availabilityDate = DateTime.fromISO(date, { zone: DEFAULT_TZ });
+      const availabilityDate = DateTime.fromISO(date, { zone: reqTz });
       if (!availabilityDate.isValid) {
         console.log('validateAvailabilityInput - Invalid date format for GET:', date);
         return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD' });
@@ -133,7 +143,7 @@ const validateAvailabilityInput = (req, res, next) => {
     }
     
     // Validate date format
-    const availabilityDate = DateTime.fromISO(date, { zone: DEFAULT_TZ });
+    const availabilityDate = DateTime.fromISO(date, { zone: reqTz });
     if (!availabilityDate.isValid) {
       console.log('validateAvailabilityInput - Invalid date format:', date);
       errors.push('Invalid date format. Use YYYY-MM-DD');
@@ -149,8 +159,8 @@ const validateAvailabilityInput = (req, res, next) => {
     }
     // Validate times are in the same day
     if (start && end && date && validateTimeFormat(start) && validateTimeFormat(end)) {
-      const startDT = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-      const endDT = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+      const startDT = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: reqTz });
+      const endDT = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: reqTz });
       if (!startDT.isValid || !endDT.isValid) {
         console.log('validateAvailabilityInput - Invalid datetime combination:', { date, start, end });
         errors.push('Invalid date/time combination');

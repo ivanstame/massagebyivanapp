@@ -186,10 +186,14 @@ function bookingDetailsHtml(booking, providerName, clientName) {
 // ---------------------------------------------------------------------------
 
 function bookingToUTCDates(booking) {
+  // Use the booking's stored TZ — calendar invite (.ics) start/end
+  // need to anchor to where the appointment is, not where the server
+  // happens to be configured.
+  const bookingTz = booking.timezone || 'America/Los_Angeles';
   const startLA = DateTime.fromFormat(
     `${booking.localDate} ${booking.startTime}`,
     'yyyy-MM-dd HH:mm',
-    { zone: 'America/Los_Angeles' }
+    { zone: bookingTz }
   );
   const endLA = startLA.plus({ minutes: booking.duration });
   return { startUTC: startLA.toUTC().toJSDate(), endUTC: endLA.toUTC().toJSDate() };
