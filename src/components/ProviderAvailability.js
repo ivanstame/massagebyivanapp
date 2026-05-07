@@ -362,21 +362,21 @@ const ProviderAvailability = () => {
   }, [fetchAvailabilityBlocks, selectedDate]);
 
   const handleModifyAvailability = useCallback(async (modifiedBlock) => {
-    const dateStr = modifiedBlock.localDate ||
-      DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
-    const conflicts = findGcalConflicts(dateStr, modifiedBlock.start, modifiedBlock.end);
-    if (conflicts.length > 0) {
-      // Close the modify modal so the GCal conflict modal that we're
-      // about to surface isn't stacked on top of it. Without this the
-      // user just sees the modify modal "stuck" with no feedback;
-      // they'd have to dismiss it to see the conflict prompt.
-      setModifyModalOpen(false);
-      setPendingAction({ type: 'modify', data: modifiedBlock });
-      setGcalConflicts(conflicts);
-      return;
-    }
+    // Modify intentionally skips the GCal-conflict gate. When the
+    // provider is editing an availability window they already own,
+    // an overlapping GCal block should remain as a soft block within
+    // the window (the slot picker subtracts it automatically) — not
+    // a hard stop that pauses the save behind a second modal.
+    //
+    // The previous flow popped the GCal conflict modal here, which
+    // looked to the user like the modify silently failed: modify
+    // modal closed, second modal opened (or didn't render visibly),
+    // user dismissed it without realizing they had to confirm
+    // overrides for the modify to actually run. The DB never
+    // changed. Add still uses the gate (creating a new window over
+    // existing GCal commitments is genuinely conflicting).
     await doModifyAvailability(modifiedBlock);
-  }, [findGcalConflicts, doModifyAvailability, selectedDate]);
+  }, [doModifyAvailability]);
 
   const handleGcalModalConfirm = useCallback(async (idsToOverride) => {
     try {
