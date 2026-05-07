@@ -1,6 +1,9 @@
 import { DateTime } from 'luxon';
 import { DEFAULT_TZ } from './timeConstants';
 
+// Caller can pass a `timezone` (typically tzOf(booking)) so the day
+// of week is computed in the booking's TZ instead of always-LA.
+
 // Build an sms: deep link that opens the user's SMS app with a pre-
 // filled message asking the provider about a standing appointment.
 //
@@ -30,17 +33,18 @@ export function buildStandingRequestSmsLink({
   date,
   time,
   duration,
+  timezone = DEFAULT_TZ,
 }) {
   if (!providerPhone) return null;
 
   let dt = null;
   if (date) {
     dt = date instanceof Date
-      ? DateTime.fromJSDate(date).setZone(DEFAULT_TZ)
-      : DateTime.fromISO(String(date), { zone: DEFAULT_TZ });
+      ? DateTime.fromJSDate(date).setZone(timezone)
+      : DateTime.fromISO(String(date), { zone: timezone });
     if (!dt.isValid) {
       // Try yyyy-MM-dd as a last resort (Booking.localDate shape).
-      dt = DateTime.fromFormat(String(date), 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+      dt = DateTime.fromFormat(String(date), 'yyyy-MM-dd', { zone: timezone });
     }
   }
 

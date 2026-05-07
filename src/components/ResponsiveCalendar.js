@@ -3,12 +3,13 @@ import MonthCalendar from './MonthCalendar';
 import { Calendar } from 'lucide-react';
 import { DateTime } from "luxon";
 import { AuthContext } from '../AuthContext';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 
 
 
 const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
   const scrollRef = useRef(null);
   const [month, setMonth] = useState(selectedDate.getMonth());
   const [year, setYear] = useState(selectedDate.getFullYear());
@@ -68,7 +69,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
   // wherever the previous selectedDate happened to fall).
   useEffect(() => {
     if (!scrollRef.current) return;
-    const todayLA = DateTime.now().setZone(DEFAULT_TZ);
+    const todayLA = DateTime.now().setZone(viewerTz);
     const isCurrentMonth = todayLA.year === year && (todayLA.month - 1) === month;
     const targetDayIdx = isCurrentMonth ? todayLA.day - 1 : 0;
     const el = scrollRef.current.children[targetDayIdx];
@@ -92,7 +93,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     setYear(newYear);
     onDateChange(DateTime.fromObject(
       { year: newYear, month: newMonth + 1, day: 1, hour: 0 },
-      { zone: DEFAULT_TZ }
+      { zone: viewerTz }
     ).toJSDate());
   };
 
@@ -104,7 +105,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
     setYear(newYear);
     onDateChange(DateTime.fromObject(
       { year: newYear, month: newMonth + 1, day: 1, hour: 0 },
-      { zone: DEFAULT_TZ }
+      { zone: viewerTz }
     ).toJSDate());
   };
 
@@ -128,7 +129,7 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
   // Build cells from LA so labels and equality checks match the way
   // the rest of the app reasons about time.
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const todayLA = DateTime.now().setZone(DEFAULT_TZ);
+  const todayLA = DateTime.now().setZone(viewerTz);
   const sixMonths = [];
   for (let i = 0; i < 6; i++) {
     const dt = todayLA.startOf('month').plus({ months: i });

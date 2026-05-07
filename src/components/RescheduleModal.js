@@ -57,7 +57,8 @@ const RescheduleModal = ({ booking, onSuccess, onClose }) => {
         // showing it as a pickable option is misleading).
         const formatted = (res.data || []).map(s => {
           const iso = typeof s === 'string' ? s : s.time;
-          const dt = DateTime.fromISO(iso, { zone: DEFAULT_TZ });
+          // Server emits ISO with provider-local offset; preserve it.
+          const dt = DateTime.fromISO(iso, { setZone: true });
           return {
             iso,
             display: dt.toFormat('h:mm a'),

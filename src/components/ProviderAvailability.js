@@ -11,7 +11,7 @@ import GoogleCalendarConflictModal from './GoogleCalendarConflictModal';
 import AvailabilityList from './AvailabilityList';
 import { Clock, Ban, AlertCircle, Calendar as CalendarIcon, List, Navigation, MapPin, ChevronDown, Share2 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { TIME_FORMATS, DEFAULT_TZ } from '../utils/timeConstants';
+import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
 import PinDropMap from './PinDropMap';
 import ScheduleShareSheet from './ScheduleShareSheet';
 
@@ -148,11 +148,15 @@ const ProviderAvailability = () => {
     fetchLocs();
   }, []);
 
+  // Provider's local TZ — drives every "what day is this Date object?"
+  // conversion below. Auth user is the provider for this whole route.
+  const viewerTz = tzOf(user);
+
   const fetchAvailabilityBlocks = useCallback(async (date) => {
     try {
-      // Convert date to LA time string
+      // Convert date to provider-local YYYY-MM-DD
       const laDate = DateTime.fromJSDate(date)
-        .setZone('America/Los_Angeles')
+        .setZone(viewerTz)
         .toFormat('yyyy-MM-dd');
 
       // Cache-bust query param to force a fresh fetch even if the
@@ -166,7 +170,7 @@ const ProviderAvailability = () => {
     } catch (error) {
       console.error('Error fetching availability blocks:', error);
     }
-  }, []);
+  }, [viewerTz]);
 
   const fetchBookings = useCallback(async (date) => {
     try {
@@ -179,7 +183,7 @@ const ProviderAvailability = () => {
       // clean LA-midnight value where toISOString().split agrees,
       // initial mount with `new Date()` doesn't. fetchAvailabilityBlocks
       // and fetchBlockedTimes already do this conversion; this matches.
-      const laDate = DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+      const laDate = DateTime.fromJSDate(date).setZone(viewerTz).toFormat('yyyy-MM-dd');
       const response = await axios.get(
         `/api/bookings?date=${laDate}`,
         { withCredentials: true }
@@ -194,12 +198,12 @@ const ProviderAvailability = () => {
     } catch (error) {
       console.error('Error fetching bookings:', error);
     }
-  }, []);
+  }, [viewerTz]);
 
   const fetchBlockedTimes = useCallback(async (date) => {
     try {
       const laDate = DateTime.fromJSDate(date)
-        .setZone('America/Los_Angeles')
+        .setZone(viewerTz)
         .toFormat('yyyy-MM-dd');
       const response = await axios.get(
         `/api/provider/blocked-times/${laDate}`,
@@ -209,7 +213,7 @@ const ProviderAvailability = () => {
     } catch (error) {
       console.error('Error fetching blocked times:', error);
     }
-  }, []);
+  }, [viewerTz]);
 
   const fetchData = useCallback(async (date) => {
     try {
@@ -244,8 +248,10 @@ const ProviderAvailability = () => {
     return blockedTimes.filter(bt => {
       if (bt.source !== 'google_calendar' || bt.overridden) return false;
       if (bt.localDate !== dateStr) return false;
-      const btStart = DateTime.fromISO(bt.start).setZone(DEFAULT_TZ);
-      const btEnd = DateTime.fromISO(bt.end).setZone(DEFAULT_TZ);
+      // Each blocked-time was stamped with the provider's TZ at sync.
+      const btTz = tzOf(bt, viewerTz);
+      const btStart = DateTime.fromISO(bt.start).setZone(btTz);
+      const btEnd = DateTime.fromISO(bt.end).setZone(btTz);
       const btStartMin = btStart.hour * 60 + btStart.minute;
       const btEndMin = btEnd.hour * 60 + btEnd.minute;
       return newStartMin < btEndMin && newEndMin > btStartMin;
@@ -269,7 +275,7 @@ const ProviderAvailability = () => {
   const handleAddAvailability = useCallback(async (newAvailability) => {
     const dateStr = typeof newAvailability.date === 'string'
       ? newAvailability.date
-      : DateTime.fromJSDate(newAvailability.date).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+      : DateTime.fromJSDate(newAvailability.date).setZone(viewerTz).toFormat('yyyy-MM-dd');
     const conflicts = findGcalConflicts(dateStr, newAvailability.start, newAvailability.end);
     if (conflicts.length > 0) {
       setPendingAction({ type: 'add', data: newAvailability });
@@ -687,7 +693,7 @@ const formatTime = useCallback((time) => {
               onDateChange={(newDate) => {
                 if (requestState !== 'LOADING') {
                   const laDate = DateTime.fromJSDate(newDate)
-                    .setZone('America/Los_Angeles')
+                    .setZone(viewerTz)
                     .toJSDate();
                   setSelectedDate(laDate);
                 }

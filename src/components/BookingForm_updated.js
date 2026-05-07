@@ -4,7 +4,7 @@ import { AuthContext } from '../AuthContext';
 import { bookingService } from '../services/bookingService';
 import api from '../services/api';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
+import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
 import LuxonService from '../utils/LuxonService';
 import { ArrowLeft, ArrowRight, User as UserIcon, Plus, MapPin } from 'lucide-react';
 
@@ -430,7 +430,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
     const providerId = user.accountType === 'PROVIDER' ? user._id : user.providerId;
     if (!providerId) return;
 
-    const dateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
+    // Parse the selected date in the target provider's TZ — for
+    // provider self-bookings this is `user`; for client bookings it's
+    // the provider object loaded above.
+    const targetTz = isProviderBooking ? tzOf(user) : tzOf(provider);
+    const dateLA = DateTime.fromJSDate(selectedDate).setZone(targetTz);
     const formattedDate = dateLA.toFormat('yyyy-MM-dd');
 
     // Calculate total duration including add-on extra time. When the user
@@ -471,7 +475,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
       // Filter out slots without enough lead time (60 min from now), then
       // shape into the form state's expected slot model — keeping the
       // mobile/static metadata so downstream rendering can distinguish.
-      const cutoff = DateTime.now().setZone(DEFAULT_TZ).plus({ minutes: 60 });
+      // 60-min lead time uses absolute "now" — TZ-agnostic.
+      const cutoff = DateTime.now().plus({ minutes: 60 });
       const slots = (response.data || [])
         .map(s => {
           // Backwards-compat: tolerate the old shape where the endpoint
@@ -481,11 +486,13 @@ const BookingForm = ({ googleMapsLoaded }) => {
           return s;
         })
         .filter(s => {
-          const dt = DateTime.fromISO(s.time, { zone: DEFAULT_TZ });
+          // Use setZone: true so the offset baked into the slot's ISO
+          // (provider-local) is preserved — comparing absolute instants.
+          const dt = DateTime.fromISO(s.time, { setZone: true });
           return dt > cutoff;
         })
         .map(s => {
-          const dt = DateTime.fromISO(s.time, { zone: DEFAULT_TZ });
+          const dt = DateTime.fromISO(s.time, { setZone: true });
           return {
             iso: s.time,
             display: dt.toFormat('h:mm a'),
@@ -523,7 +530,8 @@ const BookingForm = ({ googleMapsLoaded }) => {
     let cancelled = false;
     (async () => {
       try {
-        const dateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+        const targetTz = isProviderBooking ? tzOf(user) : tzOf(provider);
+        const dateLA = DateTime.fromJSDate(selectedDate).setZone(targetTz).toFormat('yyyy-MM-dd');
         const res = await api.get(`/api/availability/blocks/${dateLA}`, {
           params: { providerId },
         });
@@ -626,10 +634,14 @@ const BookingForm = ({ googleMapsLoaded }) => {
         throw new Error('Please complete all required fields');
       }
 
-      const bookingDateLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
+      const targetTz = isProviderBooking ? tzOf(user) : tzOf(provider);
+      const bookingDateLA = DateTime.fromJSDate(selectedDate).setZone(targetTz);
       const bookingDateStr = bookingDateLA.toFormat('yyyy-MM-dd');
 
-      const formattedTime = LuxonService.formatISOToDisplay(selectedTime.iso, TIME_FORMATS.TIME_24H);
+      // formatISOToDisplay defaults to LA — pass the target provider's
+      // TZ so the HH:mm submitted to /api/bookings matches the provider
+      // wall clock (the server then anchors with provider.timezone too).
+      const formattedTime = LuxonService.formatISOToDisplay(selectedTime.iso, TIME_FORMATS.TIME_24H, targetTz);
       if (!formattedTime) {
         throw new Error('Failed to format time correctly');
       }
@@ -1073,7 +1085,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
           <h1 className="font-display" style={{ fontSize: "2.25rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
             Choose a{' '}
             <em style={{ color: '#B07A4E' }}>
-              {DateTime.now().setZone(DEFAULT_TZ).hour < 12 ? 'morning' : 'afternoon'}
+              {DateTime.now().setZone(isProviderBooking ? tzOf(user) : tzOf(provider)).hour < 12 ? 'morning' : 'afternoon'}
             </em>
             {' '}or evening.
           </h1>
@@ -1401,7 +1413,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                       {additionalSessions.map((session, i) => {
                         const firstStartIso = selectedTime?.iso;
                         if (!firstStartIso) return null;
-                        const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
+                        const firstStart = DateTime.fromISO(firstStartIso, { setZone: true });
                         const firstExtraTime = selectedAddons.reduce((sum, name) => {
                           const a = availableAddons.find(x => x.name === name);
                           return sum + (a?.extraTime || 0);
@@ -1689,7 +1701,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                       {additionalSessions.map((session, i) => {
                         const firstStartIso = selectedTime?.iso;
                         if (!firstStartIso) return null;
-                        const firstStart = DateTime.fromISO(firstStartIso, { zone: DEFAULT_TZ });
+                        const firstStart = DateTime.fromISO(firstStartIso, { setZone: true });
                         const firstExtraTime = selectedAddons.reduce((sum, name) => {
                           const a = availableAddons.find(x => x.name === name);
                           return sum + (a?.extraTime || 0);

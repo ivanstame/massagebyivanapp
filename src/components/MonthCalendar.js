@@ -3,30 +3,26 @@ import React, { useState, useEffect, useContext } from 'react';
 import { format } from 'date-fns';
 import { DateTime } from 'luxon';
 import { AuthContext } from '../AuthContext';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
 
 // Build a JS Date that represents midnight on day 1 of the given
-// month in LA, no matter what the user's local browser timezone is.
+// month in `tz`, no matter what the user's local browser timezone is.
 // new Date(year, month, 1) builds in *local* time — for users east
-// of LA (most of the US) midnight local lands on the previous day
-// in LA, which causes the calendar to land on the last of the prior
-// month. Anchoring in LA explicitly fixes that.
-const firstOfMonthLA = (year, month0Indexed) => {
+// of the provider's TZ that midnight rolls into the previous day,
+// causing the calendar to land on the last of the prior month.
+const firstOfMonthInTz = (year, month0Indexed, tz) => {
   return DateTime.fromObject(
     { year, month: month0Indexed + 1, day: 1, hour: 0 },
-    { zone: DEFAULT_TZ }
+    { zone: tz }
   ).toJSDate();
 };
 
 // 6-month grid the provider/client can pop open by tapping the header.
-// Shows the current month + next 5. The shortest path most users want
-// is "skip ahead one month" — but providers also reference future
-// months when scheduling standing-appointment-ish work.
-const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
-  // Read everything in LA so the cells label the months the way the
-  // app reasons about time, not the way the user's browser does.
-  const todayLA = DateTime.now().setZone(DEFAULT_TZ);
-  const selLA = DateTime.fromJSDate(selectedDate).setZone(DEFAULT_TZ);
+const MonthPickerOverlay = ({ selectedDate, onPick, onClose, viewerTz }) => {
+  // Read everything in viewerTz so the cells label the months the way
+  // the app reasons about time, not the way the user's browser does.
+  const todayLA = DateTime.now().setZone(viewerTz);
+  const selLA = DateTime.fromJSDate(selectedDate).setZone(viewerTz);
   const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const cells = [];
   for (let i = 0; i < 6; i++) {
@@ -51,7 +47,7 @@ const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
               <button
                 key={idx}
                 type="button"
-                onClick={() => { onPick(firstOfMonthLA(year, month0)); onClose(); }}
+                onClick={() => { onPick(firstOfMonthInTz(year, month0, viewerTz)); onClose(); }}
                 className={`p-2 rounded-lg border text-sm font-medium transition-colors
                   ${sel
                     ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E]'
@@ -75,6 +71,7 @@ const MonthPickerOverlay = ({ selectedDate, onPick, onClose }) => {
 
 const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) => {
   const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
   const [availabilityData, setAvailabilityData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -144,11 +141,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
   }, [selectedDate, providerId, refreshKey]);
 
   const handlePrevMonth = () => {
-    onDateChange(firstOfMonthLA(selectedDate.getFullYear(), selectedDate.getMonth() - 1));
+    onDateChange(firstOfMonthInTz(selectedDate.getFullYear(), selectedDate.getMonth() - 1, viewerTz));
   };
 
   const handleNextMonth = () => {
-    onDateChange(firstOfMonthLA(selectedDate.getFullYear(), selectedDate.getMonth() + 1));
+    onDateChange(firstOfMonthInTz(selectedDate.getFullYear(), selectedDate.getMonth() + 1, viewerTz));
   };
 
   // The truth about whether we can book this shit or not
@@ -282,6 +279,7 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
         {showMonthPicker && (
           <MonthPickerOverlay
             selectedDate={selectedDate}
+            viewerTz={viewerTz}
             onPick={(d) => onDateChange(d)}
             onClose={() => setShowMonthPicker(false)}
           />

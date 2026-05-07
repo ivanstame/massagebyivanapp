@@ -4,6 +4,7 @@ import { AuthContext } from '../AuthContext';
 import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from 'luxon';
+import { tzOf } from '../utils/timeConstants';
 import { BrushLeaf } from './brush/BrushMotifs';
 
 const Stat = ({ label, value, sub, accent }) => (
@@ -172,19 +173,22 @@ const ProviderDashboard = () => {
     return null;
   }
 
+  const viewerTz = tzOf(user);
   const [stats, setStats] = useState({ total: 0, completed: 0, upcoming: 0 });
   const [revenue, setRevenue] = useState(null);
   const [todayBookings, setTodayBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   // Tick every minute so countdown labels and state transitions
-  // (upcoming → now → overdue) stay live without a refresh.
-  const [now, setNow] = useState(() => DateTime.now().setZone('America/Los_Angeles'));
+  // (upcoming → now → overdue) stay live without a refresh. Anchored
+  // in the auth provider's TZ so a Chicago provider's "now" matches
+  // their wall clock.
+  const [now, setNow] = useState(() => DateTime.now().setZone(viewerTz));
   const [markingId, setMarkingId] = useState(null);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const today = DateTime.now().setZone('America/Los_Angeles').toFormat('yyyy-MM-dd');
+        const today = DateTime.now().setZone(viewerTz).toFormat('yyyy-MM-dd');
         const [statsRes, revRes, bookRes] = await Promise.allSettled([
           api.get('/api/bookings?stats=today'),
           api.get('/api/bookings/revenue'),
@@ -209,7 +213,7 @@ const ProviderDashboard = () => {
 
   useEffect(() => {
     const id = setInterval(
-      () => setNow(DateTime.now().setZone('America/Los_Angeles')),
+      () => setNow(DateTime.now().setZone(viewerTz)),
       60 * 1000
     );
     return () => clearInterval(id);

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
+import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
+import { AuthContext } from '../AuthContext';
 
 // Modify-availability modal. Mirrors AddAvailabilityModal's time-picker
 // pattern: select values are stored as 24-hour "HH:mm" strings (matching
@@ -15,6 +16,9 @@ import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
 // field on Availability — so the modal opened with garbage values for
 // every block. Now we parse via Luxon, accepting Date or ISO string.
 const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
+  // Block carries its own TZ; modal-creation defaults to auth user.
+  const { user } = useContext(AuthContext);
+  const blockTz = tzOf(block, tzOf(user));
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState(null);
@@ -26,11 +30,11 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   const toHHmm = (value) => {
     if (!value) return null;
     if (value instanceof Date) {
-      return DateTime.fromJSDate(value).setZone(DEFAULT_TZ).toFormat('HH:mm');
+      return DateTime.fromJSDate(value).setZone(blockTz).toFormat('HH:mm');
     }
     if (typeof value === 'string') {
       if (value.includes('T')) {
-        return DateTime.fromISO(value).setZone(DEFAULT_TZ).toFormat('HH:mm');
+        return DateTime.fromISO(value).setZone(blockTz).toFormat('HH:mm');
       }
       // Already in HH:mm form (or close enough for the regex below to catch).
       return /^\d{2}:\d{2}$/.test(value) ? value : null;
@@ -50,8 +54,8 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   // pre-dawn or late-night blocks don't get truncated.
   const timeOptions = [];
   {
-    let cur = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: DEFAULT_TZ });
-    const end = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: DEFAULT_TZ });
+    let cur = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: blockTz });
+    const end = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: blockTz });
     while (cur <= end) {
       timeOptions.push({
         value: cur.toFormat('HH:mm'),
@@ -66,7 +70,7 @@ const ModifyAvailabilityModal = ({ block, onModify, onClose, onBlockOff }) => {
   // option list so the select doesn't render blank.
   const ensureOption = (val) => {
     if (val && !timeOptions.some(o => o.value === val)) {
-      const dt = DateTime.fromFormat(val, 'HH:mm', { zone: DEFAULT_TZ });
+      const dt = DateTime.fromFormat(val, 'HH:mm', { zone: blockTz });
       if (dt.isValid) {
         timeOptions.push({ value: val, label: dt.toFormat(TIME_FORMATS.TIME_12H) });
         timeOptions.sort((a, b) => a.value.localeCompare(b.value));

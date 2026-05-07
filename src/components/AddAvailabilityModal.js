@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Clock, AlertCircle, MapPin, ChevronDown, ChevronUp, Navigation, Home, Building2 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
+import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
 import api from '../services/api';
 import PinDropMap from './PinDropMap';
+import { AuthContext } from '../AuthContext';
 
 const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
+  // Provider's TZ — drives every parse of the date prop and every
+  // time-picker option. Provider is the auth user on this route.
+  const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [error, setError] = useState(null);
@@ -47,8 +52,8 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
 
   const generateTimeOptions = () => {
     const slots = [];
-    let currentTime = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: DEFAULT_TZ });
-    const endOfDay = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: DEFAULT_TZ });
+    let currentTime = DateTime.fromObject({ hour: 0, minute: 0 }, { zone: viewerTz });
+    const endOfDay = DateTime.fromObject({ hour: 23, minute: 30 }, { zone: viewerTz });
 
     while (currentTime <= endOfDay) {
       slots.push(
@@ -83,10 +88,10 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
     e.preventDefault();
     setError(null);
 
-    const dateLA = DateTime.fromJSDate(date).setZone(DEFAULT_TZ);
+    const dateLA = DateTime.fromJSDate(date).setZone(viewerTz);
 
-    const startDateTime = DateTime.fromFormat(`${dateLA.toFormat('yyyy-MM-dd')} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-    const endDateTime = DateTime.fromFormat(`${dateLA.toFormat('yyyy-MM-dd')} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    const startDateTime = DateTime.fromFormat(`${dateLA.toFormat('yyyy-MM-dd')} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: viewerTz });
+    const endDateTime = DateTime.fromFormat(`${dateLA.toFormat('yyyy-MM-dd')} ${endTime}`, 'yyyy-MM-dd HH:mm', { zone: viewerTz });
 
     if (!startDateTime.isValid || !endDateTime.isValid) {
       setError('Invalid time format');
@@ -140,7 +145,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
           <div>
             <h2 className="text-xl font-bold text-slate-900">Add Availability</h2>
             <p className="text-sm text-slate-500 mt-1">
-              {DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('cccc, LLLL d, yyyy')}
+              {DateTime.fromJSDate(date).setZone(viewerTz).toFormat('cccc, LLLL d, yyyy')}
             </p>
           </div>
         </div>

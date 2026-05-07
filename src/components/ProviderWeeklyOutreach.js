@@ -12,6 +12,7 @@ import {
   Users, Clock, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { DateTime } from 'luxon';
+import { tzOf } from '../utils/timeConstants';
 
 const ProviderWeeklyOutreach = () => {
   const { user } = useContext(AuthContext);
@@ -141,8 +142,10 @@ const ProviderWeeklyOutreach = () => {
   const lastSentLabel = lastSentAt
     ? DateTime.fromISO(lastSentAt).toRelative()
     : 'Never';
+  // "Next send" date renders in the auth provider's TZ.
+  const viewerTz = tzOf(user);
   const nextSendLabel = !canSendNow && canSendAt
-    ? DateTime.fromISO(canSendAt).setZone('America/Los_Angeles').toFormat('cccc, LLL d')
+    ? DateTime.fromISO(canSendAt).setZone(viewerTz).toFormat('cccc, LLL d')
     : null;
 
   const filteredRecipients = search.trim()
@@ -209,7 +212,7 @@ const ProviderWeeklyOutreach = () => {
                 <p className="text-xs text-green-700 mt-1">
                   You can send again starting{' '}
                   <strong>
-                    {DateTime.fromISO(sendResult.nextAvailableAt).setZone('America/Los_Angeles').toFormat('cccc, LLL d')}
+                    {DateTime.fromISO(sendResult.nextAvailableAt).setZone(viewerTz).toFormat('cccc, LLL d')}
                   </strong>.
                 </p>
               </div>

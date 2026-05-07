@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DateTime } from 'luxon';
 import { Repeat } from 'lucide-react';
-import { DEFAULT_TZ, TIME_FORMATS } from '../utils/timeConstants';
+import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
+import { AuthContext } from '../AuthContext';
 import LuxonService from '../utils/LuxonService';
 import NavigateButton from './NavigateButton';
 
@@ -12,6 +13,10 @@ const RepeatIcon = () => <Repeat className="w-3 h-3 text-[#B07A4E] flex-shrink-0
 
 const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], onModify, onDelete, onDeleteBlockedTime, onRestoreBlockedTime }) => {
   const navigate = useNavigate();
+  // Provider-only view; auth user supplies the wall-clock TZ. Each
+  // doc's own timezone is preferred for parsing, falling back to this.
+  const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
   const startHour = 7;
   const endHour = 23;
   const totalHours = endHour - startHour + 1;
@@ -20,14 +25,17 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
     navigate(`/appointments/${bookingId}`);
   };
 
-  const timeToPixels = (timeValue) => {
+  // Both helpers take an optional `tz` so callers can pass the doc's
+  // stored TZ when known. Falls back to viewerTz for HH:mm strings
+  // (already wall-clock in some TZ — viewerTz is the safest default).
+  const timeToPixels = (timeValue, tz = viewerTz) => {
     let formattedTime;
     if (typeof timeValue === 'string' && timeValue.includes('T')) {
-      formattedTime = DateTime.fromISO(timeValue).setZone(DEFAULT_TZ).toFormat("HH:mm");
+      formattedTime = DateTime.fromISO(timeValue).setZone(tz).toFormat("HH:mm");
     } else if (typeof timeValue === 'string') {
       formattedTime = timeValue;
     } else if (timeValue instanceof Date) {
-      formattedTime = DateTime.fromJSDate(timeValue).setZone(DEFAULT_TZ).toFormat("HH:mm");
+      formattedTime = DateTime.fromJSDate(timeValue).setZone(tz).toFormat("HH:mm");
     } else {
       return 0;
     }
@@ -36,17 +44,17 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
     return ((hours - startHour) * 60 + minutes) * 2;
   };
 
-  const formatTime = (timeValue) => {
+  const formatTime = (timeValue, tz = viewerTz) => {
     let dt;
     if (timeValue instanceof Date) {
-      dt = DateTime.fromJSDate(timeValue).setZone(DEFAULT_TZ);
+      dt = DateTime.fromJSDate(timeValue).setZone(tz);
     } else if (typeof timeValue === 'string') {
       if (timeValue.includes('T')) {
-        dt = DateTime.fromISO(timeValue).setZone(DEFAULT_TZ);
+        dt = DateTime.fromISO(timeValue).setZone(tz);
       } else {
         const [hours, minutes] = timeValue.split(':').map(Number);
         if (isNaN(hours) || isNaN(minutes)) return "";
-        dt = DateTime.now().setZone(DEFAULT_TZ).set({ hour: hours, minute: minutes });
+        dt = DateTime.now().setZone(tz).set({ hour: hours, minute: minutes });
       }
     } else {
       return "";
@@ -57,7 +65,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
   // Hour marker component
   const HourMarker = ({ hour }) => {
     const displayTime = DateTime.now()
-      .setZone(DEFAULT_TZ)
+      .setZone(viewerTz)
       .set({ hour, minute: 0 })
       .toFormat('h:mm a');
 
@@ -94,7 +102,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
         <div className="av-eyebrow text-ink-3 mb-0.5">Today</div>
         <h2 className="font-display text-ink" style={{ fontSize: "1rem", fontWeight: 500, lineHeight: 1.2 }}>
           {DateTime.fromJSDate(date)
-            .setZone(DEFAULT_TZ)
+            .setZone(viewerTz)
             .toFormat('cccc, LLLL d')}
         </h2>
       </div>
@@ -120,9 +128,10 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                 blue, with the location name surfaced inline so the
                 provider knows where they're committed. */}
             {availabilityBlocks.map((block, index) => {
-              // Convert block times to LA timezone for display
-              const blockStart = timeToPixels(block.start);
-              const blockEnd = timeToPixels(block.end);
+              // Use the block's stored TZ; falls back to viewerTz.
+              const blockTz = tzOf(block, viewerTz);
+              const blockStart = timeToPixels(block.start, blockTz);
+              const blockEnd = timeToPixels(block.end, blockTz);
               const isStatic = block.kind === 'static';
               const containerColors = isStatic
                 ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
@@ -146,7 +155,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                     <div className="flex justify-between items-start">
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-slate-700">
-                          {`${formatTime(block.start)} - ${formatTime(block.end)}`}
+                          {`${formatTime(block.start, blockTz)} - ${formatTime(block.end, blockTz)}`}
                         </span>
                         {isStatic && block.staticLocation?.name && (
                           <p className="text-xs text-blue-700 truncate mt-0.5">
@@ -185,8 +194,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
             {availabilityBlocks
               .filter(block => block.kind !== 'static' && block.anchor && block.anchor.name && block.anchor.startTime)
               .map((block, index) => {
-                const anchorStart = timeToPixels(block.anchor.startTime);
-                const anchorEnd = timeToPixels(block.anchor.endTime);
+                const blockTz = tzOf(block, viewerTz);
+                const anchorStart = timeToPixels(block.anchor.startTime, blockTz);
+                const anchorEnd = timeToPixels(block.anchor.endTime, blockTz);
                 return (
                   <div
                     key={`anchor-${index}`}
@@ -201,7 +211,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                     <div className="p-2 flex flex-col h-full">
                       <div className="flex justify-between items-start">
                         <span className="text-sm font-medium text-amber-800">
-                          {`${formatTime(block.anchor.startTime)} - ${formatTime(block.anchor.endTime)}`}
+                          {`${formatTime(block.anchor.startTime, blockTz)} - ${formatTime(block.anchor.endTime, blockTz)}`}
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
@@ -234,8 +244,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
 
             {/* Blocked time overlays */}
             {blockedTimes.map((bt, index) => {
-              const btStart = timeToPixels(bt.start);
-              const btEnd = timeToPixels(bt.end);
+              const btTz = tzOf(bt, viewerTz);
+              const btStart = timeToPixels(bt.start, btTz);
+              const btEnd = timeToPixels(bt.end, btTz);
               const isOverridden = bt.overridden === true;
               const isGoogle = bt.source === 'google_calendar';
 
@@ -270,7 +281,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`text-xs font-medium ${isOverridden ? 'text-slate-500 line-through' : 'text-slate-600'}`}>
-                          {bt.allDay ? 'All day' : `${formatTime(bt.start)} - ${formatTime(bt.end)}`}
+                          {bt.allDay ? 'All day' : `${formatTime(bt.start, btTz)} - ${formatTime(bt.end, btTz)}`}
                         </span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                           isOverridden ? 'bg-slate-200 text-slate-500' : 'bg-slate-300 text-slate-700'
@@ -310,8 +321,9 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
 
             {/* Bookings */}
             {bookings.map((booking, index) => {
-              const bookingStart = timeToPixels(booking.startTime);
-              const bookingEnd = timeToPixels(booking.endTime);
+              const bookingTz = tzOf(booking, viewerTz);
+              const bookingStart = timeToPixels(booking.startTime, bookingTz);
+              const bookingEnd = timeToPixels(booking.endTime, bookingTz);
               
               return (
                 <div
@@ -334,7 +346,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                               <RepeatIcon />
                             </span>
                           )}
-                          {`${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`}
+                          {`${formatTime(booking.startTime, bookingTz)} - ${formatTime(booking.endTime, bookingTz)}`}
                         </span>
                         <span className="text-xs px-2 py-1 bg-[#FBF7EF] text-[#8A5D36] rounded-full">
                           {`${booking.duration} min`}

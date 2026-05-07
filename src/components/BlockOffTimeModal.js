@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import axios from 'axios';
 import { AlertCircle, Calendar, MapPin, Repeat, Trash2, User } from 'lucide-react';
 import { DateTime } from 'luxon';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
+import { AuthContext } from '../AuthContext';
 
 const formatHHmmTo12h = (hhmm) => {
   if (!hhmm) return '';
@@ -24,6 +25,11 @@ const formatHHmmTo12h = (hhmm) => {
 // availability to exist — blocks live independently and persistently
 // suppress slots if availability gets added later.
 const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [], onBlock, onClose }) => {
+  // Provider's TZ — drives every parse below. Existing block carries
+  // its own TZ; modal-creation flows fall back to the auth user.
+  const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
+  const blockTz = tzOf(block, viewerTz);
   const [allDay, setAllDay] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -49,10 +55,10 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
 
   const parseTime = (isoOrHHmm) => {
     if (typeof isoOrHHmm === 'string' && isoOrHHmm.includes('T')) {
-      return DateTime.fromISO(isoOrHHmm).setZone(DEFAULT_TZ);
+      return DateTime.fromISO(isoOrHHmm).setZone(blockTz);
     }
     const [h, m] = isoOrHHmm.split(':').map(Number);
-    return DateTime.now().setZone(DEFAULT_TZ).set({ hour: h, minute: m, second: 0, millisecond: 0 });
+    return DateTime.now().setZone(viewerTz).set({ hour: h, minute: m, second: 0, millisecond: 0 });
   };
 
   // Range used to populate the time pickers. When the user is blocking
@@ -62,11 +68,11 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
   const { rangeStartDT, rangeEndDT, hasAvailability } = useMemo(() => {
     let baseDate;
     if (date) {
-      baseDate = DateTime.fromJSDate(date).setZone(DEFAULT_TZ).startOf('day');
+      baseDate = DateTime.fromJSDate(date).setZone(viewerTz).startOf('day');
     } else if (block) {
       baseDate = parseTime(block.start).startOf('day');
     } else {
-      baseDate = DateTime.now().setZone(DEFAULT_TZ).startOf('day');
+      baseDate = DateTime.now().setZone(viewerTz).startOf('day');
     }
 
     if (block) {
@@ -152,9 +158,9 @@ const BlockOffTimeModal = ({ block, availabilityBlocks, date, savedLocations = [
     if (block) {
       localDate = (rangeStartDT).toFormat('yyyy-MM-dd');
     } else if (date) {
-      localDate = DateTime.fromJSDate(date).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+      localDate = DateTime.fromJSDate(date).setZone(viewerTz).toFormat('yyyy-MM-dd');
     } else {
-      localDate = DateTime.now().setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+      localDate = DateTime.now().setZone(viewerTz).toFormat('yyyy-MM-dd');
     }
 
     if (allDay) {

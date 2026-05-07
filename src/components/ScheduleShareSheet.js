@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useContext } from 'react';
 import { DateTime } from 'luxon';
 import { Share2, Copy, MessageSquare, Mail, X, CheckCircle, EyeOff } from 'lucide-react';
-import { DEFAULT_TZ } from '../utils/timeConstants';
+import { tzOf } from '../utils/timeConstants';
+import { AuthContext } from '../AuthContext';
 
 // Generates a plain-text version of a provider's day and offers share
 // actions (native Web Share, copy-to-clipboard, SMS, email). Built for
@@ -16,6 +17,8 @@ import { DEFAULT_TZ } from '../utils/timeConstants';
 // MTs were formally classified as healthcare providers).
 
 const ScheduleShareSheet = ({ bookings = [], date, onClose }) => {
+  const { user } = useContext(AuthContext);
+  const viewerTz = tzOf(user);
   const [showClientNames, setShowClientNames] = useState(false);
   const [showAddresses, setShowAddresses] = useState(true);
   const [copiedFlash, setCopiedFlash] = useState(false);
@@ -32,8 +35,8 @@ const ScheduleShareSheet = ({ bookings = [], date, onClose }) => {
   const dayLabel = useMemo(() => {
     if (!date) return '';
     const dt = date instanceof Date
-      ? DateTime.fromJSDate(date).setZone(DEFAULT_TZ)
-      : DateTime.fromISO(String(date), { zone: DEFAULT_TZ });
+      ? DateTime.fromJSDate(date).setZone(viewerTz)
+      : DateTime.fromISO(String(date), { zone: viewerTz });
     return dt.isValid ? dt.toFormat('EEE, MMM d') : '';
   }, [date]);
 
