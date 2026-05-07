@@ -1169,7 +1169,21 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     }).populate('client', 'profile.fullName email');
 
     const dateStr = laDate.toFormat('yyyy-MM-dd');
-    const conflicts = bookings.filter(booking => {
+
+    // Scope conflict check to bookings that were INSIDE the current
+    // block's window — those are the ones this modify can orphan.
+    // Days frequently have multiple availability blocks (a morning
+    // mobile window, an afternoon in-studio window, etc) plus
+    // bookings sit at their own start/end times. The previous filter
+    // checked every booking on the day against the new window,
+    // flagging perfectly-contained bookings from a different block
+    // as "orphaned by this modify" — false positives that blocked
+    // legitimate edits (e.g., "expand my Saturday block earlier" got
+    // rejected because of an unrelated booking later in the day).
+    const oldStartLA = DateTime.fromJSDate(availability.start).setZone(DEFAULT_TZ);
+    const oldEndLA = DateTime.fromJSDate(availability.end).setZone(DEFAULT_TZ);
+
+    const bookingsInThisBlock = bookings.filter(booking => {
       const bookingStart = DateTime.fromFormat(
         `${dateStr} ${booking.startTime}`,
         'yyyy-MM-dd HH:mm',
@@ -1180,7 +1194,24 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
         'yyyy-MM-dd HH:mm',
         { zone: DEFAULT_TZ }
       );
-      // Conflict when the new window doesn't fully contain the booking.
+      // "In this block" = booking's time range overlaps the current
+      // (pre-modify) window even slightly.
+      return bookingStart < oldEndLA && bookingEnd > oldStartLA;
+    });
+
+    const conflicts = bookingsInThisBlock.filter(booking => {
+      const bookingStart = DateTime.fromFormat(
+        `${dateStr} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      const bookingEnd = DateTime.fromFormat(
+        `${dateStr} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: DEFAULT_TZ }
+      );
+      // Of the bookings this block owns, a conflict is one the new
+      // window can't fully contain.
       return bookingStart < startLA || bookingEnd > endLA;
     });
 
