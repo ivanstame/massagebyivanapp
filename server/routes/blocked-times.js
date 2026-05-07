@@ -45,19 +45,24 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       };
     }
 
+    // Resolve provider TZ — manual blocks are expressed in the
+    // provider's local time, get stamped with that TZ on the doc.
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+
     let startLA, endLA;
     if (allDay) {
-      // Midnight to one minute before next midnight, both in LA. Clean
-      // single-day boundary that won't accidentally bleed into the
-      // adjacent day's slot pool.
-      startLA = DateTime.fromFormat(`${date} 00:00`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-      endLA = DateTime.fromFormat(`${date} 23:59`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+      // Midnight to one minute before next midnight, both in the
+      // provider's TZ. Clean single-day boundary that won't bleed
+      // into the adjacent day's slot pool.
+      startLA = DateTime.fromFormat(`${date} 00:00`, 'yyyy-MM-dd HH:mm', { zone: providerTz });
+      endLA = DateTime.fromFormat(`${date} 23:59`, 'yyyy-MM-dd HH:mm', { zone: providerTz });
     } else {
       if (!start || !end) {
         return res.status(400).json({ message: 'start and end are required when not allDay' });
       }
-      startLA = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-      endLA = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+      startLA = DateTime.fromFormat(`${date} ${start}`, 'yyyy-MM-dd HH:mm', { zone: providerTz });
+      endLA = DateTime.fromFormat(`${date} ${end}`, 'yyyy-MM-dd HH:mm', { zone: providerTz });
     }
 
     if (!startLA.isValid || !endLA.isValid) {
@@ -121,6 +126,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
 
     const blockedTime = new BlockedTime({
       provider: providerId,
+      timezone: providerTz,
       start: startUTC,
       end: endUTC,
       allDay: !!allDay,

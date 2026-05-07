@@ -118,7 +118,14 @@ async function createChainBookings(input) {
     // address with no transition needed; provider opts in for couples
     // that need a sheet change between sessions.
     forceBuffer = false,
+    // Caller may pass providerTz pre-resolved; if not, look it up.
+    // Booked time strings (date, startTime) are interpreted in this TZ
+    // and each generated Booking inherits it.
+    timezone: providerTzInput = null,
   } = input;
+
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = providerTzInput || await tzForProviderId(provider);
 
   // ─── Input shape validation ──────────────────────────────────────────
   if (!provider) throw new ChainValidationError('provider is required');
@@ -147,13 +154,13 @@ async function createChainBookings(input) {
     }
   }
 
-  // Cascade times.
-  const bookingDateLA = DateTime.fromISO(date, { zone: DEFAULT_TZ }).startOf('day');
+  // Cascade times. All time math anchored to the provider's TZ.
+  const bookingDateLA = DateTime.fromISO(date, { zone: providerTz }).startOf('day');
   if (!bookingDateLA.isValid) throw new ChainValidationError('Invalid date');
 
   const intraBuffer = forceBuffer ? SETTLE_BUFFER : CHAIN_INTRA_BUFFER;
   const sessionPlan = [];
-  let cursor = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+  let cursor = DateTime.fromFormat(`${date} ${startTime}`, 'yyyy-MM-dd HH:mm', { zone: providerTz });
   for (let i = 0; i < sessions.length; i++) {
     const s = sessions[i];
     const dur = Number(s.duration);
@@ -314,6 +321,7 @@ async function createChainBookings(input) {
         _id: bookingObjectId,
         provider,
         client,
+        timezone: providerTz,
         ...(series ? { series } : {}),
         date: bookingDateLA.toUTC().toJSDate(),
         localDate: localDateStr,

@@ -20,13 +20,16 @@ const {
 const WINDOW_DAYS = 90;
 
 // Compute the list of dates a series should occur on, bounded by the
-// window and any end-condition. Returns LA-local 'yyyy-MM-dd' strings.
+// window and any end-condition. Returns 'yyyy-MM-dd' strings local to
+// the series' timezone (the standing arrangement's "every Tuesday"
+// means Tuesday in the provider/series TZ).
 function generateOccurrenceDates(series, throughDate) {
   const dates = [];
-  let current = DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
-  const through = DateTime.fromJSDate(throughDate).setZone(DEFAULT_TZ);
+  const tz = series.timezone || DEFAULT_TZ;
+  let current = DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: tz });
+  const through = DateTime.fromJSDate(throughDate).setZone(tz);
   const endDate = series.endDate
-    ? DateTime.fromFormat(series.endDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ })
+    ? DateTime.fromFormat(series.endDate, 'yyyy-MM-dd', { zone: tz })
     : null;
 
   let count = 0;
@@ -45,11 +48,12 @@ function generateOccurrenceDates(series, throughDate) {
 // the calendar — those go in `conflicts` so the caller can surface them
 // to the provider. Idempotent: re-running won't duplicate occurrences.
 async function materializeSeries(series, options = {}) {
+  const seriesTz = series.timezone || DEFAULT_TZ;
   const fromDate = options.fromDate
-    ? DateTime.fromJSDate(options.fromDate).setZone(DEFAULT_TZ)
-    : DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+    ? DateTime.fromJSDate(options.fromDate).setZone(seriesTz)
+    : DateTime.fromFormat(series.startDate, 'yyyy-MM-dd', { zone: seriesTz });
   const throughDate = options.throughDate
-    || DateTime.now().setZone(DEFAULT_TZ).plus({ days: WINDOW_DAYS }).toJSDate();
+    || DateTime.now().setZone(seriesTz).plus({ days: WINDOW_DAYS }).toJSDate();
 
   const allDates = generateOccurrenceDates(series, throughDate);
   // Restrict to dates >= fromDate (caller may pass an extension cutoff).
@@ -125,6 +129,10 @@ async function materializeSeries(series, options = {}) {
           sessions,
           status: 'confirmed',
           series: series._id,
+          // Preserve the series' TZ on every chain occurrence so all
+          // materialized bookings share the same canonical local-time
+          // interpretation.
+          timezone: seriesTz,
         });
         created.push(...chainBookings);
       } catch (err) {
@@ -158,10 +166,10 @@ async function materializeSeries(series, options = {}) {
     const startLA = DateTime.fromFormat(
       `${dateStr} ${series.startTime}`,
       'yyyy-MM-dd HH:mm',
-      { zone: DEFAULT_TZ }
+      { zone: seriesTz }
     );
     const endLA = startLA.plus({ minutes: series.duration });
-    const dateLA = DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: DEFAULT_TZ }).startOf('day');
+    const dateLA = DateTime.fromFormat(dateStr, 'yyyy-MM-dd', { zone: seriesTz }).startOf('day');
 
     // If the series is paid by package, attempt to reserve a credit per
     // occurrence. If the package runs out or is cancelled we silently
@@ -192,6 +200,7 @@ async function materializeSeries(series, options = {}) {
           provider: series.provider,
           client: series.client,
           series: series._id,
+          timezone: seriesTz,
           date: dateLA.toUTC().toJSDate(),
           localDate: dateStr,
           startTime: series.startTime,
@@ -231,6 +240,7 @@ async function materializeSeries(series, options = {}) {
       provider: series.provider,
       client: series.client,
       series: series._id,
+      timezone: seriesTz,
       date: dateLA.toUTC().toJSDate(),
       localDate: dateStr,
       startTime: series.startTime,
@@ -343,9 +353,16 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       return res.status(404).json({ message: 'Client not found' });
     }
 
+    // Resolve provider TZ — series' day-of-week and start time
+    // anchor here. Snapshotted onto the series so future
+    // materialization keeps using this TZ even if the provider's
+    // setting changes.
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+
     // dayOfWeek derived from startDate. Luxon's weekday is 1..7
     // (Mon..Sun); convert to 0..6 (Sun..Sat) used elsewhere.
-    const startDt = DateTime.fromFormat(startDate, 'yyyy-MM-dd', { zone: DEFAULT_TZ });
+    const startDt = DateTime.fromFormat(startDate, 'yyyy-MM-dd', { zone: providerTz });
     if (!startDt.isValid) {
       return res.status(400).json({ message: 'startDate is not a valid date' });
     }
@@ -376,6 +393,7 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     const series = await RecurringSeries.create({
       provider: req.user._id,
       client: clientId,
+      timezone: providerTz,
       startDate,
       startTime,
       duration: Number(duration),
