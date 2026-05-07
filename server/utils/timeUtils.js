@@ -73,14 +73,14 @@ const SLOT_GRID_MINUTES = 15;
  * UP to the next grid step so weird availability starts (e.g. 14:53) don't
  * leak off-grid candidates.
  */
-function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDuration) {
+function generateTimeSlots(startTime, endTime, intervalMinutes, appointmentDuration, tz = DEFAULT_TZ) {
   let startDT, endDT;
   if (startTime instanceof Date) {
-    startDT = DateTime.fromJSDate(startTime).setZone(DEFAULT_TZ);
-    endDT = DateTime.fromJSDate(endTime).setZone(DEFAULT_TZ);
+    startDT = DateTime.fromJSDate(startTime).setZone(tz);
+    endDT = DateTime.fromJSDate(endTime).setZone(tz);
   } else {
-    startDT = DateTime.fromISO(startTime, { zone: DEFAULT_TZ });
-    endDT = DateTime.fromISO(endTime, { zone: DEFAULT_TZ });
+    startDT = DateTime.fromISO(startTime, { zone: tz });
+    endDT = DateTime.fromISO(endTime, { zone: tz });
   }
 
   // Snap start UP to the next grid boundary. Idempotent for already-aligned
@@ -123,17 +123,25 @@ function removeOccupiedSlots(slots, bookings, appointmentDuration, bufferMinutes
     : appointmentDuration) * 60 * 1000;
 
   return slots.filter(slot => {
-    const slotStart = DateTime.fromJSDate(slot).setZone(DEFAULT_TZ);
+    // Slot is a Date (UTC instant); zone here is for display only.
+    // The math below compares absolute instants regardless.
+    const slotStart = DateTime.fromJSDate(slot);
     const slotEnd = slotStart.plus({ milliseconds: appointmentDurationMs });
 
     return !bookings.some(booking => {
+      // Each booking has its own TZ — interpret startTime/endTime in
+      // that TZ. Without this, a booking in Chicago compared against
+      // a slot generated for Chicago would be offset by 2 hours.
+      const bookingTz = booking.timezone || DEFAULT_TZ;
+      const bookingDateStr = booking.localDate
+        || booking.date.toISOString().split('T')[0];
       const bookingStart = DateTime.fromFormat(
-        `${booking.date.toISOString().split('T')[0]} ${booking.startTime}`,
-        'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
+        `${bookingDateStr} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm', { zone: bookingTz }
       );
       const bookingEnd = DateTime.fromFormat(
-        `${booking.date.toISOString().split('T')[0]} ${booking.endTime}`,
-        'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
+        `${bookingDateStr} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm', { zone: bookingTz }
       );
 
       const buffer = calculateBufferBetweenBookings(
@@ -281,11 +289,14 @@ async function validateSlotsByBoundary(
   availEndTime, // Date object — end of availability block
   providerId,
   homeBase,    // { lat, lng } or null
-  opts = {}    // { forceBuffer?: bool } — bypass the same-address shortcut
+  opts = {}    // { forceBuffer?: bool, tz?: string } — bypass the
+               // same-address shortcut + the block's TZ for slot/
+               // commitment math
 ) {
   const effectiveBuffer = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
   const duration = Array.isArray(appointmentDuration) ? Math.max(...appointmentDuration) : appointmentDuration;
   const arrivalBuffer = 15; // provider arrives 15 min early
+  const blockTz = opts.tz || DEFAULT_TZ;
 
   // Route cache for this request — prevents duplicate API calls
   const routeCache = new Map();
@@ -293,20 +304,26 @@ async function validateSlotsByBoundary(
   // Sort bookings by start time
   const sortedBookings = [...bookings].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  // Get availability end as DateTime
-  const availEnd = DateTime.fromJSDate(availEndTime).setZone(DEFAULT_TZ);
+  // Get availability end as DateTime in the block's TZ
+  const availEnd = DateTime.fromJSDate(availEndTime).setZone(blockTz);
 
-  // Get slot date from first slot (they're all the same day)
+  // Get slot date from first slot (they're all the same day, in
+  // the block's TZ)
   if (slots.length === 0) return [];
-  const slotDate = DateTime.fromJSDate(slots[0]).setZone(DEFAULT_TZ).toFormat('yyyy-MM-dd');
+  const slotDate = DateTime.fromJSDate(slots[0]).setZone(blockTz).toFormat('yyyy-MM-dd');
 
   // Build commitment list: each has { location, startMinute, endMinute }
   // Minutes are from midnight for easy comparison
   const toMinutes = (dt) => dt.hour * 60 + dt.minute;
 
   const commitments = sortedBookings.map(b => {
-    const bStart = DateTime.fromFormat(`${slotDate} ${b.startTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
-    const bEnd = DateTime.fromFormat(`${slotDate} ${b.endTime}`, 'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ });
+    // Each booking carries its own TZ — interpret startTime/endTime
+    // in the booking's own TZ, not always the block's. A cross-TZ
+    // booking on the same day (rare but possible) lands at its own
+    // absolute instant correctly.
+    const bookingTz = b.timezone || blockTz;
+    const bStart = DateTime.fromFormat(`${slotDate} ${b.startTime}`, 'yyyy-MM-dd HH:mm', { zone: bookingTz });
+    const bEnd = DateTime.fromFormat(`${slotDate} ${b.endTime}`, 'yyyy-MM-dd HH:mm', { zone: bookingTz });
     return {
       location: b.location,
       startMinute: toMinutes(bStart),
@@ -429,16 +446,21 @@ async function getAvailableTimeSlots(
 ) {
   const effectiveBufferMinutes = typeof bufferMinutes === 'number' ? bufferMinutes : 15;
 
+  // The block's TZ defines the local clock for slot generation. Slot
+  // start times are snapped to a 15-min grid in this TZ — a Chicago
+  // block snaps to Chicago wall-clock (9:00, 9:15, ...), not LA's.
+  const blockTz = adminAvailability.timezone || DEFAULT_TZ;
+
   // Parse availability start/end times
   let availabilityDateLA, startTime, endTime;
-  availabilityDateLA = DateTime.fromJSDate(adminAvailability.date).setZone(DEFAULT_TZ).startOf('day');
+  availabilityDateLA = DateTime.fromJSDate(adminAvailability.date).setZone(blockTz).startOf('day');
 
   if (adminAvailability.start instanceof Date) {
-    startTime = DateTime.fromJSDate(adminAvailability.start).setZone(DEFAULT_TZ).toJSDate();
+    startTime = DateTime.fromJSDate(adminAvailability.start).setZone(blockTz).toJSDate();
   } else if (typeof adminAvailability.start === 'string') {
     const startDT = DateTime.fromFormat(
       `${availabilityDateLA.toFormat('yyyy-MM-dd')} ${adminAvailability.start}`,
-      'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
+      'yyyy-MM-dd HH:mm', { zone: blockTz }
     );
     if (!startDT.isValid) return [];
     startTime = startDT.toJSDate();
@@ -447,11 +469,11 @@ async function getAvailableTimeSlots(
   }
 
   if (adminAvailability.end instanceof Date) {
-    endTime = DateTime.fromJSDate(adminAvailability.end).setZone(DEFAULT_TZ).toJSDate();
+    endTime = DateTime.fromJSDate(adminAvailability.end).setZone(blockTz).toJSDate();
   } else if (typeof adminAvailability.end === 'string') {
     const endDT = DateTime.fromFormat(
       `${availabilityDateLA.toFormat('yyyy-MM-dd')} ${adminAvailability.end}`,
-      'yyyy-MM-dd HH:mm', { zone: DEFAULT_TZ }
+      'yyyy-MM-dd HH:mm', { zone: blockTz }
     );
     if (!endDT.isValid) return [];
     endTime = endDT.toJSDate();
@@ -464,7 +486,7 @@ async function getAvailableTimeSlots(
   // The dense grid means clients see :15/:45 fallbacks when bookings shift
   // the day off the :00/:30 cadence — Distance-Matrix cost is unchanged
   // because the cache is hour-bucketed, not minute-bucketed.
-  const slots = generateTimeSlots(startTime, endTime, SLOT_GRID_MINUTES, appointmentDuration);
+  const slots = generateTimeSlots(startTime, endTime, SLOT_GRID_MINUTES, appointmentDuration, blockTz);
   console.log(`[Slots] Generated ${slots.length} base slots (${SLOT_GRID_MINUTES}-min grid)`);
 
   // Static availability has no per-slot drive time inside its window —
@@ -546,7 +568,7 @@ async function getAvailableTimeSlots(
     endTime,
     providerId,
     effectiveHome,
-    opts
+    { ...opts, tz: blockTz }
   );
 
   return validSlots;

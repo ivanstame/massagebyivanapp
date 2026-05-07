@@ -32,12 +32,12 @@ const BASE_URL = () => process.env.REACT_APP_API_URL || process.env.APP_URL || '
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-// Default outreach window: today + next 6 days. Provider's mental
-// model when sending on a Monday is "this week's openings", not "next
-// week's" — and on later weekdays it naturally rolls forward into
-// next week. Always 7 days from today.
-function startOfWeekLA() {
-  return DateTime.now().setZone(DEFAULT_TZ).startOf('day');
+// Default outreach window: today + next 6 days, anchored to the
+// provider's local TZ. Provider's mental model when sending on a
+// Monday is "this week's openings" — Monday in their timezone, not
+// in the always-LA fallback.
+function startOfWeekLA(providerTz = DEFAULT_TZ) {
+  return DateTime.now().setZone(providerTz).startOf('day');
 }
 
 function fmtTime(hhmm) {
@@ -93,6 +93,9 @@ function subtractBookings(windows, bookings) {
 // can verify their bookings are being reflected.
 async function buildAvailabilityBody(providerId, weekStart) {
   const diagnostic = [];
+  // Resolve provider TZ — every per-day computation below uses it.
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = await tzForProviderId(providerId);
   // Cross-day section accumulator. Keys: 'mobile' or 'static:<name>'.
   // Each section keeps its own ordered list of day entries and a
   // header label for rendering.
@@ -150,8 +153,8 @@ async function buildAvailabilityBody(providerId, weekStart) {
       overridden: { $ne: true }
     }).select('start end source reason').lean();
     const blockedRanges = dayBlocks.map(bt => {
-      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      const sLA = DateTime.fromJSDate(bt.start, { zone: 'UTC' }).setZone(providerTz);
+      const eLA = DateTime.fromJSDate(bt.end, { zone: 'UTC' }).setZone(providerTz);
       return {
         startTime: sLA.toFormat('HH:mm'),
         endTime: eLA.toFormat('HH:mm'),
@@ -193,8 +196,12 @@ async function buildAvailabilityBody(providerId, weekStart) {
     };
 
     for (const block of sortedBlocks) {
-      const sLA = DateTime.fromJSDate(block.start, { zone: 'UTC' }).setZone(DEFAULT_TZ);
-      const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(DEFAULT_TZ);
+      // Each Availability block carries its own TZ — use it so a block
+      // saved when the provider was in a different TZ still renders in
+      // its original local time.
+      const blockTz = block.timezone || providerTz;
+      const sLA = DateTime.fromJSDate(block.start, { zone: 'UTC' }).setZone(blockTz);
+      const eLA = DateTime.fromJSDate(block.end, { zone: 'UTC' }).setZone(blockTz);
       const window = { start: sLA.toFormat('HH:mm'), end: eLA.toFormat('HH:mm') };
 
       // Anchor location for this block — Home/Studio if static, anchor
@@ -333,6 +340,11 @@ function assembleMessage({ template, providerName, firstName, body, bookingLink 
 // front-end uses this to render per-client checkboxes with quick-select
 // shortcuts.
 async function getRecipients(providerId) {
+  // Provider TZ for the "haven't booked in N weeks" cutoff. The
+  // absolute "N weeks ago" instant is TZ-agnostic, but anchoring
+  // to the provider's TZ keeps day-boundary math consistent.
+  const { tzForProviderId } = require('../utils/providerTz');
+  const providerTz = await tzForProviderId(providerId);
   const allClients = await User.find({
     providerId,
     accountType: 'CLIENT',
@@ -352,7 +364,7 @@ async function getRecipients(providerId) {
     if (row._id) latestMap[row._id.toString()] = row.latest;
   }
 
-  const cutoff = DateTime.now().setZone(DEFAULT_TZ).minus({ weeks: QUIET_WEEKS }).toJSDate();
+  const cutoff = DateTime.now().setZone(providerTz).minus({ weeks: QUIET_WEEKS }).toJSDate();
 
   return allClients
     .map(c => {
@@ -450,10 +462,11 @@ router.post('/preview', ensureAuthenticated, async (req, res) => {
     }
     const provider = await User.findById(req.user._id).select('providerProfile profile.fullName');
     const template = provider?.providerProfile?.weeklyOutreach || {};
+    const providerTz = provider?.providerProfile?.timezone || DEFAULT_TZ;
 
     const weekStart = req.body.weekStart
-      ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
-      : startOfWeekLA();
+      ? DateTime.fromISO(req.body.weekStart, { zone: providerTz }).startOf('day')
+      : startOfWeekLA(providerTz);
 
     const allRecipients = await getRecipients(req.user._id);
     const recipients = selectRecipients(allRecipients, req.body);
@@ -495,21 +508,22 @@ router.post('/send', ensureAuthenticated, async (req, res) => {
     }
     const provider = await User.findById(req.user._id);
     const template = provider?.providerProfile?.weeklyOutreach || {};
+    const providerTz = provider?.providerProfile?.timezone || DEFAULT_TZ;
 
     // Rate limit: 7 days since last send
     if (template.lastSentAt) {
       const next = DateTime.fromJSDate(template.lastSentAt).plus({ days: RATE_LIMIT_DAYS });
       if (next > DateTime.now()) {
         return res.status(429).json({
-          message: `You can send the next outreach on ${next.setZone(DEFAULT_TZ).toFormat('cccc, LLL d')}.`,
+          message: `You can send the next outreach on ${next.setZone(providerTz).toFormat('cccc, LLL d')}.`,
           nextAvailableAt: next.toJSDate(),
         });
       }
     }
 
     const weekStart = req.body.weekStart
-      ? DateTime.fromISO(req.body.weekStart, { zone: DEFAULT_TZ }).startOf('day')
-      : startOfWeekLA();
+      ? DateTime.fromISO(req.body.weekStart, { zone: providerTz }).startOf('day')
+      : startOfWeekLA(providerTz);
 
     const allRecipients = await getRecipients(req.user._id);
     const recipients = selectRecipients(allRecipients, req.body);

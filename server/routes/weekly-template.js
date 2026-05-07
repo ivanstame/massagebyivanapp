@@ -111,7 +111,12 @@ router.put('/', ensureAuthenticated, async (req, res) => {
     // touched. Past dates are left alone (historical record); manual
     // edits (source: 'manual') survive — only template-sourced rows
     // are blown away.
-    const todayLA = DateTime.now().setZone(DEFAULT_TZ).toFormat(TIME_FORMATS.ISO_DATE);
+    //
+    // "Today" is the provider's local today — a Chicago provider's
+    // "today" boundary is Chicago midnight, not always-LA midnight.
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+    const todayLA = DateTime.now().setZone(providerTz).toFormat(TIME_FORMATS.ISO_DATE);
     await Availability.deleteMany({
       provider: req.user._id,
       source: 'template',
