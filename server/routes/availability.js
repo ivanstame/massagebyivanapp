@@ -1237,6 +1237,25 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       });
     }
 
+    // Diagnostic — log every availability row for this date BEFORE
+    // we save. If there's more than one row (e.g., a manual row +
+    // a template row), the user might be modifying one while
+    // viewing another, which would explain "save succeeds but UI
+    // shows old time." This logs the whole picture so we can see
+    // what's actually in the DB for the day.
+    const beforeRows = await Availability.find({
+      provider: req.user._id,
+      localDate: laDate.toFormat('yyyy-MM-dd'),
+    }).select('_id start end source kind').lean();
+    console.log(`[Availability PUT] BEFORE save — ${beforeRows.length} rows for ${laDate.toFormat('yyyy-MM-dd')}:`, JSON.stringify(beforeRows.map(r => ({
+      _id: String(r._id),
+      start: r.start.toISOString(),
+      end: r.end.toISOString(),
+      source: r.source,
+      kind: r.kind,
+    }))));
+    console.log(`[Availability PUT] modifying id=${req.params.id}, target start=${start}, end=${end}`);
+
     // Update the availability block
     availability.start = startLA.toUTC().toJSDate();
     availability.end = endLA.toUTC().toJSDate();
@@ -1247,6 +1266,20 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     // Diagnostic: log what we actually persisted so we can compare
     // against what the client sees on next fetch.
     console.log(`[Availability PUT] saved id=${availability._id} provider=${availability.provider} localDate=${availability.localDate} start=${availability.start.toISOString()} end=${availability.end.toISOString()} source=${availability.source}`);
+
+    // After save, log all rows again so we can see if anything else
+    // changed (or didn't) on the same date.
+    const afterRows = await Availability.find({
+      provider: req.user._id,
+      localDate: laDate.toFormat('yyyy-MM-dd'),
+    }).select('_id start end source kind').lean();
+    console.log(`[Availability PUT] AFTER save — ${afterRows.length} rows for ${laDate.toFormat('yyyy-MM-dd')}:`, JSON.stringify(afterRows.map(r => ({
+      _id: String(r._id),
+      start: r.start.toISOString(),
+      end: r.end.toISOString(),
+      source: r.source,
+      kind: r.kind,
+    }))));
 
     res.json(availability);
   } catch (error) {
