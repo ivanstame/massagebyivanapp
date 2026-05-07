@@ -1164,45 +1164,46 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
     const oldStartLA = DateTime.fromJSDate(availability.start).setZone(blockTz);
     const oldEndLA = DateTime.fromJSDate(availability.end).setZone(blockTz);
 
-    // Compute orphan candidates for OBSERVABILITY only — log them so
-    // we can spot data inconsistencies, but don't block the modify.
-    // The previous hard-block produced repeated false 400s on
-    // perfectly-safe edits (template anchor edits, slight start-shift
-    // changes, etc.). The provider sees their bookings on the day
-    // schedule and can handle any actually-affected ones manually;
-    // the platform shouldn't unilaterally refuse the edit. Bookings
-    // whose absolute start/end times don't change as a result of
-    // this modify are by definition "not affected."
-    const candidates = bookings
-      .map(booking => {
-        const bookingTz = booking.timezone || blockTz;
-        const bookingStart = DateTime.fromFormat(
-          `${dateStr} ${booking.startTime}`,
-          'yyyy-MM-dd HH:mm',
-          { zone: bookingTz }
-        );
-        const bookingEnd = DateTime.fromFormat(
-          `${dateStr} ${booking.endTime}`,
-          'yyyy-MM-dd HH:mm',
-          { zone: bookingTz }
-        );
-        const overlapsOld = bookingStart < oldEndLA && bookingEnd > oldStartLA;
-        const wasContained = bookingStart >= oldStartLA && bookingEnd <= oldEndLA;
-        const isContained = bookingStart >= startLA && bookingEnd <= endLA;
-        return { booking, bookingStart, bookingEnd, overlapsOld, wasContained, isContained };
-      });
-
-    const wouldOrphan = candidates.filter(c => c.wasContained && !c.isContained);
-    if (wouldOrphan.length > 0) {
-      console.warn(
-        `[Availability PUT] ${wouldOrphan.length} booking(s) would fall outside the new window — proceeding (advisory only):`,
-        wouldOrphan.map(c => ({
-          id: String(c.booking._id),
-          time: `${c.booking.startTime}-${c.booking.endTime}`,
-          tz: c.booking.timezone || blockTz,
-          client: c.booking.client?.profile?.fullName || c.booking.client?.email || 'Client',
-        }))
+    // Orphan check: any booking that fits CLEANLY inside the current
+    // window but would NOT fit cleanly inside the new window must
+    // block the save. A booking that pre-existing data shows as
+    // already partially outside the old window (rare data drift) is
+    // ignored — that's not this edit's problem.
+    //
+    // The previous advisory-only mode swung too far: it let through
+    // legitimate orphaning (booking 7-8pm + new window 7:30-11pm
+    // moved 30 minutes of the booking outside availability with no
+    // warning). With anchor removed, the false-positive scenarios
+    // that prompted the relaxation are gone, so the strict block is
+    // safe to bring back.
+    const conflicts = bookings.filter(booking => {
+      const bookingTz = booking.timezone || blockTz;
+      const bookingStart = DateTime.fromFormat(
+        `${dateStr} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: bookingTz }
       );
+      const bookingEnd = DateTime.fromFormat(
+        `${dateStr} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: bookingTz }
+      );
+      const wasContained = bookingStart >= oldStartLA && bookingEnd <= oldEndLA;
+      const isContained = bookingStart >= startLA && bookingEnd <= endLA;
+      return wasContained && !isContained;
+    });
+
+    if (conflicts.length > 0) {
+      return res.status(400).json({
+        message: 'This change would leave existing bookings outside your availability',
+        conflicts: conflicts.map(booking => ({
+          id: booking._id,
+          time: `${booking.startTime} - ${booking.endTime}`,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          client: booking.client?.profile?.fullName || booking.client?.email || 'Client',
+        })),
+      });
     }
 
     // Check for overlapping with other availability blocks
