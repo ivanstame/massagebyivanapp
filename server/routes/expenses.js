@@ -5,7 +5,7 @@ const Expense = require('../models/Expense');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { tzForProviderDoc, tzForProviderId } = require('../utils/providerTz');
 
-const VALID_CATEGORIES = ['supplies', 'equipment', 'marketing', 'education', 'other'];
+const VALID_CATEGORIES = ['supplies', 'tolls', 'equipment', 'marketing', 'education', 'other'];
 
 // Build a Date + localDate pair from the user-supplied "yyyy-MM-dd"
 // string, anchored in the provider's timezone. Storing both lets us

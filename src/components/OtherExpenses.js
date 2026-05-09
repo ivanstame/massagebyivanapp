@@ -3,7 +3,7 @@ import axios from 'axios';
 import { DateTime } from 'luxon';
 import {
   Plus, Pencil, Trash2, Download, Receipt, AlertCircle, X,
-  Package, Sparkles, Megaphone, BookOpen, Box, ExternalLink,
+  Package, Sparkles, Megaphone, BookOpen, Box, ExternalLink, Route,
 } from 'lucide-react';
 import { AuthContext } from '../AuthContext';
 import { tzOf } from '../utils/timeConstants';
@@ -14,6 +14,7 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 // to Schedule C lines (their CPA does that). Icons + labels for the UI.
 const CATEGORIES = [
   { id: 'supplies',  label: 'Supplies',  icon: Package,   hint: 'Oil, lotion, sheets, sanitizer…' },
+  { id: 'tolls',     label: 'Tolls',     icon: Route,     hint: 'Toll roads, bridges, express lanes' },
   { id: 'equipment', label: 'Equipment', icon: Box,       hint: 'Table, headrest, bolster, electronics…' },
   { id: 'marketing', label: 'Marketing', icon: Megaphone, hint: 'Cards, ads, website fees…' },
   { id: 'education', label: 'Education', icon: BookOpen,  hint: 'CEUs, books, conferences…' },
