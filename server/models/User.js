@@ -538,4 +538,21 @@ UserSchema.methods.isProviderOf = async function(clientId) {
   return client && client.providerId?.equals(this._id);
 };
 
+// Indexes ─────────────────────────────────────────────────────────────
+// All accountType-discriminated list queries hit one of these. Without
+// them the queries scan the entire users collection — fine at 2
+// providers, painful at 100, breaks at 1,000. Mongo builds these in the
+// background when the app boots (autoIndex: true in server.js).
+//
+//   { providerId, accountType } → "list this provider's clients"
+//     server/routes/users.js — providers' client roster
+//
+//   { managedBy, isManaged } → "list this provider's managed clients"
+//     (the rolodex-pattern users who never log in themselves)
+//
+//   { accountType } → broad type filter, super-admin listings, etc.
+UserSchema.index({ providerId: 1, accountType: 1 });
+UserSchema.index({ managedBy: 1, isManaged: 1 });
+UserSchema.index({ accountType: 1 });
+
 module.exports = mongoose.model('User', UserSchema);
