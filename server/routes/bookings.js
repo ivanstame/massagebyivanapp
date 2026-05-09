@@ -1727,6 +1727,31 @@ router.patch('/:id/status', ensureAuthenticated, async (req, res) => {
       });
     }
 
+    // Refuse to mark a booking 'completed' before it has actually
+    // started. Easy mistap on the appointment-detail page (provider
+    // confuses Complete with "mark paid" or tries to close the day
+    // out preemptively) results in a session showing DONE on the
+    // dashboard hours before the appointment occurs. 15-min grace
+    // window so a session that begins a few minutes early can still
+    // close out cleanly.
+    if (status === 'completed' && booking.localDate && booking.startTime) {
+      const bookingTz = booking.timezone || 'America/Los_Angeles';
+      const startsAt = DateTime.fromFormat(
+        `${booking.localDate} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: bookingTz }
+      );
+      if (startsAt.isValid) {
+        const earliestCompleteable = startsAt.minus({ minutes: 15 });
+        const nowInBookingTz = DateTime.now().setZone(bookingTz);
+        if (nowInBookingTz < earliestCompleteable) {
+          return res.status(400).json({
+            message: `Can't mark complete — this appointment hasn't started yet (scheduled ${startsAt.toFormat('h:mm a')} ${bookingTz}).`
+          });
+        }
+      }
+    }
+
     booking.status = status;
     if (status === 'completed') {
       booking.completedAt = new Date();

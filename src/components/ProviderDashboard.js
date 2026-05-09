@@ -32,23 +32,35 @@ const Eyebrow = ({ children }) => (
 //   'overdue'  → past end time but still confirmed (provider forgot
 //                to mark complete) — gets a one-tap action
 //   'upcoming' → future
+//
+// Defensive: a booking flagged status='completed' BEFORE its start time
+// is incoherent (the appointment hasn't happened yet). Could be a
+// provider mistap or stale legacy data. We render it as 'upcoming' so
+// the dashboard never lies about what's actually happened. Server-side
+// guard now refuses new early-completes, but historical rows still
+// flow through here.
 function deriveSessionState(booking, now) {
-  if (booking.status === 'completed') return 'done';
-  if (!booking.localDate || !booking.startTime || !booking.endTime) return 'upcoming';
-  // Each booking carries its own TZ — interpret startTime/endTime in
-  // that TZ so a Chicago booking shows "now" at Chicago wall clock.
   const bookingTz = booking.timezone || 'America/Los_Angeles';
-  const startsAt = DateTime.fromFormat(
-    `${booking.localDate} ${booking.startTime}`,
-    'yyyy-MM-dd HH:mm',
-    { zone: bookingTz }
-  );
-  const endsAt = DateTime.fromFormat(
-    `${booking.localDate} ${booking.endTime}`,
-    'yyyy-MM-dd HH:mm',
-    { zone: bookingTz }
-  );
-  if (!startsAt.isValid || !endsAt.isValid) return 'upcoming';
+  const startsAt = booking.localDate && booking.startTime
+    ? DateTime.fromFormat(
+        `${booking.localDate} ${booking.startTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: bookingTz }
+      )
+    : null;
+  const endsAt = booking.localDate && booking.endTime
+    ? DateTime.fromFormat(
+        `${booking.localDate} ${booking.endTime}`,
+        'yyyy-MM-dd HH:mm',
+        { zone: bookingTz }
+      )
+    : null;
+
+  if (booking.status === 'completed') {
+    if (startsAt?.isValid && now < startsAt) return 'upcoming';
+    return 'done';
+  }
+  if (!startsAt?.isValid || !endsAt?.isValid) return 'upcoming';
   if (now >= endsAt) return 'overdue';
   if (now >= startsAt) return 'now';
   return 'upcoming';
