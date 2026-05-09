@@ -213,7 +213,12 @@ const MobileMenu = ({ open, onClose, navLinks, user, onLogout }) => {
               const Icon = iconFor(link.href);
               const active = isActive(link.href);
               const isExternal = link.href.startsWith('/privacy-policy');
-              const cellClasses = `flex flex-col items-start gap-2 p-3 rounded-xl border transition-colors ${
+              // w-full + min-h forces the Link to fill the entire grid
+              // cell (anchors can otherwise shrink to fit their content,
+              // leaving the padding area as dead space that doesn't
+              // route on tap). min-h-[72px] also gives every cell a
+              // 44px+ tap target regardless of label length.
+              const cellClasses = `flex flex-col items-start justify-between gap-2 p-3 w-full h-full min-h-[72px] rounded-xl border transition-colors ${
                 active
                   ? 'bg-[color:var(--accent-soft)] border-[#B07A4E]/40'
                   : 'bg-paper-deep border-transparent hover:border-line'
