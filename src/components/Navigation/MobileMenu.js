@@ -10,7 +10,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   X, LogOut,
   LayoutDashboard, Calendar, Clock, CalendarRange, MapPin, Sparkles,
-  Users, Megaphone, Car, Settings,
+  Users, Megaphone, Settings, Receipt,
   CalendarPlus, Package, ShoppingBag, User as UserIcon, Shield,
   Type,
 } from 'lucide-react';
@@ -28,7 +28,8 @@ const ICON_BY_HREF = {
   '/provider/services':       Sparkles,
   '/provider/clients':        Users,
   '/provider/weekly-outreach': Megaphone,
-  '/provider/mileage':        Car,
+  '/provider/mileage':        Receipt,
+  '/provider/expenses':       Receipt,
   '/provider/settings':       Settings,
   '/book':                    CalendarPlus,
   '/my-bookings':             Calendar,

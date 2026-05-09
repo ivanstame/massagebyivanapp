@@ -1,8 +1,6 @@
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { DateTime } from 'luxon';
-import { tzOf } from '../utils/timeConstants';
 import {
   Car,
   Download,
@@ -17,20 +15,21 @@ import {
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-const MileageReport = () => {
-  const { user } = useContext(AuthContext);
+// MileageReport renders the mileage breakdown for a date range. The
+// range is owned by the parent (ExpensesReport wrapper) so both the
+// mileage tab and the supplies-and-other tab share one period
+// selector. When called without a range it falls back to the current
+// month so legacy URLs that hit it directly still work.
+const MileageReport = ({ startDate: startDateProp, endDate: endDateProp, embedded = false }) => {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedDays, setExpandedDays] = useState({});
 
-  // Default: current month, anchored to the provider's TZ.
-  const viewerTz = tzOf(user);
-  const now = DateTime.now().setZone(viewerTz);
-  const [startDate, setStartDate] = useState(now.startOf('month').toFormat('yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(now.endOf('month').toFormat('yyyy-MM-dd'));
+  const startDate = startDateProp || DateTime.now().startOf('month').toFormat('yyyy-MM-dd');
+  const endDate = endDateProp || DateTime.now().endOf('month').toFormat('yyyy-MM-dd');
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -44,37 +43,12 @@ const MileageReport = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate]);
+
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const toggleDay = (date) => {
     setExpandedDays((prev) => ({ ...prev, [date]: !prev[date] }));
-  };
-
-  // Quick range presets
-  const setRange = (preset) => {
-    const n = DateTime.now().setZone(viewerTz);
-    switch (preset) {
-      case 'thisMonth':
-        setStartDate(n.startOf('month').toFormat('yyyy-MM-dd'));
-        setEndDate(n.endOf('month').toFormat('yyyy-MM-dd'));
-        break;
-      case 'lastMonth':
-        const lm = n.minus({ months: 1 });
-        setStartDate(lm.startOf('month').toFormat('yyyy-MM-dd'));
-        setEndDate(lm.endOf('month').toFormat('yyyy-MM-dd'));
-        break;
-      case 'thisQuarter':
-        const qStart = n.startOf('quarter');
-        setStartDate(qStart.toFormat('yyyy-MM-dd'));
-        setEndDate(n.endOf('quarter').toFormat('yyyy-MM-dd'));
-        break;
-      case 'thisYear':
-        setStartDate(n.startOf('year').toFormat('yyyy-MM-dd'));
-        setEndDate(n.endOf('year').toFormat('yyyy-MM-dd'));
-        break;
-      default:
-        break;
-    }
   };
 
   const exportCSV = () => {
@@ -116,71 +90,14 @@ const MileageReport = () => {
 
   const fmtDate = (d) => DateTime.fromFormat(d, 'yyyy-MM-dd').toFormat('EEE, MMM d');
 
-  return (
-    <div className="av-paper pt-16 min-h-screen">
-      <div className="max-w-4xl mx-auto px-3 sm:px-5 py-8">
-        <div className="mb-7">
-          <div className="av-eyebrow mb-2">For the taxman</div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-card flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
-              <Car className="w-5 h-5 text-accent" />
-            </div>
-            <div>
-              <h1 className="font-display" style={{ fontSize: "1.875rem", lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}>
-                Mileage report
-              </h1>
-              <p className="text-sm text-ink-2 mt-0.5">Track driving miles for tax deductions</p>
-            </div>
-          </div>
-        </div>
-
-      {/* Date Range & Controls */}
-      <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-5 mb-6">
-        <div className="flex flex-wrap gap-2 mb-4">
-          {[
-            ['thisMonth', 'This Month'],
-            ['lastMonth', 'Last Month'],
-            ['thisQuarter', 'This Quarter'],
-            ['thisYear', 'This Year'],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setRange(key)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-line text-slate-600 hover:bg-paper-deep transition-all duration-200"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-medium text-slate-600 mb-1">From</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
-            />
-          </div>
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-medium text-slate-600 mb-1">To</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent transition-all"
-            />
-          </div>
-          <button
-            onClick={fetchReport}
-            disabled={loading}
-            className="w-full sm:w-auto bg-[#B07A4E] hover:bg-[#8A5D36] text-white font-semibold px-6 py-2.5 rounded-xl transition-all duration-200 disabled:opacity-50"
-          >
-            {loading ? 'Loading...' : 'Generate'}
-          </button>
-        </div>
-      </div>
+  // When embedded inside ExpensesReport, the wrapper provides the page
+  // chrome (header, range picker). Strip MileageReport's own chrome in
+  // that case so we don't render two of everything.
+  const inner = (
+    <>
+      {loading && (
+        <div className="text-center py-6 text-slate-500">Loading…</div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
@@ -372,6 +289,17 @@ const MileageReport = () => {
           )}
         </>
       )}
+    </>
+  );
+
+  if (embedded) return inner;
+
+  // Standalone fallback for any direct hit on /provider/mileage that
+  // isn't routed through the wrapper.
+  return (
+    <div className="av-paper pt-16 min-h-screen">
+      <div className="max-w-4xl mx-auto px-3 sm:px-5 py-8">
+        {inner}
       </div>
     </div>
   );

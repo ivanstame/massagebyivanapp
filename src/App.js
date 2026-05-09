@@ -56,7 +56,7 @@ import ProviderAssignmentRequests from './components/ProviderAssignmentRequests'
 import WeeklyTemplateEditor from './components/WeeklyTemplateEditor';
 import AppointmentDetail from './components/AppointmentDetail';
 import PublicProviderProfile from './components/PublicProviderProfile';
-import MileageReport from './components/MileageReport';
+import ExpensesReport from './components/ExpensesReport';
 import ClaimAccount from './components/ClaimAccount';
 import Packages from './components/Packages';
 import MyPackages from './components/MyPackages';
@@ -385,7 +385,15 @@ function App() {
             path="/provider/mileage"
             element={
               <ProtectedRoute providerOnly>
-                <MileageReport />
+                <ExpensesReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/provider/expenses"
+            element={
+              <ProtectedRoute providerOnly>
+                <ExpensesReport />
               </ProtectedRoute>
             }
           />

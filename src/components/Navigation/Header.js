@@ -70,7 +70,7 @@ const Header = () => {
         { href: '/provider/services', label: 'Services' },
         { href: '/provider/clients', label: 'Clients' },
         { href: '/provider/weekly-outreach', label: 'Weekly Outreach' },
-        { href: '/provider/mileage', label: 'Mileage' },
+        { href: '/provider/expenses', label: 'Expenses' },
         { href: '/provider/settings', label: 'Settings' }
       ];
     }
