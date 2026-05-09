@@ -862,7 +862,7 @@ const ProviderServices = () => {
             </p>
             <div className="space-y-2">
               {[
-                { id: 'cash',       label: 'Pay in person', desc: 'Cash, check, etc.' },
+                { id: 'cash',       label: 'Cash / Check',  desc: 'Pay in person' },
                 { id: 'paymentApp', label: 'Payment app',   desc: 'Zelle, Venmo, Cash App, Apple Pay, etc.' },
                 { id: 'card',       label: 'Card',           desc: 'Credit/Debit via Stripe — requires Stripe Connect in Settings' },
               ].map(opt => {

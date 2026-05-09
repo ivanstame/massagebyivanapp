@@ -62,7 +62,7 @@ const PublicProviderProfile = () => {
     card: '💳'
   };
   const paymentLabels = {
-    cash: 'Pay in person',
+    cash: 'Cash / Check',
     paymentApp: 'Payment app',
     card: 'Card'
   };

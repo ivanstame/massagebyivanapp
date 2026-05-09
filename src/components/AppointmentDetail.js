@@ -128,12 +128,12 @@ const AppointmentDetail = () => {
 
   const paymentMethodLabel = (method) => {
     const labels = {
-      cash: 'Pay in person',
+      cash: 'Cash / Check',
       paymentApp: 'Payment app',
       card: 'Card',
       package: 'Package credit',
     };
-    return labels[method] || method || 'Pay in person';
+    return labels[method] || method || 'Cash / Check';
   };
 
   // ─── Change payment method (provider-only) ───────────────────────
@@ -858,7 +858,7 @@ const AppointmentDetail = () => {
               {/* Method picker — card hidden until live Stripe keys */}
               <div className="space-y-2">
                 {[
-                  { id: 'cash', label: 'Pay in person' },
+                  { id: 'cash', label: 'Cash / Check' },
                   { id: 'paymentApp', label: 'Payment app' },
                   { id: 'package', label: 'Package credit' },
                 ].map(opt => (
