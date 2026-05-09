@@ -16,6 +16,11 @@ const ProviderServices = () => {
   const [basePricing, setBasePricing] = useState([]);
   const [pricingTiers, setPricingTiers] = useState([]); // alternate tiers (Discount, etc.)
   const [addons, setAddons] = useState([]);
+  // Which payment methods the booking form offers clients. Cash + a
+  // generic Payment app cover most providers; Zelle is for Zelle-only
+  // practices; Card requires Stripe Connect (provider configures that
+  // separately in Settings). Server validates against the same enum.
+  const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState(['cash', 'paymentApp']);
   const [trade, setTrade] = useState('other');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -137,6 +142,14 @@ const ProviderServices = () => {
       })));
 
       setAddons(providerProfile.addons || []);
+      // Hydrate accepted payment methods. Falls back to the schema
+      // default for legacy provider rows that pre-date this field.
+      const methods = providerProfile.acceptedPaymentMethods;
+      setAcceptedPaymentMethods(
+        Array.isArray(methods) && methods.length > 0
+          ? methods
+          : ['cash', 'paymentApp']
+      );
     } catch (err) {
       console.error('Error fetching services:', err);
       setBasePricing(getTrade('other').starterPackages.map(p => ({ ...p })));
@@ -436,7 +449,8 @@ const ProviderServices = () => {
       await axios.put('/api/users/provider/services', {
         basePricing: pricingWithLabels,
         pricingTiers: tiersForSave,
-        addons
+        addons,
+        acceptedPaymentMethods,
       }, { withCredentials: true });
 
       setSaved(true);
@@ -833,6 +847,62 @@ const ProviderServices = () => {
               <Plus className="w-4 h-4" />
               Add a custom tier
             </button>
+          </div>
+
+          {/* Accepted payment methods — drives which options the
+              booking form shows clients. Provider's settings is the
+              source of truth; server validates against the same enum.
+              At least one must stay selected. Card requires Stripe
+              Connect (configure separately in Settings). */}
+          <div className="mt-10">
+            <div className="av-eyebrow mb-3">Accepted payment methods</div>
+            <p className="text-sm text-ink-2 mb-4">
+              How clients can pay you. Toggle the ones you accept.
+              Everything except Card is record-keeping only — no integration.
+            </p>
+            <div className="space-y-2">
+              {[
+                { id: 'cash',       label: 'Pay in person', desc: 'Cash, check, etc.' },
+                { id: 'paymentApp', label: 'Payment app',   desc: 'Zelle, Venmo, Cash App, Apple Pay, etc.' },
+                { id: 'zelle',      label: 'Zelle',          desc: 'Zelle specifically (use this if Payment app is too generic)' },
+                { id: 'card',       label: 'Card',           desc: 'Credit/Debit via Stripe — requires Stripe Connect in Settings' },
+              ].map(opt => {
+                const enabled = acceptedPaymentMethods.includes(opt.id);
+                const isOnlyOne = enabled && acceptedPaymentMethods.length === 1;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      if (enabled && isOnlyOne) return; // can't disable the last one
+                      setAcceptedPaymentMethods(prev =>
+                        prev.includes(opt.id)
+                          ? prev.filter(m => m !== opt.id)
+                          : [...prev, opt.id]
+                      );
+                      setSaved(false);
+                    }}
+                    title={isOnlyOne ? 'At least one method must stay enabled' : ''}
+                    className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+                      enabled
+                        ? 'border-[#B07A4E] bg-[#B07A4E]/5'
+                        : 'border-line bg-paper-elev hover:border-slate-300'
+                    } ${isOnlyOne ? 'cursor-not-allowed' : ''}`}
+                  >
+                    {enabled
+                      ? <ToggleRight className="w-5 h-5 text-[#B07A4E] flex-shrink-0 mt-0.5" />
+                      : <ToggleLeft className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                    }
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium ${enabled ? 'text-[#8A5D36]' : 'text-slate-700'}`}>
+                        {opt.label}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
         )}
