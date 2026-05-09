@@ -839,7 +839,7 @@ router.put('/provider/services', ensureAuthenticated, async (req, res) => {
     }
 
     if (acceptedPaymentMethods) {
-      const validMethods = ['cash', 'zelle', 'card'];
+      const validMethods = ['cash', 'zelle', 'paymentApp', 'card'];
       const filtered = acceptedPaymentMethods.filter(m => validMethods.includes(m));
       if (filtered.length === 0) {
         return res.status(400).json({ message: 'At least one valid payment method is required' });

@@ -107,8 +107,13 @@ const UserSchema = new mongoose.Schema({
     // side (the platform records but doesn't process them).
     acceptedPaymentMethods: {
       type: [String],
-      enum: ['cash', 'zelle', 'card'],
-      default: ['cash']
+      // 'paymentApp' is the generic record-keeping bucket for any
+      // electronic-transfer app (Zelle, Venmo, Cash App, Apple Pay,
+      // etc.) without integration — provider records it manually
+      // after the client pays them out-of-band. 'zelle' stays for
+      // back-compat and providers who only accept Zelle specifically.
+      enum: ['cash', 'zelle', 'paymentApp', 'card'],
+      default: ['cash', 'paymentApp']
     },
     // Provider-configured pricing by duration. displayOrder lets the
     // provider override the default duration-ascending sort with a

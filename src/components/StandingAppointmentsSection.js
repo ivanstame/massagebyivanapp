@@ -470,9 +470,15 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
             onChange={(e) => setPaymentMethod(e.target.value)}
             className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-[#B07A4E] focus:border-[#B07A4E]"
           >
-            {(providerServices?.acceptedPaymentMethods || ['cash']).map(m => (
-              <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
-            ))}
+            {(providerServices?.acceptedPaymentMethods || ['cash']).map(m => {
+              const label = {
+                cash: 'Pay in person',
+                zelle: 'Zelle',
+                paymentApp: 'Payment app',
+                card: 'Card',
+              }[m] || m;
+              return <option key={m} value={m}>{label}</option>;
+            })}
           </select>
           <p className="text-xs text-slate-500 mt-1">
             Each occurrence inherits this. They can each be marked paid individually after the visit.

@@ -127,8 +127,14 @@ const AppointmentDetail = () => {
   };
 
   const paymentMethodLabel = (method) => {
-    const labels = { cash: 'Cash', zelle: 'Zelle', card: 'Card', package: 'Package credit' };
-    return labels[method] || method || 'Cash';
+    const labels = {
+      cash: 'Pay in person',
+      zelle: 'Zelle',
+      paymentApp: 'Payment app',
+      card: 'Card',
+      package: 'Package credit',
+    };
+    return labels[method] || method || 'Pay in person';
   };
 
   // ─── Change payment method (provider-only) ───────────────────────
@@ -853,8 +859,9 @@ const AppointmentDetail = () => {
               {/* Method picker — card hidden until live Stripe keys */}
               <div className="space-y-2">
                 {[
-                  { id: 'cash', label: 'Cash' },
+                  { id: 'cash', label: 'Pay in person' },
                   { id: 'zelle', label: 'Zelle' },
+                  { id: 'paymentApp', label: 'Payment app' },
                   { id: 'package', label: 'Package credit' },
                 ].map(opt => (
                   <button
