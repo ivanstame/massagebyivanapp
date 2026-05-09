@@ -473,7 +473,6 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
             {(providerServices?.acceptedPaymentMethods || ['cash']).map(m => {
               const label = {
                 cash: 'Pay in person',
-                zelle: 'Zelle',
                 paymentApp: 'Payment app',
                 card: 'Card',
               }[m] || m;

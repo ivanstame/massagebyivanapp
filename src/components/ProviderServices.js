@@ -864,7 +864,6 @@ const ProviderServices = () => {
               {[
                 { id: 'cash',       label: 'Pay in person', desc: 'Cash, check, etc.' },
                 { id: 'paymentApp', label: 'Payment app',   desc: 'Zelle, Venmo, Cash App, Apple Pay, etc.' },
-                { id: 'zelle',      label: 'Zelle',          desc: 'Zelle specifically (use this if Payment app is too generic)' },
                 { id: 'card',       label: 'Card',           desc: 'Credit/Debit via Stripe — requires Stripe Connect in Settings' },
               ].map(opt => {
                 const enabled = acceptedPaymentMethods.includes(opt.id);

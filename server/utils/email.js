@@ -143,7 +143,7 @@ function bookingDetailsHtml(booking, providerName, clientName) {
     rows.push(['Total', `$${booking.pricing.totalPrice}`]);
   }
   if (booking.paymentMethod) {
-    const methods = { cash: 'Cash', zelle: 'Zelle', card: 'Card', package: 'Package credit' };
+    const methods = { cash: 'Pay in person', paymentApp: 'Payment app', card: 'Card', package: 'Package credit' };
     const minutesApplied = booking.packageRedemption?.minutesApplied || 0;
     const isPartial =
       minutesApplied > 0 &&

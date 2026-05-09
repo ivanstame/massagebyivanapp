@@ -125,7 +125,7 @@ const BookingSchema = new mongoose.Schema({
     // that case paymentStatus flips to 'paid' immediately at booking
     // time and packageRedemption holds a back-reference to the
     // consumed credit.
-    enum: ['cash', 'zelle', 'paymentApp', 'card', 'package'],
+    enum: ['cash', 'paymentApp', 'card', 'package'],
     default: 'cash'
   },
   paymentStatus: {

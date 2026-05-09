@@ -27,8 +27,8 @@ const BookingSummaryCard = ({
   additionalSessions = [],
 }) => {
   const paymentMethodLabels = {
-    cash: 'Cash',
-    zelle: 'Zelle',
+    cash: 'Pay in person',
+    paymentApp: 'Payment app',
     card: 'Card',
     package: 'Package credit',
   };

@@ -129,7 +129,6 @@ const AppointmentDetail = () => {
   const paymentMethodLabel = (method) => {
     const labels = {
       cash: 'Pay in person',
-      zelle: 'Zelle',
       paymentApp: 'Payment app',
       card: 'Card',
       package: 'Package credit',
@@ -860,7 +859,6 @@ const AppointmentDetail = () => {
               <div className="space-y-2">
                 {[
                   { id: 'cash', label: 'Pay in person' },
-                  { id: 'zelle', label: 'Zelle' },
                   { id: 'paymentApp', label: 'Payment app' },
                   { id: 'package', label: 'Package credit' },
                 ].map(opt => (

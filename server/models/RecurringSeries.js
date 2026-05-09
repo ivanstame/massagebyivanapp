@@ -92,7 +92,7 @@ const RecurringSeriesSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'zelle', 'paymentApp', 'card', 'package'],
+    enum: ['cash', 'paymentApp', 'card', 'package'],
     default: 'cash',
   },
   // If the series is paid via packages, each occurrence will try to
@@ -152,7 +152,7 @@ const RecurringSeriesSchema = new mongoose.Schema({
     },
     paymentMethod: {
       type: String,
-      enum: ['cash', 'zelle', 'card', 'package'],
+      enum: ['cash', 'paymentApp', 'card', 'package'],
       default: 'cash',
     },
     packagePurchase: {

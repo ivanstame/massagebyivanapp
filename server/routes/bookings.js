@@ -1378,7 +1378,7 @@ router.patch('/:id/payment-method', ensureAuthenticated, async (req, res) => {
     }
 
     const { paymentMethod, packagePurchaseId, packageMinutesApplied } = req.body;
-    if (!['cash', 'zelle', 'paymentApp', 'card', 'package'].includes(paymentMethod)) {
+    if (!['cash', 'paymentApp', 'card', 'package'].includes(paymentMethod)) {
       return res.status(400).json({ message: 'Invalid payment method' });
     }
 

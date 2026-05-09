@@ -4,11 +4,8 @@ import { Banknote, CreditCard, Smartphone, Layers } from 'lucide-react';
 // 'paymentApp' is the generic record-keeping bucket — provider records
 // the payment manually, no integration. Covers Zelle/Venmo/Cash App/
 // Apple Pay/etc so providers don't need a separate enum entry per app.
-// 'zelle' kept around for back-compat and providers who specifically
-// only accept Zelle.
 const PAYMENT_METHOD_CONFIG = {
   cash: { label: 'Pay in person', icon: Banknote, description: 'Cash, check, etc.' },
-  zelle: { label: 'Zelle', icon: Smartphone, description: 'Bank transfer' },
   paymentApp: { label: 'Payment app', icon: Smartphone, description: 'Zelle, Venmo, Cash App, etc.' },
   card: { label: 'Card', icon: CreditCard, description: 'Credit/Debit card' },
 };
