@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, Check } from 'lucide-react';
 
-const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete, durationOptions = [] }) => {
+const SimpleDurationSelector = ({ selectedDuration, selectedLabel = '', onDurationChange, isComplete, durationOptions = [] }) => {
   if (durationOptions.length === 0) {
     return null;
   }
@@ -26,7 +26,14 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
       {/* Package Options */}
       <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
         {durationOptions.map((option) => {
-          const isSelected = selectedDuration === option.duration;
+          // Match on BOTH duration AND label so services that share a
+          // minute count (e.g. 60-min Deep Tissue, 60-min Swedish,
+          // 60-min Prenatal) don't all light up when the user picks
+          // one. Empty label normalizes to '' so providers without
+          // labeled tiers still single-select cleanly.
+          const isSelected =
+            selectedDuration === option.duration
+            && (selectedLabel || '') === (option.label || '');
           const primary = option.label && option.label.trim()
             ? option.label
             : `${option.duration} min`;
@@ -35,7 +42,7 @@ const SimpleDurationSelector = ({ selectedDuration, onDurationChange, isComplete
           return (
             <button
               key={`${option.duration}-${option.label || ''}`}
-              onClick={() => onDurationChange(option.duration)}
+              onClick={() => onDurationChange(option.duration, option.label || '')}
               className={`
                 relative min-h-touch p-4 rounded-lg border-2 transition-all duration-200
                 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2

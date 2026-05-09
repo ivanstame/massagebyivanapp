@@ -122,23 +122,31 @@ const AdditionalSessionRow = ({
       <div>
         <p className="text-xs font-medium text-slate-700 mb-1.5">Duration</p>
         <div className="grid grid-cols-2 gap-2">
-          {durationOptions.map(opt => (
-            <button
-              key={opt.duration}
-              type="button"
-              onClick={() => update({ duration: opt.duration })}
-              className={`p-2 rounded-lg border-2 text-sm text-left ${
-                session.duration === opt.duration
-                  ? 'border-teal-600 bg-teal-50 text-teal-900'
-                  : 'border-line hover:border-slate-300'
-              }`}
-            >
-              <div className="font-medium">{opt.label || `${opt.duration} min`}</div>
-              {opt.price > 0 && (
-                <div className="text-xs text-slate-500">${opt.price}</div>
-              )}
-            </button>
-          ))}
+          {durationOptions.map(opt => {
+            // Match on duration AND label so 60-min Deep Tissue
+            // doesn't co-highlight with 60-min Swedish, etc. Same
+            // disambiguator as the primary SimpleDurationSelector.
+            const isSelected =
+              session.duration === opt.duration
+              && (session.tierLabel || '') === (opt.label || '');
+            return (
+              <button
+                key={`${opt.duration}-${opt.label || ''}`}
+                type="button"
+                onClick={() => update({ duration: opt.duration, tierLabel: opt.label || '' })}
+                className={`p-2 rounded-lg border-2 text-sm text-left ${
+                  isSelected
+                    ? 'border-teal-600 bg-teal-50 text-teal-900'
+                    : 'border-line hover:border-slate-300'
+                }`}
+              >
+                <div className="font-medium">{opt.label || `${opt.duration} min`}</div>
+                {opt.price > 0 && (
+                  <div className="text-xs text-slate-500">${opt.price}</div>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

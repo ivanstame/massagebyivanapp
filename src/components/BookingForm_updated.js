@@ -66,7 +66,21 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // studio, asking the client for their address is misleading).
   const [dayBlocks, setDayBlocks] = useState([]);
   const [selectedDuration, setSelectedDuration] = useState(null);
+  // Tracks which specific service was picked when multiple share a
+  // duration (e.g. 60-min Deep Tissue, 60-min Swedish). Without this
+  // disambiguator, both the highlighted-card UI and the price lookup
+  // collapse to "first 60-min entry" and the booking gets the wrong
+  // tier's price. Empty string for providers whose tiers aren't labeled.
+  const [selectedTierLabel, setSelectedTierLabel] = useState('');
   const [selectedAddons, setSelectedAddons] = useState([]);
+
+  // Centralized tier lookup — matches both duration and label so a
+  // 60-min Swedish never collides with a 60-min Deep Tissue. Treats
+  // missing label as ''.
+  const findTier = (options, duration, label) =>
+    (options || []).find(
+      p => p.duration === duration && (p.label || '') === (label || '')
+    );
   // Identifier stored alongside the booking; name comes from the selected package's label.
   const [selectedServiceType] = useState('package');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
@@ -201,8 +215,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
           if (basePricing && basePricing.length > 0) {
             setDurationOptions(basePricing);
-            // Auto-select first package if none selected
+            // Auto-select first package if none selected — set both
+            // the duration AND the label so the disambiguated highlight
+            // and pricing lookup land on the right tier from the start.
             setSelectedDuration(basePricing[0].duration);
+            setSelectedTierLabel(basePricing[0].label || '');
           }
 
           if (addons && addons.length > 0) {
@@ -665,9 +682,17 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
       // Calculate pricing from provider data — preferring the static
       // location's override when applicable.
-      const pricingTier = staticOverridePricing
-        ? staticOverridePricing.find(p => p.duration === selectedDuration)
-        : durationOptions.find(p => p.duration === selectedDuration);
+      // Match on both duration AND tier label so providers offering
+      // multiple services at the same minute count (e.g. 60-min Deep
+      // Tissue $100 vs 60-min Swedish $130) get the right price. Static
+      // overrides may not carry the same labels, so fall back to a
+      // duration-only match for those — providers configuring a static
+      // pricing override are intentionally collapsing tier distinctions.
+      const pricingTier =
+        (staticOverridePricing && findTier(staticOverridePricing, selectedDuration, selectedTierLabel))
+        || (staticOverridePricing && staticOverridePricing.find(p => p.duration === selectedDuration))
+        || findTier(durationOptions, selectedDuration, selectedTierLabel)
+        || durationOptions.find(p => p.duration === selectedDuration);
       const basePrice = pricingTier?.price || 0;
       const packageName = (pricingTier?.label && pricingTier.label.trim())
         || `${selectedDuration} min service`;
@@ -815,7 +840,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
             const addonDetails = buildAddonDetails(s.addons || []);
             const sExtraTime = addonDetails.reduce((sum, a) => sum + (a.extraTime || 0), 0);
             const sAddonsPrice = addonDetails.reduce((sum, a) => sum + (a.price || 0), 0);
-            const tier = durationOptions.find(p => p.duration === s.duration);
+            const tier = findTier(durationOptions, s.duration, s.tierLabel);
             const sBasePrice = tier?.price || 0;
             const sLabel = (tier?.label && tier.label.trim()) || `${s.duration} min service`;
             return {
@@ -1074,6 +1099,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setFullAddress('');
     setLocation(null);
     setSelectedDuration(durationOptions.length > 0 ? durationOptions[0].duration : 60);
+    setSelectedTierLabel(durationOptions[0]?.label || '');
     setSelectedAddons([]);
     setSelectedPaymentMethod(acceptedPaymentMethods[0] || 'cash');
     setRecipientType('self');
@@ -1360,7 +1386,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
               {currentWizardStep === 'duration' && (
                 <SimpleDurationSelector
                   selectedDuration={selectedDuration}
-                  onDurationChange={setSelectedDuration}
+                  selectedLabel={selectedTierLabel}
+                  onDurationChange={(duration, label) => {
+                    setSelectedDuration(duration);
+                    setSelectedTierLabel(label || '');
+                  }}
                   isComplete={selectedDuration !== null}
                   durationOptions={durationOptions}
                 />
@@ -1491,6 +1521,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                           recipientType: 'other',
                           recipientInfo: { name: '', phone: '', email: '' },
                           duration: durationOptions[0]?.duration || 60,
+                          tierLabel: durationOptions[0]?.label || '',
                           addons: [],
                         },
                       ]);
@@ -1524,7 +1555,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   selectedPackageId={selectedPackageId}
                   onPackageSelect={setSelectedPackageId}
                   bookingDuration={selectedDuration}
-                  bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+                  bookingTotalPrice={(findTier(durationOptions, selectedDuration, selectedTierLabel)?.price || 0)
                     + selectedAddons.reduce((sum, n) => {
                         const a = availableAddons.find(x => x.name === n);
                         return sum + (a?.price || 0);
@@ -1696,7 +1727,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
 
               <SimpleDurationSelector
                 selectedDuration={selectedDuration}
-                onDurationChange={setSelectedDuration}
+                selectedLabel={selectedTierLabel}
+                onDurationChange={(duration, label) => {
+                  setSelectedDuration(duration);
+                  setSelectedTierLabel(label || '');
+                }}
                 isComplete={selectedDuration !== null}
                 durationOptions={durationOptions}
               />
@@ -1747,7 +1782,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                 selectedPackageId={selectedPackageId}
                 onPackageSelect={setSelectedPackageId}
                 bookingDuration={selectedDuration}
-                bookingTotalPrice={(durationOptions.find(d => d.duration === selectedDuration)?.price || 0)
+                bookingTotalPrice={(findTier(durationOptions, selectedDuration, selectedTierLabel)?.price || 0)
                   + selectedAddons.reduce((sum, n) => {
                       const a = availableAddons.find(x => x.name === n);
                       return sum + (a?.price || 0);
@@ -1843,6 +1878,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                           recipientType: 'other',
                           recipientInfo: { name: '', phone: '', email: '' },
                           duration: durationOptions[0]?.duration || 60,
+                          tierLabel: durationOptions[0]?.label || '',
                           addons: [],
                         },
                       ]);
@@ -1924,7 +1960,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
         <BookingConfirmationModal
           isVisible={bookingSuccess}
           bookingDetails={(() => {
-            const tier = durationOptions.find(p => p.duration === selectedDuration);
+            const tier = findTier(durationOptions, selectedDuration, selectedTierLabel);
             const packageName = (tier?.label && tier.label.trim())
               || (selectedDuration ? `${selectedDuration} min service` : 'Service');
             const basePrice = tier?.price || 0;
@@ -1954,7 +1990,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                 packageMinutesApplied: isPartialRedemption ? packageMinutesApplied : 0,
               },
               ...additionalSessions.map(s => {
-                const sTier = durationOptions.find(p => p.duration === s.duration);
+                const sTier = findTier(durationOptions, s.duration, s.tierLabel);
                 const sBase = sTier?.price || 0;
                 const sAddonDetails = (s.addons || [])
                   .map(name => availableAddons.find(a => a.name === name))
