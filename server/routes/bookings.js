@@ -829,6 +829,8 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
     let paidCount = 0;
     let unpaidCount = 0;
 
+    const nowMs = now.toMillis();
+
     // BOOKINGS — feed both cash and accrual sides.
     for (const b of bookings) {
       const pkgId = b.packageRedemption?.packagePurchase
@@ -837,14 +839,44 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       const pkg = pkgId ? pkgById.get(pkgId) : null;
       const split = computeBookingPaymentBreakdown(b, pkg);
 
-      // Accrual: every confirmed/completed booking in range counts at
-      // its full delivered value. Date is the appointment date.
-      addToBuckets(b.date, (bk) => {
-        bk.accrualTotalCents += split.totalCents;
-        bk.accrualFromPackagesCents += split.fromPackageCents;
-        bk.accrualFromOtherCents += split.fromOtherCents;
-        bk.sessionCount += 1;
-      });
+      // Has the session actually been delivered yet? Status='confirmed'
+      // alone isn't enough — that includes every future booking on the
+      // calendar. Use the booking's own end time in its own TZ; only
+      // count toward accrual once it's passed. (Otherwise "Earned this
+      // month" balloons to include the entire rest of the month's
+      // scheduled work, which isn't earned, just booked.)
+      let isDelivered = false;
+      if (b.localDate && b.endTime) {
+        const bookingTz = b.timezone || providerTz;
+        const endsAt = DateTime.fromFormat(
+          `${b.localDate} ${b.endTime}`,
+          'yyyy-MM-dd HH:mm',
+          { zone: bookingTz }
+        );
+        if (endsAt.isValid) {
+          isDelivered = endsAt.toMillis() <= nowMs;
+        }
+      }
+
+      // Accrual amount for this booking = what was actually paid for
+      // the work, not the listed booking price. For fully-package-
+      // redeemed bookings this matters: the package's per-minute rate
+      // (what the buyer paid per minute) × minutes used = recognized
+      // revenue. Using booking.pricing.totalPrice would inflate revenue
+      // above what was ever collected when the package's per-minute
+      // rate is lower than the booking's listed rate (grandfathered
+      // tiers, bonus minutes diluting the rate, price changes since
+      // purchase).
+      const accrualAmountCents = split.fromPackageCents + split.fromOtherCents;
+
+      if (isDelivered) {
+        addToBuckets(b.date, (bk) => {
+          bk.accrualTotalCents += accrualAmountCents;
+          bk.accrualFromPackagesCents += split.fromPackageCents;
+          bk.accrualFromOtherCents += split.fromOtherCents;
+          bk.sessionCount += 1;
+        });
+      }
 
       // Cash: only the cash-side, only if the provider has marked it
       // collected (paymentStatus === 'paid' on the booking). Package
@@ -861,10 +893,10 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
         });
       }
 
-      // Outstanding: package side recognized as accrual but cash side
-      // not yet collected. (Or full booking unpaid for non-package
-      // bookings.) Reflects what the provider is still owed.
-      if (b.paymentStatus !== 'paid' && split.fromOtherCents > 0) {
+      // Outstanding: delivered work where the cash side hasn't been
+      // collected yet. Future bookings don't count as "owed" — they
+      // haven't happened. Same isDelivered gate as accrual above.
+      if (isDelivered && b.paymentStatus !== 'paid' && split.fromOtherCents > 0) {
         addToBuckets(b.date, (bk) => {
           bk.outstandingCents += split.fromOtherCents;
         });
