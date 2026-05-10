@@ -346,32 +346,38 @@ const ProviderDashboard = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
           <Stat label="Today" value={stats.total} sub="scheduled sessions" />
           <Stat label="Upcoming" value={stats.upcoming} sub="still to go" />
-          {/* Two revenue lenses, side-by-side. "Earned this month" is
-              accrual — value of services delivered, regardless of
-              whether the cash has arrived. "Collected this month" is
-              cash-basis — money that physically hit you (package sales
-              when sold + booking secondary-method payments collected).
-              They diverge when packages are sold or when partial-
-              redemption bookings have an unpaid secondary side. */}
+          {/* Two revenue lenses, plain English so the provider doesn't
+              need an accounting background to read this:
+                "Sessions you did" = value of work delivered, regardless
+                  of whether you've been paid yet. Outstanding = owed.
+                "Money you've been paid" = what physically landed (cash
+                  / card / payment app), regardless of when the work
+                  was done. Includes package sales the day the buyer
+                  paid for them.
+              These two numbers diverge when packages are bought ahead,
+              when partial-redemption bookings have an unpaid cash
+              side, etc. — and that's the point of showing both. */}
           <Stat
-            label="Earned this month"
+            label="Sessions you did this month"
             value={revenue ? `$${(revenue.month?.accrual?.total || 0).toLocaleString()}` : '—'}
             sub={revenue?.month?.accrual?.outstanding > 0
-              ? `$${revenue.month.accrual.outstanding.toLocaleString()} outstanding`
-              : (revenue?.paidCount ? `${revenue.paidCount} paid sessions` : undefined)}
+              ? `$${revenue.month.accrual.outstanding.toLocaleString()} still owed to you`
+              : (revenue?.month?.accrual?.sessionCount
+                ? `${revenue.month.accrual.sessionCount} session${revenue.month.accrual.sessionCount === 1 ? '' : 's'} delivered`
+                : 'work value, paid or not')}
             accent
           />
           <Stat
-            label="Collected this month"
+            label="Money you've been paid this month"
             value={revenue ? `$${(revenue.month?.collected?.total || 0).toLocaleString()}` : '—'}
             sub={(() => {
               const bm = revenue?.month?.collected?.byMethod;
-              if (!bm) return 'collected so far';
+              if (!bm) return 'cash, card, or app — combined';
               const parts = [];
               if (bm.cash > 0) parts.push(`$${bm.cash.toLocaleString()} cash`);
               if (bm.card > 0) parts.push(`$${bm.card.toLocaleString()} card`);
               if (bm.paymentApp > 0) parts.push(`$${bm.paymentApp.toLocaleString()} app`);
-              return parts.length > 0 ? parts.join(' · ') : 'collected so far';
+              return parts.length > 0 ? parts.join(' · ') : 'cash, card, or app — combined';
             })()}
           />
         </div>
@@ -419,15 +425,18 @@ const ProviderDashboard = () => {
               <div className="absolute -right-5 -bottom-5 pointer-events-none" style={{ opacity: 0.14 }}>
                 <BrushLeaf size={100} color="#B07A4E" />
               </div>
-              <div className="av-meta text-accent">All-time earned</div>
+              <div className="av-meta text-accent">All sessions to date</div>
               <div className="font-display mt-2" style={{ fontSize: "1.625rem", fontWeight: 500, letterSpacing: '-0.01em' }}>
                 {revenue ? `$${(revenue.all?.accrual?.total || 0).toLocaleString()}` : '—'}
               </div>
               <div className="text-xs text-ink-2 mt-1">
-                {revenue?.all?.collected?.total != null
-                  ? `Collected: $${revenue.all.collected.total.toLocaleString()}`
-                  : 'Across every session to date'}
+                Total value of work you've delivered
               </div>
+              {revenue?.all?.collected?.total != null && (
+                <div className="text-xs text-ink-2 mt-1">
+                  Of which paid: <span className="font-medium">${revenue.all.collected.total.toLocaleString()}</span>
+                </div>
+              )}
               {(() => {
                 const bm = revenue?.all?.collected?.byMethod;
                 if (!bm) return null;
@@ -441,7 +450,7 @@ const ProviderDashboard = () => {
               })()}
               {revenue?.all?.accrual?.outstanding > 0 && (
                 <div className="text-xs text-amber-700 mt-0.5">
-                  ${revenue.all.accrual.outstanding.toLocaleString()} still owed
+                  ${revenue.all.accrual.outstanding.toLocaleString()} still owed to you
                 </div>
               )}
               <Link to="/provider/mileage" className="mt-4 inline-flex items-center gap-1.5 text-accent text-[13px] font-medium hover:text-accent-ink transition">
