@@ -223,6 +223,33 @@ PackagePurchaseSchema.virtual('minutesRemaining').get(function() {
   return (this.minutesTotal || 0) + this.bonusMinutes - this.minutesUsed;
 });
 
+// ── Per-minute revenue rate ───────────────────────────────────────────
+// What each minute redeemed off this package contributes to recognized
+// revenue on its appointment day. Used for accrual-basis reporting:
+// when a booking redeems N minutes, the booking earns N × perMinuteRate
+// in revenue (the cash already came in at purchase).
+//
+// Bonuses dilute the rate intentionally — provider chose to give those
+// minutes away free, so the per-minute revenue reflects that. Comped
+// packages have price=0 → rate 0 → contribute nothing to accrual.
+PackagePurchaseSchema.virtual('totalMinutesAvailable').get(function() {
+  if (this.kind === 'minutes') {
+    return (this.minutesTotal || 0) + this.bonusMinutes;
+  }
+  // sessions-mode: bonuses come in two shapes (sessions OR minutes).
+  // Convert any bonus-sessions to minutes via sessionDuration so the
+  // total comes out in minutes.
+  const baseMinutes = (this.sessionsTotal || 0) * (this.sessionDuration || 0);
+  const bonusSessionMinutes = this.bonusSessions * (this.sessionDuration || 0);
+  return baseMinutes + bonusSessionMinutes + this.bonusMinutes;
+});
+
+PackagePurchaseSchema.virtual('perMinuteRate').get(function() {
+  const total = this.totalMinutesAvailable;
+  if (!total) return 0;
+  return (this.price || 0) / total;
+});
+
 // Eligible for use in a new booking of `duration` minutes?
 //
 // `opts.allowPartial` (minutes-mode only) qualifies the package when

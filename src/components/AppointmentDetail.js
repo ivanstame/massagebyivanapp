@@ -499,6 +499,42 @@ const AppointmentDetail = () => {
                     )
                   )}
                 </p>
+                {/* Per-minute breakdown for partial-redemption bookings.
+                    Surfaces the math the provider needs to see: how the
+                    package portion's value was derived from the original
+                    purchase, plus the secondary cash side. Only render
+                    when the breakdown carries non-trivial split info
+                    (skip for full-package and pure-cash bookings; their
+                    payment-method line above already says enough). */}
+                {booking.paymentBreakdown
+                  && booking.paymentBreakdown.minutesFromPackage > 0
+                  && !booking.paymentBreakdown.fullyCoveredByPackage
+                  && (
+                  <div className="mt-2 p-2.5 bg-paper-deep rounded-md border border-line text-xs space-y-1">
+                    <div className="flex items-center justify-between text-slate-700">
+                      <span>
+                        {booking.paymentBreakdown.minutesFromPackage} min from
+                        {booking.paymentBreakdown.packageName ? ` "${booking.paymentBreakdown.packageName}"` : ' package'}
+                        {' '}@ ${(booking.paymentBreakdown.perMinuteCents / 100).toFixed(2)}/min
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        ${(booking.paymentBreakdown.fromPackageCents / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-700">
+                      <span>
+                        {booking.paymentBreakdown.minutesFromOther} min via {paymentMethodLabel(booking.paymentMethod)}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        ${(booking.paymentBreakdown.fromOtherCents / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-line text-slate-900 font-semibold">
+                      <span>Total</span>
+                      <span>${(booking.paymentBreakdown.totalCents / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
               {isProvider && booking.status !== 'cancelled' && (
                 <button

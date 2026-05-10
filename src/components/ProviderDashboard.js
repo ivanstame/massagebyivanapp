@@ -346,16 +346,27 @@ const ProviderDashboard = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
           <Stat label="Today" value={stats.total} sub="scheduled sessions" />
           <Stat label="Upcoming" value={stats.upcoming} sub="still to go" />
+          {/* Two revenue lenses, side-by-side. "Earned this month" is
+              accrual — value of services delivered, regardless of
+              whether the cash has arrived. "Cash this month" is
+              cash-basis — money that physically hit your account
+              (package sales when sold + booking cash collected). They
+              diverge when packages are sold or when partial-redemption
+              bookings have an unpaid cash side. */}
           <Stat
-            label="Month revenue"
-            value={revenue ? `$${(revenue.monthRevenue || 0).toLocaleString()}` : '—'}
-            sub={revenue?.paidCount ? `${revenue.paidCount} paid sessions` : undefined}
+            label="Earned this month"
+            value={revenue ? `$${(revenue.month?.accrual?.total || 0).toLocaleString()}` : '—'}
+            sub={revenue?.month?.accrual?.outstanding > 0
+              ? `$${revenue.month.accrual.outstanding.toLocaleString()} outstanding`
+              : (revenue?.paidCount ? `${revenue.paidCount} paid sessions` : undefined)}
             accent
           />
           <Stat
-            label="This week"
-            value={revenue ? `$${(revenue.weekRevenue || 0).toLocaleString()}` : '—'}
-            sub="on the book"
+            label="Cash this month"
+            value={revenue ? `$${(revenue.month?.cash?.total || 0).toLocaleString()}` : '—'}
+            sub={revenue?.month?.cash?.fromPackageSales > 0
+              ? `incl. $${revenue.month.cash.fromPackageSales.toLocaleString()} package sales`
+              : 'collected so far'}
           />
         </div>
 
@@ -402,15 +413,20 @@ const ProviderDashboard = () => {
               <div className="absolute -right-5 -bottom-5 pointer-events-none" style={{ opacity: 0.14 }}>
                 <BrushLeaf size={100} color="#B07A4E" />
               </div>
-              <div className="av-meta text-accent">All-time revenue</div>
+              <div className="av-meta text-accent">All-time earned</div>
               <div className="font-display mt-2" style={{ fontSize: "1.625rem", fontWeight: 500, letterSpacing: '-0.01em' }}>
-                {revenue ? `$${(revenue.totalRevenue || 0).toLocaleString()}` : '—'}
+                {revenue ? `$${(revenue.all?.accrual?.total || 0).toLocaleString()}` : '—'}
               </div>
               <div className="text-xs text-ink-2 mt-1">
-                {revenue?.unpaidCount > 0
-                  ? `${revenue.unpaidCount} unpaid`
+                {revenue?.all?.cash?.total != null
+                  ? `Cash collected: $${revenue.all.cash.total.toLocaleString()}`
                   : 'Across every session to date'}
               </div>
+              {revenue?.all?.accrual?.outstanding > 0 && (
+                <div className="text-xs text-amber-700 mt-0.5">
+                  ${revenue.all.accrual.outstanding.toLocaleString()} still owed
+                </div>
+              )}
               <Link to="/provider/mileage" className="mt-4 inline-flex items-center gap-1.5 text-accent text-[13px] font-medium hover:text-accent-ink transition">
                 Open reports <ArrowRight className="w-3.5 h-3.5" />
               </Link>

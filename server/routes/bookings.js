@@ -9,6 +9,7 @@ const SavedLocation = require('../models/SavedLocation');
 const PackagePurchase = require('../models/PackagePurchase');
 const { ensureAuthenticated } = require('../middleware/passportMiddleware');
 const { audit } = require('../utils/auditLog');
+const { computeBookingPaymentBreakdown } = require('../utils/paymentBreakdown');
 const { getAvailableTimeSlots } = require('../utils/timeUtils');
 const { calculateTravelTime, calculateDistanceMiles } = require('../services/mapService');
 const { createChainBookings } = require('../services/chainBookingService');
@@ -759,6 +760,24 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 });
 
 // GET /revenue (Provider revenue summary) — must be before /:id
+//
+// Returns dual reports per range (week / month / all-time):
+//
+//   cash:    money that physically arrived in the period.
+//            = package purchases paidAt-in-range
+//            + booking cash-side payments paidAt-in-range
+//
+//   accrual: value of services delivered in the period, regardless of
+//            whether the cash has come in yet.
+//            = for each non-cancelled booking dated in-range:
+//                fromPackage (recognized from prepaid credits)
+//                + fromOther (cash/card/etc on the booking)
+//            outstanding = portion of accrual not yet collected
+//                          (cash side of partially-redeemed bookings
+//                          still marked unpaid)
+//
+// Why both: tax filing wants cash basis; "how was my month of work?"
+// wants accrual. Either alone tells half the story.
 router.get('/revenue', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
@@ -773,32 +792,127 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
     const startOfWeek = now.startOf('week').toJSDate();
     const startOfMonth = now.startOf('month').toJSDate();
 
-    const bookings = await Booking.find({
-      provider: req.user._id,
-      status: { $in: ['confirmed', 'completed', 'in-progress'] },
-    }).lean();
+    const [bookings, packagePurchases] = await Promise.all([
+      Booking.find({
+        provider: req.user._id,
+        status: { $in: ['confirmed', 'completed', 'in-progress'] },
+      }).lean(),
+      PackagePurchase.find({
+        provider: req.user._id,
+        paymentStatus: 'paid',
+      }).lean(),
+    ]);
 
-    let weekRevenue = 0;
-    let monthRevenue = 0;
-    let totalRevenue = 0;
+    // Build a quick lookup so the breakdown helper can find each
+    // booking's redeemed-against package without a per-booking query.
+    const pkgById = new Map(packagePurchases.map(p => [String(p._id), p]));
+
+    const blank = () => ({
+      cashTotalCents: 0,
+      cashFromPackageSalesCents: 0,
+      cashFromBookingsCents: 0,
+      accrualTotalCents: 0,
+      accrualFromPackagesCents: 0,
+      accrualFromOtherCents: 0,
+      outstandingCents: 0,
+      sessionCount: 0,
+    });
+    const buckets = { week: blank(), month: blank(), all: blank() };
+
+    const addToBuckets = (date, mutator) => {
+      const d = new Date(date);
+      mutator(buckets.all);
+      if (d >= startOfMonth) mutator(buckets.month);
+      if (d >= startOfWeek) mutator(buckets.week);
+    };
+
     let paidCount = 0;
     let unpaidCount = 0;
 
+    // BOOKINGS — feed both cash and accrual sides.
     for (const b of bookings) {
-      const price = b.pricing?.totalPrice || 0;
-      const bookingDate = new Date(b.date);
+      const pkgId = b.packageRedemption?.packagePurchase
+        ? String(b.packageRedemption.packagePurchase)
+        : null;
+      const pkg = pkgId ? pkgById.get(pkgId) : null;
+      const split = computeBookingPaymentBreakdown(b, pkg);
 
-      if (b.paymentStatus === 'paid') {
-        totalRevenue += price;
-        paidCount++;
-        if (bookingDate >= startOfWeek) weekRevenue += price;
-        if (bookingDate >= startOfMonth) monthRevenue += price;
-      } else {
-        unpaidCount++;
+      // Accrual: every confirmed/completed booking in range counts at
+      // its full delivered value. Date is the appointment date.
+      addToBuckets(b.date, (bk) => {
+        bk.accrualTotalCents += split.totalCents;
+        bk.accrualFromPackagesCents += split.fromPackageCents;
+        bk.accrualFromOtherCents += split.fromOtherCents;
+        bk.sessionCount += 1;
+      });
+
+      // Cash: only the cash-side, only if the provider has marked it
+      // collected (paymentStatus === 'paid' on the booking). Package
+      // side never lands here — it was collected at package purchase
+      // time and shows up in the package-sale loop below.
+      //
+      // Use paidAt as the "money arrived" timestamp; fall back to the
+      // booking date for legacy rows that didn't capture paidAt.
+      if (b.paymentStatus === 'paid' && split.fromOtherCents > 0) {
+        const cashDate = b.paidAt || b.date;
+        addToBuckets(cashDate, (bk) => {
+          bk.cashTotalCents += split.fromOtherCents;
+          bk.cashFromBookingsCents += split.fromOtherCents;
+        });
       }
+
+      // Outstanding: package side recognized as accrual but cash side
+      // not yet collected. (Or full booking unpaid for non-package
+      // bookings.) Reflects what the provider is still owed.
+      if (b.paymentStatus !== 'paid' && split.fromOtherCents > 0) {
+        addToBuckets(b.date, (bk) => {
+          bk.outstandingCents += split.fromOtherCents;
+        });
+      }
+
+      if (b.paymentStatus === 'paid') paidCount++;
+      else unpaidCount++;
     }
 
-    res.json({ weekRevenue, monthRevenue, totalRevenue, paidCount, unpaidCount });
+    // PACKAGE SALES — cash-basis only. Each paid purchase contributes
+    // its full price on the day the cash arrived (purchasedAt).
+    let packageSalesCount = 0;
+    for (const p of packagePurchases) {
+      if (!p.purchasedAt) continue; // no timestamp = legacy / pending
+      const cents = Math.round((p.price || 0) * 100);
+      addToBuckets(p.purchasedAt, (bk) => {
+        bk.cashTotalCents += cents;
+        bk.cashFromPackageSalesCents += cents;
+      });
+      packageSalesCount++;
+    }
+
+    // Convert cents → dollars for the wire format. Keep cents internally
+    // so totals add up exactly; rounding only happens at the boundary.
+    const formatBucket = (b) => ({
+      cash: {
+        total: b.cashTotalCents / 100,
+        fromPackageSales: b.cashFromPackageSalesCents / 100,
+        fromBookings: b.cashFromBookingsCents / 100,
+      },
+      accrual: {
+        total: b.accrualTotalCents / 100,
+        fromPackages: b.accrualFromPackagesCents / 100,
+        fromOther: b.accrualFromOtherCents / 100,
+        outstanding: b.outstandingCents / 100,
+        sessionCount: b.sessionCount,
+      },
+    });
+
+    res.json({
+      providerTz,
+      week: formatBucket(buckets.week),
+      month: formatBucket(buckets.month),
+      all: formatBucket(buckets.all),
+      paidCount,
+      unpaidCount,
+      packageSalesCount,
+    });
   } catch (error) {
     console.error('Error fetching revenue:', error);
     res.status(500).json({ message: 'Error fetching revenue' });
@@ -1021,7 +1135,21 @@ router.get('/:id', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view this booking' });
     }
 
-    res.json(booking);
+    // Resolve the package (if any) so the response can carry the
+    // payment breakdown — the AppointmentDetail page surfaces this so
+    // the provider sees exactly how much came from the package vs cash.
+    let pkg = null;
+    if (booking.packageRedemption?.packagePurchase) {
+      pkg = await PackagePurchase
+        .findById(booking.packageRedemption.packagePurchase)
+        .lean();
+    }
+    const breakdown = computeBookingPaymentBreakdown(booking.toObject(), pkg);
+
+    res.json({
+      ...booking.toObject(),
+      paymentBreakdown: breakdown,
+    });
   } catch (error) {
     console.error('Error fetching booking:', error);
     res.status(500).json({ message: 'Error fetching booking' });
