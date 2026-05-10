@@ -348,11 +348,11 @@ const ProviderDashboard = () => {
           <Stat label="Upcoming" value={stats.upcoming} sub="still to go" />
           {/* Two revenue lenses, side-by-side. "Earned this month" is
               accrual — value of services delivered, regardless of
-              whether the cash has arrived. "Cash this month" is
-              cash-basis — money that physically hit your account
-              (package sales when sold + booking cash collected). They
-              diverge when packages are sold or when partial-redemption
-              bookings have an unpaid cash side. */}
+              whether the cash has arrived. "Collected this month" is
+              cash-basis — money that physically hit you (package sales
+              when sold + booking secondary-method payments collected).
+              They diverge when packages are sold or when partial-
+              redemption bookings have an unpaid secondary side. */}
           <Stat
             label="Earned this month"
             value={revenue ? `$${(revenue.month?.accrual?.total || 0).toLocaleString()}` : '—'}
@@ -362,11 +362,17 @@ const ProviderDashboard = () => {
             accent
           />
           <Stat
-            label="Cash this month"
-            value={revenue ? `$${(revenue.month?.cash?.total || 0).toLocaleString()}` : '—'}
-            sub={revenue?.month?.cash?.fromPackageSales > 0
-              ? `incl. $${revenue.month.cash.fromPackageSales.toLocaleString()} package sales`
-              : 'collected so far'}
+            label="Collected this month"
+            value={revenue ? `$${(revenue.month?.collected?.total || 0).toLocaleString()}` : '—'}
+            sub={(() => {
+              const bm = revenue?.month?.collected?.byMethod;
+              if (!bm) return 'collected so far';
+              const parts = [];
+              if (bm.cash > 0) parts.push(`$${bm.cash.toLocaleString()} cash`);
+              if (bm.card > 0) parts.push(`$${bm.card.toLocaleString()} card`);
+              if (bm.paymentApp > 0) parts.push(`$${bm.paymentApp.toLocaleString()} app`);
+              return parts.length > 0 ? parts.join(' · ') : 'collected so far';
+            })()}
           />
         </div>
 
@@ -418,10 +424,21 @@ const ProviderDashboard = () => {
                 {revenue ? `$${(revenue.all?.accrual?.total || 0).toLocaleString()}` : '—'}
               </div>
               <div className="text-xs text-ink-2 mt-1">
-                {revenue?.all?.cash?.total != null
-                  ? `Cash collected: $${revenue.all.cash.total.toLocaleString()}`
+                {revenue?.all?.collected?.total != null
+                  ? `Collected: $${revenue.all.collected.total.toLocaleString()}`
                   : 'Across every session to date'}
               </div>
+              {(() => {
+                const bm = revenue?.all?.collected?.byMethod;
+                if (!bm) return null;
+                const parts = [];
+                if (bm.cash > 0) parts.push(`$${bm.cash.toLocaleString()} cash`);
+                if (bm.card > 0) parts.push(`$${bm.card.toLocaleString()} card`);
+                if (bm.paymentApp > 0) parts.push(`$${bm.paymentApp.toLocaleString()} app`);
+                return parts.length > 0
+                  ? <div className="text-xs text-ink-3 mt-0.5">{parts.join(' · ')}</div>
+                  : null;
+              })()}
               {revenue?.all?.accrual?.outstanding > 0 && (
                 <div className="text-xs text-amber-700 mt-0.5">
                   ${revenue.all.accrual.outstanding.toLocaleString()} still owed

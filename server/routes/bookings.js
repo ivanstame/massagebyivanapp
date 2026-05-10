@@ -808,9 +808,14 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
     const pkgById = new Map(packagePurchases.map(p => [String(p._id), p]));
 
     const blank = () => ({
-      cashTotalCents: 0,
-      cashFromPackageSalesCents: 0,
-      cashFromBookingsCents: 0,
+      collectedTotalCents: 0,
+      collectedFromPackageSalesCents: 0,
+      collectedFromBookingsCents: 0,
+      // Per-method breakdown so the provider can see "$X cash · $Y card
+      // · $Z payment app" for end-of-month reconciliation. Stripe-paid
+      // package sales count as 'card'; comped packages contribute zero
+      // (no money changed hands).
+      byMethodCents: { cash: 0, card: 0, paymentApp: 0 },
       accrualTotalCents: 0,
       accrualFromPackagesCents: 0,
       accrualFromOtherCents: 0,
@@ -878,18 +883,26 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
         });
       }
 
-      // Cash: only the cash-side, only if the provider has marked it
-      // collected (paymentStatus === 'paid' on the booking). Package
-      // side never lands here — it was collected at package purchase
-      // time and shows up in the package-sale loop below.
+      // Collected: the booking's non-package portion, only when the
+      // provider has marked it paid. Package side never lands here —
+      // it was collected at package purchase and shows up in the
+      // package-sale loop below.
+      //
+      // Attribute to the per-method bucket using the booking's
+      // paymentMethod (which, for partial-redemption bookings, is the
+      // SECONDARY method covering the cash side, not 'package').
       //
       // Use paidAt as the "money arrived" timestamp; fall back to the
       // booking date for legacy rows that didn't capture paidAt.
       if (b.paymentStatus === 'paid' && split.fromOtherCents > 0) {
-        const cashDate = b.paidAt || b.date;
-        addToBuckets(cashDate, (bk) => {
-          bk.cashTotalCents += split.fromOtherCents;
-          bk.cashFromBookingsCents += split.fromOtherCents;
+        const collectedDate = b.paidAt || b.date;
+        const method = b.paymentMethod;
+        addToBuckets(collectedDate, (bk) => {
+          bk.collectedTotalCents += split.fromOtherCents;
+          bk.collectedFromBookingsCents += split.fromOtherCents;
+          if (method === 'cash' || method === 'card' || method === 'paymentApp') {
+            bk.byMethodCents[method] += split.fromOtherCents;
+          }
         });
       }
 
@@ -906,15 +919,20 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       else unpaidCount++;
     }
 
-    // PACKAGE SALES — cash-basis only. Each paid purchase contributes
-    // its full price on the day the cash arrived (purchasedAt).
+    // PACKAGE SALES — collected-basis only. Each paid purchase
+    // contributes its full price on the day the cash arrived
+    // (purchasedAt). Per-method attribution: stripe → 'card', cash →
+    // 'cash', comped → don't count (no money changed hands).
     let packageSalesCount = 0;
     for (const p of packagePurchases) {
       if (!p.purchasedAt) continue; // no timestamp = legacy / pending
+      if (p.paymentMethod === 'comped') continue; // no money in
       const cents = Math.round((p.price || 0) * 100);
+      const method = p.paymentMethod === 'stripe' ? 'card' : 'cash';
       addToBuckets(p.purchasedAt, (bk) => {
-        bk.cashTotalCents += cents;
-        bk.cashFromPackageSalesCents += cents;
+        bk.collectedTotalCents += cents;
+        bk.collectedFromPackageSalesCents += cents;
+        bk.byMethodCents[method] += cents;
       });
       packageSalesCount++;
     }
@@ -922,10 +940,15 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
     // Convert cents → dollars for the wire format. Keep cents internally
     // so totals add up exactly; rounding only happens at the boundary.
     const formatBucket = (b) => ({
-      cash: {
-        total: b.cashTotalCents / 100,
-        fromPackageSales: b.cashFromPackageSalesCents / 100,
-        fromBookings: b.cashFromBookingsCents / 100,
+      collected: {
+        total: b.collectedTotalCents / 100,
+        fromPackageSales: b.collectedFromPackageSalesCents / 100,
+        fromBookings: b.collectedFromBookingsCents / 100,
+        byMethod: {
+          cash: b.byMethodCents.cash / 100,
+          card: b.byMethodCents.card / 100,
+          paymentApp: b.byMethodCents.paymentApp / 100,
+        },
       },
       accrual: {
         total: b.accrualTotalCents / 100,
