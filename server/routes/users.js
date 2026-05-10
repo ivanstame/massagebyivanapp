@@ -386,7 +386,11 @@ router.post('/managed-clients', ensureAuthenticated, async (req, res) => {
       return res.status(403).json({ message: 'Provider access required' });
     }
 
-    const { firstName, lastName, phoneNumber, email, address, notes, smsConsent } = req.body;
+    // smsConsent intentionally NOT destructured — TCPA requires the
+    // recipient themselves to consent. Provider can't flip this on a
+    // managed client's behalf even if the request body includes it.
+    // Managed clients opt in via the claim flow when they register.
+    const { firstName, lastName, phoneNumber, email, address, notes } = req.body;
     if (!firstName || !firstName.trim()) {
       return res.status(400).json({ message: 'First name is required' });
     }
@@ -416,7 +420,7 @@ router.post('/managed-clients', ensureAuthenticated, async (req, res) => {
       isManaged: true,
       managedBy: req.user._id,
       providerId: req.user._id,
-      smsConsent: !!smsConsent,
+      smsConsent: false,
       profile: {
         fullName,
         phoneNumber: phoneNumber ? phoneNumber.trim() : '',
@@ -461,7 +465,11 @@ router.patch('/managed-clients/:id', ensureAuthenticated, async (req, res) => {
       return res.status(404).json({ message: 'Managed client not found' });
     }
 
-    const { firstName, lastName, phoneNumber, email, address, smsConsent } = req.body;
+    // smsConsent intentionally NOT destructured here — see POST route
+    // above for rationale (TCPA: only the recipient can grant consent).
+    // The claim endpoint is the only path that flips this for managed
+    // clients.
+    const { firstName, lastName, phoneNumber, email, address } = req.body;
 
     if (firstName || lastName) {
       const [curFirst, ...rest] = (managed.profile?.fullName || '').split(' ');
@@ -500,10 +508,6 @@ router.patch('/managed-clients/:id', ensureAuthenticated, async (req, res) => {
         if (geo) addressObj.formatted = geo.formatted;
       }
       managed.profile = { ...managed.profile, address: addressObj || undefined };
-    }
-
-    if (smsConsent !== undefined) {
-      managed.smsConsent = !!smsConsent;
     }
 
     await managed.save();

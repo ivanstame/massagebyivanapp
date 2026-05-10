@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Phone, Mail, MapPin, AlertCircle, MessageSquare } from 'lucide-react';
+import { User, Phone, Mail, MapPin, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 
 const US_STATES = [
@@ -19,7 +19,6 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState({ street: '', unit: '', city: '', state: '', zip: '' });
   const [notes, setNotes] = useState('');
-  const [smsConsent, setSmsConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -49,7 +48,6 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
           zip: address.zip.trim(),
         },
         notes: notes.trim(),
-        smsConsent,
       });
       onCreated?.(res.data);
     } catch (err) {
@@ -197,27 +195,12 @@ const AddManagedClientModal = ({ onClose, onCreated }) => {
             />
           </div>
 
-          <div className="border-t border-line pt-4">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={smsConsent}
-                onChange={(e) => setSmsConsent(e.target.checked)}
-                className="mt-0.5 w-4 h-4 text-[#B07A4E] focus:ring-[#B07A4E] border-slate-300 rounded"
-                disabled={!phoneNumber.trim()}
-              />
-              <div>
-                <p className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Send appointment reminders by text
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Only enable this if you've confirmed verbally that they want text reminders.
-                  {!phoneNumber.trim() && ' (Add a phone number first.)'}
-                </p>
-              </div>
-            </label>
-          </div>
+          {/* SMS consent intentionally NOT collected here — TCPA requires
+              the recipient themselves to consent. Provider can't grant
+              consent on a client's behalf, even verbally-claimed.
+              Managed clients pick this up in the claim flow when they
+              register their account. Until then, smsConsent stays false
+              and the SMS service won't send to them. */}
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-line">
             <button
