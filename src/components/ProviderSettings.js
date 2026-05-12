@@ -684,11 +684,40 @@ const ProviderSettings = () => {
                 </p>
               </div>
 
+              {/* Loud warning when sync is broken — the previous
+                  silent-failure mode let providers think everything
+                  was working while clients booked over GCal events.
+                  Shows last error + how long ago we last had a
+                  successful sync. */}
+              {gcalStatus.lastSyncError && gcalStatus.lastSyncError.message && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-red-900">
+                        Sync is failing
+                      </p>
+                      <p className="text-xs text-red-700 mt-0.5 break-words">
+                        {gcalStatus.lastSyncError.message}
+                      </p>
+                      {gcalStatus.lastSuccessfulSyncAt && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Last successful sync: {new Date(gcalStatus.lastSuccessfulSyncAt).toLocaleString()}
+                        </p>
+                      )}
+                      <p className="text-xs text-red-600 mt-1">
+                        Availability may be inaccurate until this clears. Try Sync below or Disconnect + Reconnect.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {gcalStatus.syncedCalendarIds?.length > 0 && (
                 <p className="text-xs text-slate-500">
                   Syncing {gcalStatus.syncedCalendarIds.length} calendar{gcalStatus.syncedCalendarIds.length > 1 ? 's' : ''}
-                  {gcalStatus.lastSyncedAt && (
-                    <> &middot; Last synced {new Date(gcalStatus.lastSyncedAt).toLocaleString()}</>
+                  {gcalStatus.lastSuccessfulSyncAt && (
+                    <> &middot; Last successful sync {new Date(gcalStatus.lastSuccessfulSyncAt).toLocaleString()}</>
                   )}
                 </p>
               )}

@@ -290,6 +290,101 @@ async function applyEventChanges(providerId, events, calendarId = null) {
   return { upserted, deleted, upsertedIds };
 }
 
+// ─── ensureFreshGcalSync ──────────────────────────────────────────────
+//
+// The freshness gate. Every read path that depends on GCal-sourced
+// BlockedTime should await this BEFORE querying the cache. It either
+// no-ops (cache is fresh or provider has no GCal) or runs an inline
+// sync and waits for it.
+//
+// Why this exists: the daily/webhook-driven sync has multiple silent
+// failure modes (expired watch channels, dropped webhooks, auth
+// flaps). Trusting the cache without proof has caused real client
+// cancellations. The gate makes the cache structurally incapable of
+// lying — anything stale gets refreshed before being served.
+//
+// Concurrency: if two requests for the same provider both find the
+// cache stale, they share ONE in-flight sync via a per-provider
+// Promise. Otherwise we'd hammer Google with N parallel calls every
+// time a hot provider's cache went stale.
+const DEFAULT_STALE_AFTER_MS = 2 * 60 * 1000; // 2 minutes
+const inFlightFreshness = new Map(); // providerId → Promise
+
+async function ensureFreshGcalSync(providerId, opts = {}) {
+  const staleAfterMs = opts.staleAfterMs || DEFAULT_STALE_AFTER_MS;
+  const key = String(providerId);
+
+  // Coalesce concurrent requests: if a freshness check is already in
+  // flight for this provider, await its result rather than starting
+  // a parallel sync.
+  if (inFlightFreshness.has(key)) {
+    return inFlightFreshness.get(key);
+  }
+
+  const promise = (async () => {
+    // Cheap projected lookup — read only what we need to decide.
+    const provider = await User.findById(providerId).select(
+      'email providerProfile.googleCalendar'
+    );
+    if (!provider) {
+      return { connected: false, reason: 'provider-not-found' };
+    }
+    const gcal = provider.providerProfile?.googleCalendar;
+    if (!gcal || !gcal.connected || !gcal.syncedCalendarIds?.length) {
+      return { connected: false };
+    }
+
+    // Fresh? Bail. Most reads hit this branch.
+    const lastOk = gcal.lastSuccessfulSyncAt
+      ? gcal.lastSuccessfulSyncAt.getTime()
+      : 0;
+    if (Date.now() - lastOk < staleAfterMs) {
+      return { connected: true, fresh: true, lastSuccessfulSyncAt: gcal.lastSuccessfulSyncAt };
+    }
+
+    // Stale. Run a full sync inline and await it.
+    try {
+      const result = await runFullSync(provider, gcal.syncedCalendarIds);
+      return {
+        connected: true,
+        fresh: true,
+        synced: true,
+        upserted: result?.upserted || 0,
+        deleted: result?.deleted || 0,
+      };
+    } catch (err) {
+      console.error(`[GCal] ensureFresh inline sync failed for ${provider.email}: ${err.message}`);
+      // Surface the error on the doc so the UI can show it.
+      try {
+        provider.providerProfile.googleCalendar.lastSyncError = {
+          message: err.message || 'Unknown sync error',
+          occurredAt: new Date(),
+        };
+        await provider.save();
+      } catch (saveErr) {
+        console.error('[GCal] Failed to record lastSyncError:', saveErr.message);
+      }
+      // Auth failures: integration is dead, flip to disconnected so
+      // the UI prompts a reconnect.
+      if (isGcalAuthError(err)) {
+        await markGcalDisconnected(provider, `ensureFresh auth failure: ${err.message}`);
+      }
+      return {
+        connected: gcal.connected,
+        fresh: false,
+        error: err.message,
+      };
+    }
+  })();
+
+  inFlightFreshness.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    inFlightFreshness.delete(key);
+  }
+}
+
 /**
  * Run a full sync for a provider's calendar. Fetches all events in the 30-day window,
  * upserts them, then cleans up stale records.
@@ -371,7 +466,15 @@ async function runFullSync(provider, calendarIds) {
     }
   }
 
-  gcal.lastSyncedAt = new Date();
+  const now = new Date();
+  gcal.lastSyncedAt = now;
+  // lastSuccessfulSyncAt is the freshness anchor that ensureFreshGcalSync
+  // reads. Stamp it whenever the sync loop completes without aborting
+  // (per-calendar fetches may have failed individually, but the
+  // overall provider sync didn't bail). Clear lastSyncError on the
+  // same path so a recovered integration stops nagging the UI.
+  gcal.lastSuccessfulSyncAt = now;
+  gcal.lastSyncError = { message: null, occurredAt: null };
   await provider.save();
 
   console.log(`[GCal] Full sync complete for ${provider.email}: ${totalUpserted} upserted, ${totalDeleted} stale deleted`);
@@ -511,7 +614,15 @@ async function renewExpiringChannels() {
 }
 
 /**
- * Start the Google Calendar scheduler (daily sync + channel renewal).
+ * Start the Google Calendar scheduler (hourly background sync +
+ * channel renewal). The ensureFreshGcalSync gate is the primary
+ * freshness mechanism on hot read paths; this background loop just
+ * keeps the cache warm for providers who aren't being actively read.
+ *
+ * Was a daily 3AM sync; switched to hourly because daily-only created
+ * a 24-hour blind spot whenever webhooks were dropped. Hourly + the
+ * read-path freshness gate together mean the cache is never stale for
+ * long, and never trusted past 2 minutes on the path of any read.
  */
 function startGoogleCalendarScheduler() {
   if (!process.env.GOOGLE_CLIENT_ID) {
@@ -519,27 +630,21 @@ function startGoogleCalendarScheduler() {
     return;
   }
 
-  // Schedule daily sync at 3 AM LA time
-  const scheduleNext3AM = () => {
-    const now = DateTime.now().setZone(DEFAULT_TZ);
-    let next3AM = now.set({ hour: 3, minute: 0, second: 0, millisecond: 0 });
-    if (now >= next3AM) {
-      next3AM = next3AM.plus({ days: 1 });
-    }
-    const msUntil = next3AM.toMillis() - now.toMillis();
+  // Hourly background sync. The freshness gate on every read path
+  // catches stale data within 2 minutes regardless; this hourly loop
+  // is the "keep the cache warm" pass so most read paths hit a fresh
+  // cache and bypass the inline sync.
+  const HOURLY_MS = 60 * 60 * 1000;
+  setInterval(() => {
+    runDailySync().catch(err => console.error('[GCal] Hourly sync error:', err));
+  }, HOURLY_MS);
 
-    setTimeout(() => {
-      runDailySync().catch(err => console.error('[GCal] Daily sync error:', err));
-      // Schedule again for tomorrow
-      setInterval(() => {
-        runDailySync().catch(err => console.error('[GCal] Daily sync error:', err));
-      }, 24 * 60 * 60 * 1000);
-    }, msUntil);
-
-    console.log(`[GCal] Daily sync scheduled for ${next3AM.toFormat('yyyy-MM-dd HH:mm')} LA time (in ${Math.round(msUntil / 60000)} minutes)`);
-  };
-
-  scheduleNext3AM();
+  // Initial sync 60 seconds after boot — gives the rest of the app
+  // time to settle, then a fresh pull so the first reads after a
+  // deploy don't trigger a thundering herd of inline syncs.
+  setTimeout(() => {
+    runDailySync().catch(err => console.error('[GCal] Initial sync error:', err));
+  }, 60 * 1000);
 
   // Channel renewal every 12 hours
   setInterval(() => {
@@ -549,7 +654,7 @@ function startGoogleCalendarScheduler() {
   // Initial channel renewal check
   renewExpiringChannels().catch(err => console.error('[GCal] Initial channel renewal error:', err));
 
-  console.log('[GCal] Scheduler started');
+  console.log('[GCal] Scheduler started (hourly background sync + 12h channel renewal)');
 }
 
 /**
@@ -572,5 +677,6 @@ module.exports = {
   runDailySync,
   renewExpiringChannels,
   startGoogleCalendarScheduler,
-  deleteAllGoogleCalendarBlocks
+  deleteAllGoogleCalendarBlocks,
+  ensureFreshGcalSync,
 };

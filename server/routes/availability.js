@@ -12,6 +12,7 @@ const { DateTime } = require('luxon');
 const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const LuxonService = require('../../src/utils/LuxonService');
 const { tzForProviderId } = require('../utils/providerTz');
+const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
 
 /**
  * Generate availability from weekly template for a specific date and provider.
@@ -325,6 +326,14 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
       return res.json([]);
     }
 
+    // GCal freshness gate: before reading BlockedTime (which includes
+    // google_calendar-sourced blocks), make sure the cache is current.
+    // No-op if the provider isn't connected to GCal; runs an inline
+    // sync if the cache is stale. Catches webhook-miss / scheduled-
+    // sync-skip / auth-flap cases that would otherwise serve stale
+    // availability and let clients book over GCal conflicts.
+    await ensureFreshGcalSync(query.provider);
+
     // Fetch availability + bookings + blocks for the month in parallel.
     // Need the full window times to compute viability — projecting to
     // just `date localDate` like the old endpoint did would force a
@@ -615,6 +624,14 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
       // Strict-true check so an explicitly-false setting defeats the
       // schema default; undefined/null falls back to the schema default.
       forceBufferForProvider = providerForBuffer?.providerProfile?.sameAddressTurnoverBuffer !== false;
+    }
+
+    // GCal freshness gate before reading BlockedTime — ensures any
+    // events added/changed since the last sync get pulled before slot
+    // generation, so we don't offer a time the provider has blocked
+    // in their personal calendar.
+    if (templateProviderId) {
+      await ensureFreshGcalSync(templateProviderId);
     }
 
     // Fetch blocked times for this date

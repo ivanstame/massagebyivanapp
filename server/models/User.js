@@ -230,7 +230,22 @@ const UserSchema = new mongoose.Schema({
         of: String,
         default: new Map()
       },
-      lastSyncedAt: { type: Date, default: null }
+      // When the LAST attempt finished — success or failure. Used by
+      // operators / logs only; readers should NOT use this to decide
+      // freshness (a failed attempt updates lastSyncedAt too).
+      lastSyncedAt: { type: Date, default: null },
+      // When sync LAST SUCCEEDED. This is the freshness anchor — the
+      // ensureFreshGcalSync helper compares against this to decide
+      // whether the cache is trustworthy. Stays put across failed
+      // attempts so we don't pretend a broken integration is current.
+      lastSuccessfulSyncAt: { type: Date, default: null },
+      // Most recent sync failure. Cleared on the next success.
+      // Surfaced in /status and the provider's settings UI so a broken
+      // sync doesn't masquerade as "connected" forever.
+      lastSyncError: {
+        message: { type: String, default: null },
+        occurredAt: { type: Date, default: null },
+      }
     }
   },
   // Add the new clientProfile field here

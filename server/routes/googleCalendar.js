@@ -97,7 +97,11 @@ router.get('/status', ensureAuthenticated, async (req, res) => {
       connected: true,
       connectedEmail: gcal.connectedEmail,
       syncedCalendarIds: gcal.syncedCalendarIds || [],
-      lastSyncedAt: gcal.lastSyncedAt
+      lastSyncedAt: gcal.lastSyncedAt,
+      lastSuccessfulSyncAt: gcal.lastSuccessfulSyncAt,
+      lastSyncError: (gcal.lastSyncError && gcal.lastSyncError.message)
+        ? { message: gcal.lastSyncError.message, occurredAt: gcal.lastSyncError.occurredAt }
+        : null,
     });
   } catch (error) {
     console.error('[GCal] Status error:', error);

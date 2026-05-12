@@ -122,6 +122,14 @@ async function buildAvailabilityBody(providerId, weekStart) {
     return (eh * 60 + em) - (sh * 60 + sm);
   };
 
+  // GCal freshness gate before reading BlockedTime across the week.
+  // Single check per provider covers all 7 days below. Without this,
+  // outreach can advertise "open Thursday 3-5pm" while the provider
+  // has a doctor's appointment on their Google Calendar that the sync
+  // missed — and the client books over it.
+  const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
+  await ensureFreshGcalSync(providerId);
+
   for (let i = 0; i < 7; i++) {
     const dayLA = weekStart.plus({ days: i });
     const localDate = dayLA.toFormat('yyyy-MM-dd');
