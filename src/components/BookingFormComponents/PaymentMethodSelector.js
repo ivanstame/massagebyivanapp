@@ -5,7 +5,8 @@ import { Banknote, CreditCard, Smartphone, Layers } from 'lucide-react';
 // the payment manually, no integration. Covers Zelle/Venmo/Cash App/
 // Apple Pay/etc so providers don't need a separate enum entry per app.
 const PAYMENT_METHOD_CONFIG = {
-  cash: { label: 'Cash / Check', icon: Banknote, description: 'Pay in person' },
+  cash: { label: 'Cash', icon: Banknote, description: 'Pay in person, physical bills' },
+  check: { label: 'Check', icon: Banknote, description: 'Pay in person, paper check' },
   paymentApp: { label: 'Payment app', icon: Smartphone, description: 'Zelle, Venmo, Cash App, etc.' },
   card: { label: 'Card', icon: CreditCard, description: 'Credit/Debit card' },
 };

@@ -472,7 +472,8 @@ const CreateStandingForm = ({ client, providerServices, onCreated, onCancel, onE
           >
             {(providerServices?.acceptedPaymentMethods || ['cash']).map(m => {
               const label = {
-                cash: 'Cash / Check',
+                cash: 'Cash',
+                check: 'Check',
                 paymentApp: 'Payment app',
                 card: 'Card',
               }[m] || m;

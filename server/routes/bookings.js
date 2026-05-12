@@ -768,38 +768,40 @@ router.get('/', ensureAuthenticated, async (req, res) => {
   }
 });
 
-// GET /revenue (Provider revenue summary) — must be before /:id
+// GET /revenue (Provider income summary) — must be before /:id
 //
-// Returns dual reports per range (week / month / all-time):
+// Cash-basis income, the way a sole-prop massage therapist files
+// Schedule C. Includes:
+//   - Booking payments collected (cash/check/app/card portions paid)
+//   - Tips collected on bookings
+//   - Package sales recognized at purchase time
+//   - Refunds as negative income on the day of refund
+// Explicitly EXCLUDES:
+//   - Package redemptions (no new money; cash was counted at purchase)
+//   - Future bookings that haven't happened OR haven't been paid yet
 //
-//   cash:    money that physically arrived in the period.
-//            = package purchases paidAt-in-range
-//            + booking cash-side payments paidAt-in-range
+// Per-method breakdown: cash / check / paymentApp / card / packages.
+// Card line shows GROSS (the basis for income tax); fees surface
+// separately so the provider can categorize as a deductible expense.
 //
-//   accrual: value of services delivered in the period, regardless of
-//            whether the cash has come in yet.
-//            = for each non-cancelled booking dated in-range:
-//                fromPackage (recognized from prepaid credits)
-//                + fromOther (cash/card/etc on the booking)
-//            outstanding = portion of accrual not yet collected
-//                          (cash side of partially-redeemed bookings
-//                          still marked unpaid)
-//
-// Why both: tax filing wants cash basis; "how was my month of work?"
-// wants accrual. Either alone tells half the story.
+// Side stats: services delivered + how many were package redemptions
+// (so the provider knows "I worked N sessions, M of which generated
+// no new income because they were prepaid").
 router.get('/revenue', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
       return res.status(403).json({ message: 'Only providers can view revenue' });
     }
 
-    // Provider's TZ defines week / month boundaries — a NY provider's
-    // "this week" starts/ends on NY time, not server-host LA.
+    // Provider's TZ defines week / month / quarter / year boundaries —
+    // a NY provider's "this week" starts on NY time, not server-host LA.
     const { tzForProviderId } = require('../utils/providerTz');
     const providerTz = await tzForProviderId(req.user._id);
     const now = DateTime.now().setZone(providerTz);
     const startOfWeek = now.startOf('week').toJSDate();
     const startOfMonth = now.startOf('month').toJSDate();
+    const startOfQuarter = now.startOf('quarter').toJSDate();
+    const startOfYear = now.startOf('year').toJSDate();
 
     const [bookings, packagePurchases] = await Promise.all([
       Booking.find({
@@ -812,40 +814,46 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       }).lean(),
     ]);
 
-    // Build a quick lookup so the breakdown helper can find each
-    // booking's redeemed-against package without a per-booking query.
     const pkgById = new Map(packagePurchases.map(p => [String(p._id), p]));
 
+    // Cents-internal so totals are exact across hundreds of rows.
     const blank = () => ({
-      collectedTotalCents: 0,
-      collectedFromPackageSalesCents: 0,
-      collectedFromBookingsCents: 0,
-      // Per-method breakdown so the provider can see "$X cash · $Y card
-      // · $Z payment app" for end-of-month reconciliation. Stripe-paid
-      // package sales count as 'card'; comped packages contribute zero
-      // (no money changed hands).
-      byMethodCents: { cash: 0, card: 0, paymentApp: 0 },
-      accrualTotalCents: 0,
-      accrualFromPackagesCents: 0,
-      accrualFromOtherCents: 0,
+      incomeTotalCents: 0,
+      bookingPaymentsCents: 0,
+      tipsCents: 0,
+      packageSalesCents: 0,
+      refundsCents: 0,        // negative income — already subtracted from incomeTotal
+      stripeFeesCents: 0,     // deductible expense, NOT in incomeTotal
+      // Per-method: maps to the actual income source. 'package' here
+      // means PACKAGE SALES (which are income); package REDEMPTIONS
+      // never hit this map (they're commitment fulfillment, not income).
+      byMethodCents: { cash: 0, check: 0, paymentApp: 0, card: 0, package: 0 },
+      sessionsDelivered: 0,
+      sessionsRedeemedFromPackage: 0,
       outstandingCents: 0,
-      sessionCount: 0,
     });
-    const buckets = { week: blank(), month: blank(), all: blank() };
+    const buckets = {
+      week: blank(),
+      month: blank(),
+      quarter: blank(),
+      year: blank(),
+      all: blank(),
+    };
 
     const addToBuckets = (date, mutator) => {
       const d = new Date(date);
       mutator(buckets.all);
+      if (d >= startOfYear) mutator(buckets.year);
+      if (d >= startOfQuarter) mutator(buckets.quarter);
       if (d >= startOfMonth) mutator(buckets.month);
       if (d >= startOfWeek) mutator(buckets.week);
     };
 
+    const nowMs = now.toMillis();
     let paidCount = 0;
     let unpaidCount = 0;
 
-    const nowMs = now.toMillis();
-
-    // BOOKINGS — feed both cash and accrual sides.
+    // BOOKINGS
     for (const b of bookings) {
       const pkgId = b.packageRedemption?.packagePurchase
         ? String(b.packageRedemption.packagePurchase)
@@ -853,12 +861,6 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       const pkg = pkgId ? pkgById.get(pkgId) : null;
       const split = computeBookingPaymentBreakdown(b, pkg);
 
-      // Has the session actually been delivered yet? Status='confirmed'
-      // alone isn't enough — that includes every future booking on the
-      // calendar. Use the booking's own end time in its own TZ; only
-      // count toward accrual once it's passed. (Otherwise "Earned this
-      // month" balloons to include the entire rest of the month's
-      // scheduled work, which isn't earned, just booked.)
       let isDelivered = false;
       if (b.localDate && b.endTime) {
         const bookingTz = b.timezone || providerTz;
@@ -867,57 +869,74 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
           'yyyy-MM-dd HH:mm',
           { zone: bookingTz }
         );
-        if (endsAt.isValid) {
-          isDelivered = endsAt.toMillis() <= nowMs;
-        }
+        if (endsAt.isValid) isDelivered = endsAt.toMillis() <= nowMs;
       }
 
-      // Accrual amount for this booking = what was actually paid for
-      // the work, not the listed booking price. For fully-package-
-      // redeemed bookings this matters: the package's per-minute rate
-      // (what the buyer paid per minute) × minutes used = recognized
-      // revenue. Using booking.pricing.totalPrice would inflate revenue
-      // above what was ever collected when the package's per-minute
-      // rate is lower than the booking's listed rate (grandfathered
-      // tiers, bonus minutes diluting the rate, price changes since
-      // purchase).
-      const accrualAmountCents = split.fromPackageCents + split.fromOtherCents;
-
+      // Session count + redemption count (delivered work, regardless
+      // of who paid). Provider sees "you did N sessions this month,
+      // M of which were package redemptions = no new income."
       if (isDelivered) {
         addToBuckets(b.date, (bk) => {
-          bk.accrualTotalCents += accrualAmountCents;
-          bk.accrualFromPackagesCents += split.fromPackageCents;
-          bk.accrualFromOtherCents += split.fromOtherCents;
-          bk.sessionCount += 1;
+          bk.sessionsDelivered += 1;
+          if (split.minutesFromPackage > 0) {
+            bk.sessionsRedeemedFromPackage += 1;
+          }
         });
       }
 
-      // Collected: the booking's non-package portion, only when the
-      // provider has marked it paid. Package side never lands here —
-      // it was collected at package purchase and shows up in the
-      // package-sale loop below.
-      //
-      // Attribute to the per-method bucket using the booking's
-      // paymentMethod (which, for partial-redemption bookings, is the
-      // SECONDARY method covering the cash side, not 'package').
-      //
-      // Use paidAt as the "money arrived" timestamp; fall back to the
-      // booking date for legacy rows that didn't capture paidAt.
+      // Income (cash-basis): only the non-package portion of a booking
+      // counts, and only when collected. The package side was income at
+      // package-purchase time — counting it again here would double.
       if (b.paymentStatus === 'paid' && split.fromOtherCents > 0) {
         const collectedDate = b.paidAt || b.date;
         const method = b.paymentMethod;
         addToBuckets(collectedDate, (bk) => {
-          bk.collectedTotalCents += split.fromOtherCents;
-          bk.collectedFromBookingsCents += split.fromOtherCents;
-          if (method === 'cash' || method === 'card' || method === 'paymentApp') {
+          bk.incomeTotalCents += split.fromOtherCents;
+          bk.bookingPaymentsCents += split.fromOtherCents;
+          if (bk.byMethodCents[method] !== undefined) {
             bk.byMethodCents[method] += split.fromOtherCents;
           }
         });
       }
 
-      // Outstanding: delivered work where the cash side hasn't been
-      // collected yet. Future bookings don't count as "owed" — they
-      // haven't happened. Same isDelivered gate as accrual above.
+      // Tips — separate income line, attributed to the same method as
+      // the booking payment (provider typically gets tipped in the same
+      // form as the base session).
+      const tipCents = Math.round((b.tipAmount || 0) * 100);
+      if (tipCents > 0 && b.paymentStatus === 'paid') {
+        const collectedDate = b.paidAt || b.date;
+        const method = b.paymentMethod;
+        addToBuckets(collectedDate, (bk) => {
+          bk.incomeTotalCents += tipCents;
+          bk.tipsCents += tipCents;
+          if (bk.byMethodCents[method] !== undefined) {
+            bk.byMethodCents[method] += tipCents;
+          }
+        });
+      }
+
+      // Refunds — negative income on the day of refund.
+      const refundCents = Math.round((b.refundedAmount || 0) * 100);
+      if (refundCents > 0 && b.refundedAt) {
+        addToBuckets(b.refundedAt, (bk) => {
+          bk.incomeTotalCents -= refundCents;
+          bk.refundsCents += refundCents;
+        });
+      }
+
+      // Stripe fees — deductible expense (tax write-off), not income.
+      // Track separately so the CSV / report can surface the gross-vs-
+      // net distinction.
+      const feeCents = Math.round((b.stripeFeeAmount || 0) * 100);
+      if (feeCents > 0) {
+        const feeDate = b.paidAt || b.date;
+        addToBuckets(feeDate, (bk) => {
+          bk.stripeFeesCents += feeCents;
+        });
+      }
+
+      // Outstanding (still owed) — delivered work whose cash side
+      // hasn't been collected.
       if (isDelivered && b.paymentStatus !== 'paid' && split.fromOtherCents > 0) {
         addToBuckets(b.date, (bk) => {
           bk.outstandingCents += split.fromOtherCents;
@@ -928,50 +947,68 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
       else unpaidCount++;
     }
 
-    // PACKAGE SALES — collected-basis only. Each paid purchase
-    // contributes its full price on the day the cash arrived
-    // (purchasedAt). Per-method attribution: stripe → 'card', cash →
-    // 'cash', comped → don't count (no money changed hands).
+    // PACKAGE SALES — recognized at purchase time. Per-method:
+    // stripe → 'card', cash → 'cash', comped → don't count.
     let packageSalesCount = 0;
     for (const p of packagePurchases) {
-      if (!p.purchasedAt) continue; // no timestamp = legacy / pending
-      if (p.paymentMethod === 'comped') continue; // no money in
+      if (!p.purchasedAt) continue;
+      if (p.paymentMethod === 'comped') continue;
       const cents = Math.round((p.price || 0) * 100);
       const method = p.paymentMethod === 'stripe' ? 'card' : 'cash';
       addToBuckets(p.purchasedAt, (bk) => {
-        bk.collectedTotalCents += cents;
-        bk.collectedFromPackageSalesCents += cents;
+        bk.incomeTotalCents += cents;
+        bk.packageSalesCents += cents;
         bk.byMethodCents[method] += cents;
       });
       packageSalesCount++;
+
+      // Package refunds — negative income on the refund day.
+      const refundCents = Math.round((p.refundedAmount || 0) * 100);
+      if (refundCents > 0 && p.refundedAt) {
+        addToBuckets(p.refundedAt, (bk) => {
+          bk.incomeTotalCents -= refundCents;
+          bk.refundsCents += refundCents;
+        });
+      }
+
+      // Package Stripe fees — same expense bucket as booking fees.
+      const feeCents = Math.round((p.stripeFeeAmount || 0) * 100);
+      if (feeCents > 0) {
+        addToBuckets(p.purchasedAt, (bk) => {
+          bk.stripeFeesCents += feeCents;
+        });
+      }
     }
 
-    // Convert cents → dollars for the wire format. Keep cents internally
-    // so totals add up exactly; rounding only happens at the boundary.
     const formatBucket = (b) => ({
-      collected: {
-        total: b.collectedTotalCents / 100,
-        fromPackageSales: b.collectedFromPackageSalesCents / 100,
-        fromBookings: b.collectedFromBookingsCents / 100,
+      income: {
+        total: b.incomeTotalCents / 100,
+        bookingPayments: b.bookingPaymentsCents / 100,
+        tips: b.tipsCents / 100,
+        packageSales: b.packageSalesCents / 100,
+        refunds: b.refundsCents / 100,
+        outstanding: b.outstandingCents / 100,
         byMethod: {
           cash: b.byMethodCents.cash / 100,
-          card: b.byMethodCents.card / 100,
+          check: b.byMethodCents.check / 100,
           paymentApp: b.byMethodCents.paymentApp / 100,
+          card: b.byMethodCents.card / 100,
+          package: b.byMethodCents.package / 100,
         },
       },
-      accrual: {
-        total: b.accrualTotalCents / 100,
-        fromPackages: b.accrualFromPackagesCents / 100,
-        fromOther: b.accrualFromOtherCents / 100,
-        outstanding: b.outstandingCents / 100,
-        sessionCount: b.sessionCount,
+      sessions: {
+        delivered: b.sessionsDelivered,
+        redeemedFromPackage: b.sessionsRedeemedFromPackage,
       },
+      stripeFees: b.stripeFeesCents / 100,
     });
 
     res.json({
       providerTz,
       week: formatBucket(buckets.week),
       month: formatBucket(buckets.month),
+      quarter: formatBucket(buckets.quarter),
+      year: formatBucket(buckets.year),
       all: formatBucket(buckets.all),
       paidCount,
       unpaidCount,
@@ -980,6 +1017,228 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error fetching revenue:', error);
     res.status(500).json({ message: 'Error fetching revenue' });
+  }
+});
+
+// GET /income-transactions?startDate=&endDate=
+//
+// Transaction-level income report for CSV export and the Reports page
+// list view. Returns every income-producing event in range:
+//   - Booking payments collected (paidAt in range, non-package portion)
+//   - Tips collected on bookings (paidAt in range)
+//   - Package sales (purchasedAt in range)
+//   - Package redemptions (NOT income, but listed for context — $0)
+//   - Refunds (refundedAt in range, negative amount)
+//
+// Each row is a discrete event with date, type, method, who, amount.
+// CPA-ready format; the client renders to CSV.
+router.get('/income-transactions', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Only providers can view income reports' });
+    }
+
+    const { tzForProviderId } = require('../utils/providerTz');
+    const providerTz = await tzForProviderId(req.user._id);
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'startDate and endDate are required (yyyy-MM-dd)' });
+    }
+    const start = DateTime.fromFormat(startDate, 'yyyy-MM-dd', { zone: providerTz });
+    const end = DateTime.fromFormat(endDate, 'yyyy-MM-dd', { zone: providerTz });
+    if (!start.isValid || !end.isValid) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+    const startJs = start.startOf('day').toUTC().toJSDate();
+    const endJs = end.endOf('day').toUTC().toJSDate();
+
+    const [bookings, packagePurchases] = await Promise.all([
+      Booking.find({
+        provider: req.user._id,
+        // Wider net than the date filter — a booking dated outside the
+        // range can still produce a transaction inside it (e.g. cash
+        // paid late, refund issued months later).
+      }).populate('client', 'profile.fullName email').lean(),
+      PackagePurchase.find({
+        provider: req.user._id,
+      }).populate('client', 'profile.fullName email').lean(),
+    ]);
+
+    const pkgById = new Map(packagePurchases.map(p => [String(p._id), p]));
+
+    const transactions = [];
+    const inRange = (d) => {
+      if (!d) return false;
+      const t = new Date(d).getTime();
+      return t >= startJs.getTime() && t <= endJs.getTime();
+    };
+    const clientName = (c, fallback) =>
+      c?.profile?.fullName || c?.email || fallback || 'Unknown';
+
+    for (const b of bookings) {
+      const pkg = b.packageRedemption?.packagePurchase
+        ? pkgById.get(String(b.packageRedemption.packagePurchase))
+        : null;
+      const split = computeBookingPaymentBreakdown(b, pkg);
+      const recipient = b.recipientType === 'other' && b.recipientInfo?.name
+        ? b.recipientInfo.name
+        : clientName(b.client);
+
+      // Booking payment (non-package portion)
+      if (b.paymentStatus === 'paid' && split.fromOtherCents > 0 && inRange(b.paidAt || b.date)) {
+        transactions.push({
+          date: b.paidAt || b.date,
+          type: 'Service',
+          method: b.paymentMethod,
+          client: recipient,
+          description: `${b.duration}-min ${b.serviceType?.name || 'session'}${split.minutesFromPackage > 0 ? ` (partial pkg)` : ''}`,
+          amount: split.fromOtherCents / 100,
+          notes: split.minutesFromPackage > 0
+            ? `${split.minutesFromPackage} min from package + ${split.minutesFromOther} min via ${b.paymentMethod}`
+            : '',
+          stripeFee: 0,
+          relatedId: b._id,
+        });
+      }
+
+      // Tip
+      const tipCents = Math.round((b.tipAmount || 0) * 100);
+      if (tipCents > 0 && b.paymentStatus === 'paid' && inRange(b.paidAt || b.date)) {
+        transactions.push({
+          date: b.paidAt || b.date,
+          type: 'Tip',
+          method: b.paymentMethod,
+          client: recipient,
+          description: `Tip (on ${b.localDate} session)`,
+          amount: tipCents / 100,
+          notes: '',
+          stripeFee: 0,
+          relatedId: b._id,
+        });
+      }
+
+      // Refund
+      const refundCents = Math.round((b.refundedAmount || 0) * 100);
+      if (refundCents > 0 && b.refundedAt && inRange(b.refundedAt)) {
+        transactions.push({
+          date: b.refundedAt,
+          type: 'Refund',
+          method: b.paymentMethod,
+          client: recipient,
+          description: `Refund of ${b.localDate} session`,
+          amount: -refundCents / 100,
+          notes: '',
+          stripeFee: 0,
+          relatedId: b._id,
+        });
+      }
+
+      // Stripe fee — separate row so the provider's CSV can subtotal
+      // fees as deductible expense.
+      const feeCents = Math.round((b.stripeFeeAmount || 0) * 100);
+      if (feeCents > 0 && inRange(b.paidAt || b.date)) {
+        transactions.push({
+          date: b.paidAt || b.date,
+          type: 'Stripe fee',
+          method: 'card',
+          client: recipient,
+          description: `Stripe processor fee (${b.localDate} session)`,
+          amount: 0,
+          notes: '',
+          stripeFee: feeCents / 100,
+          relatedId: b._id,
+        });
+      }
+
+      // Package redemption — listed for context, $0 income.
+      if (split.minutesFromPackage > 0 && b.localDate) {
+        const sessionEnd = b.endTime
+          ? DateTime.fromFormat(`${b.localDate} ${b.endTime}`, 'yyyy-MM-dd HH:mm', { zone: b.timezone || providerTz }).toUTC().toJSDate()
+          : null;
+        if (sessionEnd && inRange(sessionEnd) && sessionEnd <= new Date()) {
+          transactions.push({
+            date: sessionEnd,
+            type: 'Package redemption',
+            method: 'package',
+            client: recipient,
+            description: `${split.minutesFromPackage} min redeemed from ${split.packageName || 'package'}`,
+            amount: 0,
+            notes: 'Commitment fulfilled — no new income',
+            stripeFee: 0,
+            relatedId: b._id,
+          });
+        }
+      }
+    }
+
+    // Package sales + refunds + fees
+    for (const p of packagePurchases) {
+      if (p.purchasedAt && inRange(p.purchasedAt) && p.paymentMethod !== 'comped') {
+        transactions.push({
+          date: p.purchasedAt,
+          type: 'Package sale',
+          method: p.paymentMethod === 'stripe' ? 'card' : 'cash',
+          client: clientName(p.client),
+          description: p.name || 'Package',
+          amount: p.price || 0,
+          notes: '',
+          stripeFee: p.stripeFeeAmount || 0,
+          relatedId: p._id,
+        });
+      }
+      const refundCents = Math.round((p.refundedAmount || 0) * 100);
+      if (refundCents > 0 && p.refundedAt && inRange(p.refundedAt)) {
+        transactions.push({
+          date: p.refundedAt,
+          type: 'Package refund',
+          method: p.paymentMethod === 'stripe' ? 'card' : 'cash',
+          client: clientName(p.client),
+          description: `Refund of ${p.name || 'package'}`,
+          amount: -refundCents / 100,
+          notes: '',
+          stripeFee: 0,
+          relatedId: p._id,
+        });
+      }
+    }
+
+    transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Summary totals
+    const summary = {
+      incomeTotal: 0,
+      byMethod: { cash: 0, check: 0, paymentApp: 0, card: 0 },
+      bookingPayments: 0,
+      tips: 0,
+      packageSales: 0,
+      refunds: 0,
+      stripeFees: 0,
+      sessionsDelivered: 0,
+      sessionsRedeemedFromPackage: 0,
+    };
+    for (const t of transactions) {
+      if (t.type === 'Service' || t.type === 'Tip' || t.type === 'Package sale') {
+        summary.incomeTotal += t.amount;
+        if (summary.byMethod[t.method] !== undefined) {
+          summary.byMethod[t.method] += t.amount;
+        }
+        if (t.type === 'Service') summary.bookingPayments += t.amount;
+        if (t.type === 'Tip') summary.tips += t.amount;
+        if (t.type === 'Package sale') summary.packageSales += t.amount;
+      }
+      if (t.type === 'Refund' || t.type === 'Package refund') {
+        summary.incomeTotal += t.amount; // already negative
+        summary.refunds += -t.amount;
+      }
+      if (t.type === 'Stripe fee') summary.stripeFees += t.stripeFee;
+      if (t.type === 'Package redemption') summary.sessionsRedeemedFromPackage += 1;
+      if (t.type === 'Service') summary.sessionsDelivered += 1;
+    }
+
+    res.json({ providerTz, range: { startDate, endDate }, transactions, summary });
+  } catch (error) {
+    console.error('Error fetching income transactions:', error);
+    res.status(500).json({ message: 'Error fetching income transactions' });
   }
 });
 
@@ -1541,6 +1800,65 @@ router.patch('/:id/payment-status', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// PATCH /:id/tip — Set or update the tip amount on a booking.
+// Provider-only. Tips are tracked separately from the base session
+// price for income reporting (tips trend matters for some providers'
+// pricing decisions). Cash-basis income on the booking's paidAt date.
+router.patch('/:id/tip', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can update tips' });
+    }
+    const { tipAmount } = req.body;
+    const amount = Number(tipAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return res.status(400).json({ message: 'tipAmount must be a non-negative number' });
+    }
+    booking.tipAmount = Math.round(amount * 100) / 100;
+    await booking.save();
+    res.json(booking);
+  } catch (error) {
+    console.error('Error updating tip:', error);
+    res.status(500).json({ message: 'Error updating tip' });
+  }
+});
+
+// POST /:id/refund — Record a refund on a booking.
+// Provider-only. Records the amount + timestamp; doesn't move money on
+// Stripe (that's a separate manual action in the Stripe dashboard for
+// card refunds; cash/check refunds are out-of-band). The income report
+// counts this as negative income on the day refunded.
+router.post('/:id/refund', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can issue refunds' });
+    }
+    const { refundedAmount } = req.body;
+    const amount = Number(refundedAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: 'refundedAmount must be a positive number' });
+    }
+    booking.refundedAmount = Math.round(amount * 100) / 100;
+    booking.refundedAt = new Date();
+    await booking.save();
+    audit({
+      userId: booking.client,
+      action: 'update', resource: 'booking_refund',
+      resourceId: booking._id,
+      details: { amount: booking.refundedAmount },
+      req,
+    });
+    res.json(booking);
+  } catch (error) {
+    console.error('Error recording refund:', error);
+    res.status(500).json({ message: 'Error recording refund' });
+  }
+});
+
 // PATCH /:id/payment-method
 //
 // Provider-only. Switches an existing booking's payment method to a
@@ -1570,7 +1888,7 @@ router.patch('/:id/payment-method', ensureAuthenticated, async (req, res) => {
     }
 
     const { paymentMethod, packagePurchaseId, packageMinutesApplied } = req.body;
-    if (!['cash', 'paymentApp', 'card', 'package'].includes(paymentMethod)) {
+    if (!['cash', 'check', 'paymentApp', 'card', 'package'].includes(paymentMethod)) {
       return res.status(400).json({ message: 'Invalid payment method' });
     }
 

@@ -113,7 +113,7 @@ const UserSchema = new mongoose.Schema({
       // after the client pays them out-of-band. The named-app 'zelle'
       // option got rolled into this; migration converted existing
       // entries on May 2026 (server/scripts/wipeZelle.js).
-      enum: ['cash', 'paymentApp', 'card'],
+      enum: ['cash', 'check', 'paymentApp', 'card'],
       default: ['cash', 'paymentApp']
     },
     // Provider-configured pricing by duration. displayOrder lets the

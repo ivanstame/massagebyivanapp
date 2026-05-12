@@ -260,6 +260,25 @@ router.post('/webhook', requireStripe, async (req, res) => {
       const bookingId = paymentIntent.metadata?.bookingId;
       const packagePurchaseId = paymentIntent.metadata?.packagePurchaseId;
 
+      // Capture the Stripe processor fee for income reports. The
+      // payment intent itself doesn't carry the fee directly; we
+      // resolve it via the latest_charge's balance_transaction. Best
+      // effort — if this fails the rest of the webhook still succeeds.
+      let stripeFeeAmount = 0;
+      if (stripe && paymentIntent.latest_charge) {
+        try {
+          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge, {
+            expand: ['balance_transaction'],
+          });
+          // balance_transaction.fee is in the smallest currency unit
+          // (cents for USD). Convert to dollars at the boundary.
+          const feeCents = charge?.balance_transaction?.fee || 0;
+          stripeFeeAmount = feeCents / 100;
+        } catch (feeErr) {
+          console.warn(`[Stripe] Could not resolve fee for PI ${paymentIntent.id}: ${feeErr.message}`);
+        }
+      }
+
       // Idempotency: Stripe retries webhooks. Skip if the doc was
       // already marked paid so paidAt/purchasedAt reflect the FIRST
       // successful event, not the latest retry. Without this the
@@ -271,8 +290,9 @@ router.post('/webhook', requireStripe, async (req, res) => {
             booking.paymentStatus = 'paid';
             booking.paidAt = new Date();
             booking.stripeEventId = event.id;
+            if (stripeFeeAmount > 0) booking.stripeFeeAmount = stripeFeeAmount;
             await booking.save();
-            console.log(`Booking ${bookingId} marked as paid via webhook (event ${event.id})`);
+            console.log(`Booking ${bookingId} marked as paid via webhook (event ${event.id}, fee $${stripeFeeAmount.toFixed(2)})`);
             audit({
               userId: booking.client,
               action: 'update', resource: 'booking_payment_status',
@@ -297,8 +317,9 @@ router.post('/webhook', requireStripe, async (req, res) => {
             purchase.paymentStatus = 'paid';
             purchase.purchasedAt = new Date();
             purchase.stripeEventId = event.id;
+            if (stripeFeeAmount > 0) purchase.stripeFeeAmount = stripeFeeAmount;
             await purchase.save();
-            console.log(`Package purchase ${packagePurchaseId} marked as paid via webhook (event ${event.id})`);
+            console.log(`Package purchase ${packagePurchaseId} marked as paid via webhook (event ${event.id}, fee $${stripeFeeAmount.toFixed(2)})`);
           } else if (purchase) {
             console.log(`Package purchase ${packagePurchaseId} already paid; skipping webhook ${event.id}`);
           }

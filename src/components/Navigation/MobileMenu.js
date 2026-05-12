@@ -30,6 +30,7 @@ const ICON_BY_HREF = {
   '/provider/weekly-outreach': Megaphone,
   '/provider/mileage':        Receipt,
   '/provider/expenses':       Receipt,
+  '/provider/reports':        Receipt,
   '/provider/settings':       Settings,
   '/book':                    CalendarPlus,
   '/my-bookings':             Calendar,

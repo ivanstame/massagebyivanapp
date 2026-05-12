@@ -862,9 +862,10 @@ const ProviderServices = () => {
             </p>
             <div className="space-y-2">
               {[
-                { id: 'cash',       label: 'Cash / Check',  desc: 'Pay in person' },
-                { id: 'paymentApp', label: 'Payment app',   desc: 'Zelle, Venmo, Cash App, Apple Pay, etc.' },
-                { id: 'card',       label: 'Card',           desc: 'Credit/Debit via Stripe — requires Stripe Connect in Settings' },
+                { id: 'cash',       label: 'Cash',        desc: 'Physical bills, in person' },
+                { id: 'check',      label: 'Check',       desc: 'Paper check, in person' },
+                { id: 'paymentApp', label: 'Payment app', desc: 'Zelle, Venmo, Cash App, Apple Pay, etc.' },
+                { id: 'card',       label: 'Card',        desc: 'Credit/Debit via Stripe — requires Stripe Connect in Settings' },
               ].map(opt => {
                 const enabled = acceptedPaymentMethods.includes(opt.id);
                 const isOnlyOne = enabled && acceptedPaymentMethods.length === 1;

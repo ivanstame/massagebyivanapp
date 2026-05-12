@@ -180,6 +180,26 @@ const PackagePurchaseSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  // Refund tracking. Income reports treat refunds as negative income
+  // on the day of the refund (cash basis), not a reversal of the
+  // original sale day.
+  refundedAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  refundedAt: {
+    type: Date,
+    default: null,
+  },
+  // Stripe processor fee on the package sale. Captured from the
+  // webhook event. Gross is the basis for income tax; the fee is a
+  // separate deductible expense.
+  stripeFeeAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
 
   redemptions: [RedemptionSchema],
   bonuses:     [BonusSchema],

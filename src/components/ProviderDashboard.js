@@ -343,43 +343,74 @@ const ProviderDashboard = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-4">
           <Stat label="Today" value={stats.total} sub="scheduled sessions" />
           <Stat label="Upcoming" value={stats.upcoming} sub="still to go" />
-          {/* Two revenue lenses, plain English so the provider doesn't
-              need an accounting background to read this:
-                "Sessions you did" = value of work delivered, regardless
-                  of whether you've been paid yet. Outstanding = owed.
-                "Money you've been paid" = what physically landed (cash
-                  / card / payment app), regardless of when the work
-                  was done. Includes package sales the day the buyer
-                  paid for them.
-              These two numbers diverge when packages are bought ahead,
-              when partial-redemption bookings have an unpaid cash
-              side, etc. — and that's the point of showing both. */}
           <Stat
-            label="Sessions you did this month"
-            value={revenue ? `$${(revenue.month?.accrual?.total || 0).toLocaleString()}` : '—'}
-            sub={revenue?.month?.accrual?.outstanding > 0
-              ? `$${revenue.month.accrual.outstanding.toLocaleString()} still owed to you`
-              : (revenue?.month?.accrual?.sessionCount
-                ? `${revenue.month.accrual.sessionCount} session${revenue.month.accrual.sessionCount === 1 ? '' : 's'} delivered`
-                : 'work value, paid or not')}
-            accent
+            label="Sessions delivered this month"
+            value={revenue?.month?.sessions?.delivered ?? '—'}
+            sub={revenue?.month?.sessions?.redeemedFromPackage > 0
+              ? `${revenue.month.sessions.redeemedFromPackage} from packages`
+              : 'so far this month'}
           />
           <Stat
-            label="Money you've been paid this month"
-            value={revenue ? `$${(revenue.month?.collected?.total || 0).toLocaleString()}` : '—'}
-            sub={(() => {
-              const bm = revenue?.month?.collected?.byMethod;
-              if (!bm) return 'cash, card, or app — combined';
-              const parts = [];
-              if (bm.cash > 0) parts.push(`$${bm.cash.toLocaleString()} cash`);
-              if (bm.card > 0) parts.push(`$${bm.card.toLocaleString()} card`);
-              if (bm.paymentApp > 0) parts.push(`$${bm.paymentApp.toLocaleString()} app`);
-              return parts.length > 0 ? parts.join(' · ') : 'cash, card, or app — combined';
-            })()}
+            label="Outstanding"
+            value={revenue ? `$${(revenue.month?.income?.outstanding || 0).toLocaleString()}` : '—'}
+            sub={revenue?.month?.income?.outstanding > 0 ? 'still owed to you' : 'all paid up'}
           />
+        </div>
+
+        {/* Income at-a-glance — one big number, per-method chips, link
+            to full report. Cash-basis: includes booking payments,
+            tips, package SALES (not redemptions), minus refunds. This
+            is the number the provider would report on Schedule C. */}
+        <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-6 mb-8">
+          <div className="flex items-baseline justify-between mb-2">
+            <div className="av-eyebrow text-accent">Income this month</div>
+            <Link to="/provider/reports" className="text-sm font-medium text-accent hover:text-accent-ink inline-flex items-center gap-1">
+              Full report <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="font-display" style={{ fontSize: '2.5rem', fontWeight: 500, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            {revenue ? `$${(revenue.month?.income?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+          </div>
+          <p className="text-xs text-ink-2 mt-1">
+            Cash-basis. Includes paid bookings, tips, and package sales. Excludes package redemptions (no new income — commitment fulfilled).
+          </p>
+
+          {/* Per-method breakdown chips. Only show categories with $ > 0. */}
+          {revenue && (() => {
+            const bm = revenue.month?.income?.byMethod || {};
+            const chips = [
+              { id: 'cash',       label: 'Cash',     amount: bm.cash || 0 },
+              { id: 'check',      label: 'Checks',   amount: bm.check || 0 },
+              { id: 'paymentApp', label: 'App',      amount: bm.paymentApp || 0 },
+              { id: 'card',       label: 'Card',     amount: bm.card || 0 },
+              { id: 'package',    label: 'Packages', amount: bm.package || 0 },
+            ].filter(c => c.amount > 0);
+            return chips.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {chips.map(c => (
+                  <div key={c.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper-deep border border-line text-xs">
+                    <span className="text-ink-2">{c.label}</span>
+                    <span className="font-medium text-ink">${c.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
+
+          {/* Refunds and Stripe fees notes — only when non-zero. */}
+          {revenue?.month?.income?.refunds > 0 && (
+            <div className="text-xs text-amber-700 mt-2">
+              Refunds issued this month: ${revenue.month.income.refunds.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (already subtracted from total)
+            </div>
+          )}
+          {revenue?.month?.stripeFees > 0 && (
+            <div className="text-xs text-ink-3 mt-1">
+              Stripe processor fees this month: ${revenue.month.stripeFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (deductible expense — separate from income above)
+            </div>
+          )}
         </div>
 
         {/* Today's rhythm + side */}
@@ -419,41 +450,26 @@ const ProviderDashboard = () => {
             )}
           </div>
 
-          {/* Revenue recap side card */}
+          {/* Year-to-date recap side card. Quarterly subtitle is the
+              tax-relevant cut for sole-prop estimated payments. */}
           <div className="flex flex-col gap-4">
             <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-5 relative overflow-hidden">
               <div className="absolute -right-5 -bottom-5 pointer-events-none" style={{ opacity: 0.14 }}>
                 <BrushLeaf size={100} color="#B07A4E" />
               </div>
-              <div className="av-meta text-accent">All sessions to date</div>
+              <div className="av-meta text-accent">Income this year</div>
               <div className="font-display mt-2" style={{ fontSize: "1.625rem", fontWeight: 500, letterSpacing: '-0.01em' }}>
-                {revenue ? `$${(revenue.all?.accrual?.total || 0).toLocaleString()}` : '—'}
+                {revenue ? `$${(revenue.year?.income?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
               </div>
               <div className="text-xs text-ink-2 mt-1">
-                Total value of work you've delivered
+                This quarter: <span className="font-medium">${(revenue?.quarter?.income?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-              {revenue?.all?.collected?.total != null && (
-                <div className="text-xs text-ink-2 mt-1">
-                  Of which paid: <span className="font-medium">${revenue.all.collected.total.toLocaleString()}</span>
+              {revenue?.year?.income?.outstanding > 0 && (
+                <div className="text-xs text-amber-700 mt-1">
+                  ${revenue.year.income.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} still owed to you
                 </div>
               )}
-              {(() => {
-                const bm = revenue?.all?.collected?.byMethod;
-                if (!bm) return null;
-                const parts = [];
-                if (bm.cash > 0) parts.push(`$${bm.cash.toLocaleString()} cash`);
-                if (bm.card > 0) parts.push(`$${bm.card.toLocaleString()} card`);
-                if (bm.paymentApp > 0) parts.push(`$${bm.paymentApp.toLocaleString()} app`);
-                return parts.length > 0
-                  ? <div className="text-xs text-ink-3 mt-0.5">{parts.join(' · ')}</div>
-                  : null;
-              })()}
-              {revenue?.all?.accrual?.outstanding > 0 && (
-                <div className="text-xs text-amber-700 mt-0.5">
-                  ${revenue.all.accrual.outstanding.toLocaleString()} still owed to you
-                </div>
-              )}
-              <Link to="/provider/mileage" className="mt-4 inline-flex items-center gap-1.5 text-accent text-[13px] font-medium hover:text-accent-ink transition">
+              <Link to="/provider/reports" className="mt-4 inline-flex items-center gap-1.5 text-accent text-[13px] font-medium hover:text-accent-ink transition">
                 Open reports <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

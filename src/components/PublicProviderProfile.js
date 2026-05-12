@@ -58,11 +58,13 @@ const PublicProviderProfile = () => {
 
   const paymentIcons = {
     cash: '💵',
+    check: '🧾',
     paymentApp: '📱',
     card: '💳'
   };
   const paymentLabels = {
-    cash: 'Cash / Check',
+    cash: 'Cash',
+    check: 'Check',
     paymentApp: 'Payment app',
     card: 'Card'
   };

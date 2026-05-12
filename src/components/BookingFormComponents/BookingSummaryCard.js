@@ -27,7 +27,8 @@ const BookingSummaryCard = ({
   additionalSessions = [],
 }) => {
   const paymentMethodLabels = {
-    cash: 'Cash / Check',
+    cash: 'Cash',
+    check: 'Check',
     paymentApp: 'Payment app',
     card: 'Card',
     package: 'Package credit',

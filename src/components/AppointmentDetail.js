@@ -126,14 +126,64 @@ const AppointmentDetail = () => {
     }
   };
 
+  // Tip + refund modal state. Both surface inline on the payment card
+  // so the provider can record either without leaving the page.
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [tipInput, setTipInput] = useState('');
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundInput, setRefundInput] = useState('');
+
+  const openTipModal = () => {
+    setTipInput(booking?.tipAmount ? String(booking.tipAmount) : '');
+    setShowTipModal(true);
+  };
+  const saveTip = async () => {
+    try {
+      const amt = parseFloat(tipInput);
+      if (!Number.isFinite(amt) || amt < 0) {
+        setError('Tip must be a non-negative number');
+        return;
+      }
+      const res = await axios.patch(`/api/bookings/${id}/tip`,
+        { tipAmount: amt }, { withCredentials: true });
+      setBooking(res.data);
+      setShowTipModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save tip');
+    }
+  };
+
+  const openRefundModal = () => {
+    const defaultAmount = (booking?.pricing?.totalPrice || 0) + (booking?.tipAmount || 0);
+    setRefundInput(String(defaultAmount));
+    setShowRefundModal(true);
+  };
+  const saveRefund = async () => {
+    try {
+      const amt = parseFloat(refundInput);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        setError('Refund amount must be greater than 0');
+        return;
+      }
+      if (!window.confirm(`Record a $${amt.toFixed(2)} refund on this booking? This is a record-keeping action — if it was a card payment, you still need to issue the refund manually in Stripe.`)) return;
+      const res = await axios.post(`/api/bookings/${id}/refund`,
+        { refundedAmount: amt }, { withCredentials: true });
+      setBooking(res.data);
+      setShowRefundModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record refund');
+    }
+  };
+
   const paymentMethodLabel = (method) => {
     const labels = {
-      cash: 'Cash / Check',
+      cash: 'Cash',
+      check: 'Check',
       paymentApp: 'Payment app',
       card: 'Card',
       package: 'Package credit',
     };
-    return labels[method] || method || 'Cash / Check';
+    return labels[method] || method || 'Cash';
   };
 
   // ─── Change payment method (provider-only) ───────────────────────
@@ -573,8 +623,99 @@ const AppointmentDetail = () => {
               </div>
             </div>
 
+            {/* Tip + refund row — provider-only, record-keeping for the
+                income reports. Tip counts as separate income on the day
+                collected; refund counts as negative income on the day
+                issued. */}
+            {isProvider && booking.status !== 'cancelled' && (
+              <div className="flex items-center gap-3 pt-3 border-t border-line">
+                <div className="flex-1">
+                  <p className="text-xs text-slate-500">Tip</p>
+                  <p className="text-sm font-medium text-slate-900">
+                    {booking.tipAmount > 0
+                      ? `$${Number(booking.tipAmount).toFixed(2)}`
+                      : <span className="text-slate-400 font-normal">None recorded</span>}
+                  </p>
+                </div>
+                <button
+                  onClick={openTipModal}
+                  className="text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-3 py-1.5 rounded-lg hover:bg-[#B07A4E]/10"
+                >
+                  {booking.tipAmount > 0 ? 'Edit tip' : 'Record tip'}
+                </button>
+                {booking.refundedAmount > 0 ? (
+                  <div className="text-xs text-red-700 font-medium px-2 py-1 bg-red-50 rounded">
+                    Refunded ${Number(booking.refundedAmount).toFixed(2)}
+                  </div>
+                ) : (
+                  <button
+                    onClick={openRefundModal}
+                    className="text-xs font-medium text-red-700 hover:text-red-800 px-3 py-1.5 rounded-lg hover:bg-red-50"
+                    title="Record a refund (for tax records)"
+                  >
+                    Refund
+                  </button>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
+
+        {/* Tip modal */}
+        {showTipModal && (
+          <div className="fixed inset-0 bg-slate-600/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTipModal(false)}>
+            <div className="bg-paper-elev rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">Record tip</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Counted as separate income on the day the booking was paid. Same payment method as the base session.
+              </p>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={tipInput}
+                onChange={(e) => setTipInput(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent text-lg"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setShowTipModal(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+                <button onClick={saveTip} className="px-4 py-2 bg-[#B07A4E] hover:bg-[#8A5D36] text-white rounded-lg text-sm font-medium">Save</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refund modal */}
+        {showRefundModal && (
+          <div className="fixed inset-0 bg-slate-600/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRefundModal(false)}>
+            <div className="bg-paper-elev rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">Record refund</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Record-keeping only — if this was a card payment, you'll still need to issue the actual refund through Stripe.
+                Counted as negative income on today's date.
+              </p>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={refundInput}
+                onChange={(e) => setRefundInput(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-lg"
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button onClick={() => setShowRefundModal(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+                <button onClick={saveRefund} className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium">Record refund</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Session notes — provider only. Free-form, optional. The
             provider can write whatever format they prefer (SOAP,
@@ -894,7 +1035,8 @@ const AppointmentDetail = () => {
               {/* Method picker — card hidden until live Stripe keys */}
               <div className="space-y-2">
                 {[
-                  { id: 'cash', label: 'Cash / Check' },
+                  { id: 'cash', label: 'Cash' },
+                  { id: 'check', label: 'Check' },
                   { id: 'paymentApp', label: 'Payment app' },
                   { id: 'package', label: 'Package credit' },
                 ].map(opt => (

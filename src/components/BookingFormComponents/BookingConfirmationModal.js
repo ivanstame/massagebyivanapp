@@ -45,7 +45,8 @@ const BookingConfirmationModal = ({
   } = bookingDetails || {};
 
   const PAYMENT_METHOD_LABELS = {
-    cash: 'Cash / Check',
+    cash: 'Cash',
+    check: 'Check',
     paymentApp: 'Payment app',
     card: 'Card',
     package: 'Package credit',

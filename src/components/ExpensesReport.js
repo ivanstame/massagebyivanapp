@@ -1,43 +1,60 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DateTime } from 'luxon';
-import { Receipt, Car } from 'lucide-react';
+import { Receipt, Car, DollarSign } from 'lucide-react';
 import { AuthContext } from '../AuthContext';
 import { tzOf } from '../utils/timeConstants';
 import MileageReport from './MileageReport';
 import OtherExpenses from './OtherExpenses';
+import IncomeReport from './IncomeReport';
 
-// ExpensesReport — single page where the provider sees both Mileage
-// and Supplies & Other expenses for a unified date range. The wrapper
-// owns the period selector; both tabs receive startDate/endDate as
-// props and re-fetch on change.
+// ReportsPage (file is still ExpensesReport.js for git history) — the
+// provider's one-stop tax-time view. Three tabs:
+//   - Income: cash-basis income + transaction list + CSV export
+//   - Mileage: existing IRS deductible-miles report
+//   - Supplies & Other: existing logged expenses
+//
+// Wrapper owns the date range; all three tabs receive startDate/endDate
+// as props and re-fetch on change. URL controls the default tab:
+//   /provider/reports             → Income
+//   /provider/reports?tab=income  → Income
+//   /provider/reports?tab=mileage → Mileage (also reached via /provider/mileage)
+//   /provider/reports?tab=expenses → Supplies (also reached via /provider/expenses)
 
 const TABS = [
-  { id: 'mileage',  label: 'Mileage',           icon: Car },
-  { id: 'supplies', label: 'Supplies & Other',  icon: Receipt },
+  { id: 'income',   label: 'Income',           icon: DollarSign },
+  { id: 'mileage',  label: 'Mileage',          icon: Car },
+  { id: 'supplies', label: 'Supplies & Other', icon: Receipt },
 ];
 
-const ExpensesReport = () => {
+const ReportsPage = () => {
   const { user } = useContext(AuthContext);
   const viewerTz = tzOf(user);
   const location = useLocation();
 
-  // Default tab driven by URL — /provider/mileage opens with the
-  // mileage tab selected so the legacy URL still feels like "Mileage."
-  // /provider/expenses opens with supplies (the new feature).
-  const defaultTab = location.pathname.includes('mileage') ? 'mileage' : 'supplies';
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  // Default tab driven by URL path and ?tab= query for back-compat
+  // with /provider/mileage and /provider/expenses.
+  const pickDefaultTab = () => {
+    const params = new URLSearchParams(location.search);
+    const qTab = params.get('tab');
+    if (qTab && TABS.some(t => t.id === qTab)) return qTab;
+    if (location.pathname.includes('mileage')) return 'mileage';
+    if (location.pathname.includes('expenses')) return 'supplies';
+    return 'income';
+  };
+  const [activeTab, setActiveTab] = useState(pickDefaultTab);
+
+  useEffect(() => {
+    setActiveTab(pickDefaultTab());
+    // pickDefaultTab is a closure over `location` which IS in deps;
+    // not declaring it explicitly to avoid the noise of memoizing a
+    // tiny synchronous reader.
+  }, [location.pathname, location.search]); // eslint-disable-line
 
   // Period — current month by default, anchored in the provider's TZ.
   const now = DateTime.now().setZone(viewerTz);
   const [startDate, setStartDate] = useState(now.startOf('month').toFormat('yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(now.endOf('month').toFormat('yyyy-MM-dd'));
-
-  // If the URL changes between /provider/mileage and /provider/expenses
-  // without a remount, swap the active tab to match.
-  useEffect(() => {
-    setActiveTab(location.pathname.includes('mileage') ? 'mileage' : 'supplies');
-  }, [location.pathname]);
 
   const setRange = (preset) => {
     const n = DateTime.now().setZone(viewerTz);
@@ -56,6 +73,12 @@ const ExpensesReport = () => {
         setStartDate(n.startOf('quarter').toFormat('yyyy-MM-dd'));
         setEndDate(n.endOf('quarter').toFormat('yyyy-MM-dd'));
         break;
+      case 'lastQuarter': {
+        const lq = n.minus({ quarters: 1 });
+        setStartDate(lq.startOf('quarter').toFormat('yyyy-MM-dd'));
+        setEndDate(lq.endOf('quarter').toFormat('yyyy-MM-dd'));
+        break;
+      }
       case 'thisYear':
         setStartDate(n.startOf('year').toFormat('yyyy-MM-dd'));
         setEndDate(n.endOf('year').toFormat('yyyy-MM-dd'));
@@ -75,17 +98,17 @@ const ExpensesReport = () => {
               className="w-10 h-10 rounded-card flex items-center justify-center"
               style={{ background: 'var(--accent-soft)' }}
             >
-              <Receipt className="w-5 h-5 text-accent" />
+              <DollarSign className="w-5 h-5 text-accent" />
             </div>
             <div>
               <h1
                 className="font-display"
                 style={{ fontSize: '1.875rem', lineHeight: 1.1, fontWeight: 500, letterSpacing: '-0.01em' }}
               >
-                Expenses
+                Reports
               </h1>
               <p className="text-sm text-ink-2 mt-0.5">
-                Mileage and supply costs for tax-time record-keeping
+                Income, mileage, and supplies — everything you'll hand your CPA
               </p>
             </div>
           </div>
@@ -93,12 +116,12 @@ const ExpensesReport = () => {
 
         {/* Tabs */}
         <div className="border-b border-line mb-5">
-          <nav className="flex gap-1" aria-label="Expense categories">
+          <nav className="flex gap-1 overflow-x-auto" aria-label="Report categories">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === id
                     ? 'border-[#B07A4E] text-[#B07A4E]'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -111,13 +134,14 @@ const ExpensesReport = () => {
           </nav>
         </div>
 
-        {/* Date range — shared across tabs */}
+        {/* Date range — shared across all three tabs */}
         <div className="bg-paper-elev rounded-xl shadow-sm border border-line p-5 mb-6">
           <div className="flex flex-wrap gap-2 mb-4">
             {[
               ['thisMonth', 'This Month'],
               ['lastMonth', 'Last Month'],
               ['thisQuarter', 'This Quarter'],
+              ['lastQuarter', 'Last Quarter'],
               ['thisYear', 'This Year'],
             ].map(([key, label]) => (
               <button
@@ -152,14 +176,12 @@ const ExpensesReport = () => {
           </div>
         </div>
 
-        {activeTab === 'mileage' ? (
-          <MileageReport startDate={startDate} endDate={endDate} embedded />
-        ) : (
-          <OtherExpenses startDate={startDate} endDate={endDate} />
-        )}
+        {activeTab === 'income' && <IncomeReport startDate={startDate} endDate={endDate} />}
+        {activeTab === 'mileage' && <MileageReport startDate={startDate} endDate={endDate} embedded />}
+        {activeTab === 'supplies' && <OtherExpenses startDate={startDate} endDate={endDate} />}
       </div>
     </div>
   );
 };
 
-export default ExpensesReport;
+export default ReportsPage;

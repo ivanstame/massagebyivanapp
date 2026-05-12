@@ -125,7 +125,7 @@ const BookingSchema = new mongoose.Schema({
     // that case paymentStatus flips to 'paid' immediately at booking
     // time and packageRedemption holds a back-reference to the
     // consumed credit.
-    enum: ['cash', 'paymentApp', 'card', 'package'],
+    enum: ['cash', 'check', 'paymentApp', 'card', 'package'],
     default: 'cash'
   },
   paymentStatus: {
@@ -136,6 +136,36 @@ const BookingSchema = new mongoose.Schema({
   paidAt: {
     type: Date,
     default: null
+  },
+  // Optional tip on top of the base session price. Provider records it
+  // after the appointment if the client tipped. Cash-basis income —
+  // counts toward total income on the day collected (paidAt).
+  tipAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  // Refund tracking. When a paid booking is refunded — usually because
+  // the provider had to cancel and the client paid card/upfront — we
+  // record the refunded amount and timestamp. Reports treat refunds as
+  // negative income on the day of the refund (cash basis).
+  refundedAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  refundedAt: {
+    type: Date,
+    default: null,
+  },
+  // Stripe processor fee on this booking's card payment. Captured from
+  // the Stripe webhook event (balance transaction). Tax basis is the
+  // GROSS amount the client paid; the fee is a deductible business
+  // expense. We surface both gross and net on the income report.
+  stripeFeeAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
   },
   stripePaymentIntentId: {
     type: String,
