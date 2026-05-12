@@ -37,6 +37,19 @@ const { requestLogger, responseLogger, debugSession, dbConnectionChecker } = req
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Process-level safety net for unhandled rejections. Node's default
+// behavior in production is to crash on unhandledRejection, which is
+// usually right — but background tasks like the GCal scheduler emit
+// async errors from detached callbacks that have no request-scoped
+// caller to .catch them. Logging and continuing is the right tradeoff
+// here: a single background-task failure shouldn't be able to take
+// the whole app offline. Synchronous bugs still surface via
+// uncaughtException (which we still let crash — that one is genuinely
+// fatal because process state may be corrupt).
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] Unhandled promise rejection:', reason);
+});
+
 // Trust proxy for Heroku to handle secure cookies properly
 app.set('trust proxy', 1);
 

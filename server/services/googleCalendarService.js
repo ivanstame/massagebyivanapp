@@ -40,12 +40,23 @@ async function getAuthenticatedClient(provider) {
     expiry_date: gcal.tokenExpiry ? gcal.tokenExpiry.getTime() : null
   });
 
-  // Persist refreshed tokens automatically
+  // Persist refreshed tokens automatically. WRAPPED IN TRY/CATCH —
+  // the previous version's unhandled throw inside this async callback
+  // (e.g. FIELD_ENCRYPTION_KEY missing → encryption setter throws)
+  // surfaced as an unhandled promise rejection and crashed the entire
+  // dyno. A token-persistence failure is not worth taking down the
+  // app; log and keep serving requests, even if subsequent calls have
+  // to re-refresh.
   oauth2Client.on('tokens', async (tokens) => {
-    if (tokens.access_token) {
+    if (!tokens.access_token) return;
+    try {
       gcal.accessToken = tokens.access_token;
       gcal.tokenExpiry = new Date(tokens.expiry_date);
       await provider.save();
+    } catch (err) {
+      console.error(`[GCal] Failed to persist refreshed token for ${provider.email}: ${err.message}`);
+      // Don't rethrow — this callback runs detached from any request's
+      // promise chain, so a throw here can't be caught upstream.
     }
   });
 
