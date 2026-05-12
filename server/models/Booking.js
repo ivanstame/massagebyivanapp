@@ -145,6 +145,17 @@ const BookingSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  // When the client paid the service via card/check/app but tipped in
+  // cash on top (very common — the card terminal is closed by tip
+  // time, so the tip's whatever's in their pocket). When true, the
+  // tip is attributed to 'cash' in income reports regardless of the
+  // booking's paymentMethod. The reverse case (cash service + non-cash
+  // tip) isn't supported because it's not a real-world workflow —
+  // nobody fishes out a card after paying cash.
+  tippedInCash: {
+    type: Boolean,
+    default: false,
+  },
   // Refund tracking. When a paid booking is refunded — usually because
   // the provider had to cancel and the client paid card/upfront — we
   // record the refunded amount and timestamp. Reports treat refunds as

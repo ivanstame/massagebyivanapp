@@ -130,11 +130,13 @@ const AppointmentDetail = () => {
   // so the provider can record either without leaving the page.
   const [showTipModal, setShowTipModal] = useState(false);
   const [tipInput, setTipInput] = useState('');
+  const [tipInCashOverride, setTipInCashOverride] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundInput, setRefundInput] = useState('');
 
   const openTipModal = () => {
     setTipInput(booking?.tipAmount ? String(booking.tipAmount) : '');
+    setTipInCashOverride(!!booking?.tippedInCash);
     setShowTipModal(true);
   };
   const saveTip = async () => {
@@ -145,7 +147,10 @@ const AppointmentDetail = () => {
         return;
       }
       const res = await axios.patch(`/api/bookings/${id}/tip`,
-        { tipAmount: amt }, { withCredentials: true });
+        {
+          tipAmount: amt,
+          tippedInCash: tipInCashOverride,
+        }, { withCredentials: true });
       setBooking(res.data);
       setShowTipModal(false);
     } catch (err) {
@@ -633,7 +638,12 @@ const AppointmentDetail = () => {
                   <p className="text-xs text-slate-500">Tip</p>
                   <p className="text-sm font-medium text-slate-900">
                     {booking.tipAmount > 0
-                      ? `$${Number(booking.tipAmount).toFixed(2)}`
+                      ? <>
+                          ${Number(booking.tipAmount).toFixed(2)}
+                          {booking.tippedInCash && booking.paymentMethod !== 'cash' && (
+                            <span className="ml-1.5 text-xs font-normal text-slate-500">(cash)</span>
+                          )}
+                        </>
                       : <span className="text-slate-400 font-normal">None recorded</span>}
                   </p>
                 </div>
@@ -662,13 +672,17 @@ const AppointmentDetail = () => {
           </div>
         </div>
 
-        {/* Tip modal */}
+        {/* Tip modal — when the service was paid via non-cash (card,
+            check, payment app), show a checkbox letting the provider
+            mark the tip as cash. Common workflow: client pays the
+            session via card, then hands over a few bills as a tip. */}
         {showTipModal && (
           <div className="fixed inset-0 bg-slate-600/50 flex items-center justify-center z-50 p-4" onClick={() => setShowTipModal(false)}>
             <div className="bg-paper-elev rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-slate-900 mb-1">Record tip</h3>
               <p className="text-xs text-slate-500 mb-3">
-                Counted as separate income on the day the booking was paid. Same payment method as the base session.
+                Counted as separate income on the day the booking was paid.
+                {' '}By default the tip uses the same method as the service ({paymentMethodLabel(booking.paymentMethod)}).
               </p>
               <input
                 type="number"
@@ -681,6 +695,26 @@ const AppointmentDetail = () => {
                 autoFocus
                 className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent text-lg"
               />
+
+              {booking.paymentMethod !== 'cash' && (
+                <label className="mt-3 flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tipInCashOverride}
+                    onChange={(e) => setTipInCashOverride(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-[#B07A4E] focus:ring-[#B07A4E] border-slate-300 rounded"
+                  />
+                  <div>
+                    <p className="text-sm text-slate-700">Tipped in cash</p>
+                    <p className="text-xs text-slate-500">
+                      Service paid via {paymentMethodLabel(booking.paymentMethod)},
+                      but the tip was handed over as cash.
+                      The income report will count this tip under Cash.
+                    </p>
+                  </div>
+                </label>
+              )}
+
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setShowTipModal(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
                 <button onClick={saveTip} className="px-4 py-2 bg-[#B07A4E] hover:bg-[#8A5D36] text-white rounded-lg text-sm font-medium">Save</button>

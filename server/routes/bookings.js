@@ -899,18 +899,21 @@ router.get('/revenue', ensureAuthenticated, async (req, res) => {
         });
       }
 
-      // Tips — separate income line, attributed to the same method as
-      // the booking payment (provider typically gets tipped in the same
-      // form as the base session).
+      // Tips — separate income line. Default attribution is the same
+      // method as the base session (most common case). The exception:
+      // `tippedInCash` flag for card/check/app service paid + tip
+      // handed over as cash. Routes the tip into the cash bucket so
+      // end-of-week reconciliation matches what's physically in the
+      // provider's wallet.
       const tipCents = Math.round((b.tipAmount || 0) * 100);
       if (tipCents > 0 && b.paymentStatus === 'paid') {
         const collectedDate = b.paidAt || b.date;
-        const method = b.paymentMethod;
+        const tipMethod = b.tippedInCash ? 'cash' : b.paymentMethod;
         addToBuckets(collectedDate, (bk) => {
           bk.incomeTotalCents += tipCents;
           bk.tipsCents += tipCents;
-          if (bk.byMethodCents[method] !== undefined) {
-            bk.byMethodCents[method] += tipCents;
+          if (bk.byMethodCents[tipMethod] !== undefined) {
+            bk.byMethodCents[tipMethod] += tipCents;
           }
         });
       }
@@ -1101,15 +1104,19 @@ router.get('/income-transactions', ensureAuthenticated, async (req, res) => {
         });
       }
 
-      // Tip
+      // Tip — honor tippedInCash override so the CSV row shows the
+      // method the cash actually arrived in.
       const tipCents = Math.round((b.tipAmount || 0) * 100);
       if (tipCents > 0 && b.paymentStatus === 'paid' && inRange(b.paidAt || b.date)) {
+        const tipMethod = b.tippedInCash ? 'cash' : b.paymentMethod;
         transactions.push({
           date: b.paidAt || b.date,
           type: 'Tip',
-          method: b.paymentMethod,
+          method: tipMethod,
           client: recipient,
-          description: `Tip (on ${b.localDate} session)`,
+          description: b.tippedInCash && b.paymentMethod !== 'cash'
+            ? `Cash tip (on ${b.localDate} ${b.paymentMethod}-paid session)`
+            : `Tip (on ${b.localDate} session)`,
           amount: tipCents / 100,
           notes: '',
           stripeFee: 0,
@@ -1811,12 +1818,16 @@ router.patch('/:id/tip', ensureAuthenticated, async (req, res) => {
     if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
       return res.status(403).json({ message: 'Only the provider can update tips' });
     }
-    const { tipAmount } = req.body;
+    const { tipAmount, tippedInCash } = req.body;
     const amount = Number(tipAmount);
     if (!Number.isFinite(amount) || amount < 0) {
       return res.status(400).json({ message: 'tipAmount must be a non-negative number' });
     }
     booking.tipAmount = Math.round(amount * 100) / 100;
+    // tippedInCash only matters when the service was paid via a
+    // non-cash method. Force false otherwise so the flag doesn't
+    // accumulate noise.
+    booking.tippedInCash = booking.paymentMethod !== 'cash' && !!tippedInCash;
     await booking.save();
     res.json(booking);
   } catch (error) {
