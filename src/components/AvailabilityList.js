@@ -91,6 +91,10 @@ const AvailabilityList = ({
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                       In-studio
                     </span>
+                  ) : block.kind === 'flexible' ? (
+                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                      Flexible
+                    </span>
                   ) : (
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
                       Available
@@ -104,6 +108,11 @@ const AvailabilityList = ({
                   {block.kind === 'static' && block.staticLocation?.name && (
                     <span className="text-xs text-blue-700">
                       at {block.staticLocation.name}
+                    </span>
+                  )}
+                  {block.kind === 'flexible' && block.staticLocation?.name && (
+                    <span className="text-xs text-purple-700">
+                      or at {block.staticLocation.name}
                     </span>
                   )}
                 </div>

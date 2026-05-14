@@ -133,12 +133,17 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
               const blockStart = timeToPixels(block.start, blockTz);
               const blockEnd = timeToPixels(block.end, blockTz);
               const isStatic = block.kind === 'static';
+              const isFlexible = block.kind === 'flexible';
               const containerColors = isStatic
                 ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
-                : 'bg-green-50 border-green-200 hover:bg-green-100';
+                : isFlexible
+                  ? 'bg-gradient-to-br from-green-50 to-blue-50 border-emerald-300 hover:from-green-100 hover:to-blue-100'
+                  : 'bg-green-50 border-green-200 hover:bg-green-100';
               const badgeColors = isStatic
                 ? 'bg-blue-100 text-blue-800'
-                : 'bg-green-100 text-green-800';
+                : isFlexible
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-green-100 text-green-800';
 
               return (
                 <div
@@ -162,10 +167,15 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                             at {block.staticLocation.name}
                           </p>
                         )}
+                        {isFlexible && block.staticLocation?.name && (
+                          <p className="text-xs text-purple-700 truncate mt-0.5">
+                            or at {block.staticLocation.name}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span className={`text-xs px-2 py-1 rounded-full ${badgeColors}`}>
-                          {isStatic ? 'In-studio' : 'Available'}
+                          {isStatic ? 'In-studio' : isFlexible ? 'Flexible' : 'Available'}
                         </span>
                         {onDelete && (
                           <button
