@@ -191,8 +191,11 @@ const MobileDatePicker = ({ selectedDate, onDateChange, events, refreshKey = 0 }
               const isToday = date.toDateString() === new Date().toDateString();
               const isSelected = date.toDateString() === selectedDate.toDateString();
               const kinds = isLoading ? new Set() : getKindsForDate(date);
-              const hasMobile = kinds.has('mobile');
-              const hasStatic = kinds.has('static');
+              // Flexible blocks contribute to BOTH signals — the day
+              // offers either-or, which the gradient communicates.
+              const hasFlexible = kinds.has('flexible');
+              const hasMobile = kinds.has('mobile') || hasFlexible;
+              const hasStatic = kinds.has('static') || hasFlexible;
               const hasSlots = hasMobile || hasStatic;
 
               // Always paint the kind tint when a date has availability,

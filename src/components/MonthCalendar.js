@@ -252,8 +252,11 @@ const MonthCalendar = ({ selectedDate, onDateChange, events, refreshKey = 0 }) =
                            selectedDate.getFullYear() === new Date().getFullYear();
               const isSelected = day === selectedDate.getDate();
               const kinds = isLoading ? new Set() : getKindsForDay(day);
-              const hasMobile = kinds.has('mobile');
-              const hasStatic = kinds.has('static');
+              // Flexible blocks contribute to BOTH signals — the day
+              // offers either-or, which the gradient communicates.
+              const hasFlexible = kinds.has('flexible');
+              const hasMobile = kinds.has('mobile') || hasFlexible;
+              const hasStatic = kinds.has('static') || hasFlexible;
               const hasSlots = hasMobile || hasStatic;
 
               // Cell shading by kind. Past wins (greys out everything).
