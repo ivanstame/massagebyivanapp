@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from 'luxon';
 import { tzOf } from '../utils/timeConstants';
@@ -190,6 +190,10 @@ const ProviderDashboard = () => {
   const [revenue, setRevenue] = useState(null);
   const [todayBookings, setTodayBookings] = useState([]);
   const [activity, setActivity] = useState({ events: [], newSinceLastVisit: 0 });
+  // Collapsed by default — keeps the dashboard tight. Provider taps the
+  // header to expand. Badge in the collapsed header tells them what's
+  // in there without needing to open.
+  const [activityExpanded, setActivityExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   // Tick every minute so countdown labels and state transitions
   // (upcoming → now → overdue) stay live without a refresh. Anchored
@@ -420,74 +424,6 @@ const ProviderDashboard = () => {
           )}
         </div>
 
-        {/* Recent activity feed. Bookings created / cancelled in the
-            last 7 days. "X new" badge highlights anything that landed
-            since the provider's last dashboard visit — so an SMS that
-            never arrived still surfaces here on next page load. */}
-        {(activity.events.length > 0 || activity.newSinceLastVisit > 0) && (
-          <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="font-display" style={{ fontSize: "1.25rem", fontWeight: 500 }}>Recent activity</div>
-                {activity.newSinceLastVisit > 0 && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#B07A4E] text-white">
-                    {activity.newSinceLastVisit} new
-                  </span>
-                )}
-              </div>
-              <span className="av-meta text-ink-3">Last 7 days</span>
-            </div>
-
-            {activity.events.length === 0 ? (
-              <p className="text-sm text-ink-2 py-2">Nothing in the last week.</p>
-            ) : (
-              <div className="divide-y divide-line">
-                {activity.events.slice(0, 8).map((e, i) => {
-                  const eventDt = DateTime.fromJSDate(new Date(e.eventAt)).setZone(viewerTz);
-                  const appointmentDt = e.localDate && e.startTime
-                    ? DateTime.fromFormat(`${e.localDate} ${e.startTime}`, 'yyyy-MM-dd HH:mm')
-                    : null;
-                  const isNew = activity.lastDashboardVisitAt
-                    ? new Date(e.eventAt) > new Date(activity.lastDashboardVisitAt)
-                    : true;
-                  return (
-                    <Link
-                      key={i}
-                      to={`/appointments/${e.bookingId}`}
-                      className="flex items-center gap-3 py-3 hover:bg-paper-deep -mx-3 px-3 rounded transition-colors"
-                    >
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        e.type === 'cancelled' ? 'bg-red-500'
-                        : isNew ? 'bg-[#B07A4E]' : 'bg-slate-300'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-ink truncate">
-                          <span className={`font-medium ${e.type === 'cancelled' ? 'text-red-700' : 'text-ink'}`}>
-                            {e.type === 'cancelled' ? 'Cancelled' : 'New booking'}
-                          </span>
-                          <span className="text-ink-2"> — {e.clientName}</span>
-                        </div>
-                        <div className="text-xs text-ink-3 mt-0.5">
-                          {appointmentDt && appointmentDt.isValid && (
-                            <>For {appointmentDt.toFormat('EEE M/d')} at {appointmentDt.toFormat('h:mm a')} · </>
-                          )}
-                          {eventDt.toRelative()}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            {activity.events.length > 8 && (
-              <p className="text-xs text-ink-3 mt-3">
-                +{activity.events.length - 8} more in the last 7 days. <Link to="/provider/appointments" className="text-accent hover:text-accent-ink">View all appointments →</Link>
-              </p>
-            )}
-          </div>
-        )}
-
         {/* Today's rhythm + side */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 mb-8">
           <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-6">
@@ -565,6 +501,91 @@ const ProviderDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Recent activity feed — collapsed by default to keep the
+            home screen tight. Header shows the "X new" badge so the
+            provider can see if anything's there without expanding.
+            Catches anything an SMS or email might've missed. */}
+        {(activity.events.length > 0 || activity.newSinceLastVisit > 0) && (
+          <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm mb-8 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setActivityExpanded(v => !v)}
+              className="w-full flex items-center justify-between px-6 py-4 hover:bg-paper-deep transition-colors"
+              aria-expanded={activityExpanded}
+            >
+              <div className="flex items-center gap-2">
+                <div className="font-display" style={{ fontSize: "1.25rem", fontWeight: 500 }}>Recent activity</div>
+                {activity.newSinceLastVisit > 0 && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#B07A4E] text-white">
+                    {activity.newSinceLastVisit} new
+                  </span>
+                )}
+                {activity.newSinceLastVisit === 0 && activity.events.length > 0 && (
+                  <span className="text-xs text-ink-3">{activity.events.length} event{activity.events.length === 1 ? '' : 's'}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="av-meta text-ink-3 hidden sm:inline">Last 7 days</span>
+                {activityExpanded
+                  ? <ChevronUp className="w-4 h-4 text-ink-2" />
+                  : <ChevronDown className="w-4 h-4 text-ink-2" />}
+              </div>
+            </button>
+
+            {activityExpanded && (
+              <div className="px-6 pb-5 border-t border-line">
+                {activity.events.length === 0 ? (
+                  <p className="text-sm text-ink-2 py-3">Nothing in the last week.</p>
+                ) : (
+                  <div className="divide-y divide-line">
+                    {activity.events.slice(0, 8).map((e, i) => {
+                      const eventDt = DateTime.fromJSDate(new Date(e.eventAt)).setZone(viewerTz);
+                      const appointmentDt = e.localDate && e.startTime
+                        ? DateTime.fromFormat(`${e.localDate} ${e.startTime}`, 'yyyy-MM-dd HH:mm')
+                        : null;
+                      const isNew = activity.lastDashboardVisitAt
+                        ? new Date(e.eventAt) > new Date(activity.lastDashboardVisitAt)
+                        : true;
+                      return (
+                        <Link
+                          key={i}
+                          to={`/appointments/${e.bookingId}`}
+                          className="flex items-center gap-3 py-3 hover:bg-paper-deep -mx-3 px-3 rounded transition-colors"
+                        >
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            e.type === 'cancelled' ? 'bg-red-500'
+                            : isNew ? 'bg-[#B07A4E]' : 'bg-slate-300'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-ink truncate">
+                              <span className={`font-medium ${e.type === 'cancelled' ? 'text-red-700' : 'text-ink'}`}>
+                                {e.type === 'cancelled' ? 'Cancelled' : 'New booking'}
+                              </span>
+                              <span className="text-ink-2"> — {e.clientName}</span>
+                            </div>
+                            <div className="text-xs text-ink-3 mt-0.5">
+                              {appointmentDt && appointmentDt.isValid && (
+                                <>For {appointmentDt.toFormat('EEE M/d')} at {appointmentDt.toFormat('h:mm a')} · </>
+                              )}
+                              {eventDt.toRelative()}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activity.events.length > 8 && (
+                  <p className="text-xs text-ink-3 mt-3">
+                    +{activity.events.length - 8} more in the last 7 days. <Link to="/provider/appointments" className="text-accent hover:text-accent-ink">View all appointments →</Link>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick actions */}
         <div className="mb-2">
