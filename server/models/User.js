@@ -246,7 +246,11 @@ const UserSchema = new mongoose.Schema({
         message: { type: String, default: null },
         occurredAt: { type: Date, default: null },
       }
-    }
+    },
+    // When the provider last opened their dashboard. Used to compute
+    // the "X new since you last checked" badge on the activity feed —
+    // any booking createdAt / cancelledAt newer than this counts.
+    lastDashboardVisitAt: { type: Date, default: null }
   },
   // Add the new clientProfile field here
   clientProfile: {

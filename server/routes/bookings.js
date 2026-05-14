@@ -787,6 +787,104 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 // Side stats: services delivered + how many were package redemptions
 // (so the provider knows "I worked N sessions, M of which generated
 // no new income because they were prepaid").
+// GET /recent-activity — Dashboard activity feed.
+//
+// Surfaces booking-life-cycle events (new bookings, cancellations) in
+// the last N days for the logged-in provider. Each event carries:
+//   - type:      'created' | 'cancelled'
+//   - eventAt:   the date the event happened
+//   - bookingId, clientName, localDate (the appointment's own date)
+//
+// Also returns `newSinceLastVisit` — the count of events newer than
+// the provider's lastDashboardVisitAt. Drives the "X new" badge so
+// the provider sees at a glance whether anything's happened since
+// they last checked.
+//
+// Returning events instead of a separate notifications collection
+// keeps this stateless — no risk of "marked read" state drift, and
+// it works retroactively for every booking that's ever been created.
+router.get('/recent-activity', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Only providers can view activity' });
+    }
+    const days = Math.min(parseInt(req.query.days, 10) || 7, 30);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const bookings = await Booking.find({
+      provider: req.user._id,
+      $or: [
+        { createdAt: { $gte: since } },
+        { cancelledAt: { $gte: since } },
+      ],
+    })
+      .populate('client', 'profile.fullName email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const events = [];
+    for (const b of bookings) {
+      const clientName = b.recipientType === 'other' && b.recipientInfo?.name
+        ? b.recipientInfo.name
+        : (b.client?.profile?.fullName || b.client?.email || 'Client');
+
+      if (b.createdAt && b.createdAt >= since) {
+        events.push({
+          type: 'created',
+          eventAt: b.createdAt,
+          bookingId: b._id,
+          clientName,
+          localDate: b.localDate,
+          startTime: b.startTime,
+          duration: b.duration,
+        });
+      }
+      if (b.cancelledAt && b.cancelledAt >= since) {
+        events.push({
+          type: 'cancelled',
+          eventAt: b.cancelledAt,
+          bookingId: b._id,
+          clientName,
+          localDate: b.localDate,
+          startTime: b.startTime,
+          duration: b.duration,
+          cancelledBy: b.cancelledBy,
+        });
+      }
+    }
+
+    events.sort((a, b) => new Date(b.eventAt) - new Date(a.eventAt));
+
+    const lastVisit = req.user.providerProfile?.lastDashboardVisitAt;
+    const newSinceLastVisit = lastVisit
+      ? events.filter(e => new Date(e.eventAt) > new Date(lastVisit)).length
+      : events.length;
+
+    res.json({ events, newSinceLastVisit, lastDashboardVisitAt: lastVisit });
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    res.status(500).json({ message: 'Error fetching activity' });
+  }
+});
+
+// POST /mark-dashboard-visited — Stamp the "last visited" timestamp
+// so the next activity-feed query knows what counts as "new."
+router.post('/mark-dashboard-visited', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Only providers' });
+    }
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { 'providerProfile.lastDashboardVisitAt': new Date() } }
+    );
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error marking dashboard visited:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/revenue', ensureAuthenticated, async (req, res) => {
   try {
     if (req.user.accountType !== 'PROVIDER') {
