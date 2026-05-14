@@ -178,7 +178,11 @@ const ProviderAvailability = () => {
       setError(null);
     } catch (error) {
       console.error('Error adding availability:', error);
-      setError('Failed to add availability block. Please try again.');
+      // Surface the server's actual reason when present — previously
+      // we collapsed every failure to "try again" which hid useful
+      // info like "this overlaps with an existing mobile block."
+      const serverMsg = error.response?.data?.message;
+      setError(serverMsg || 'Failed to add availability block. Please try again.');
     }
   }, [fetchAvailabilityBlocks, selectedDate, user._id]);
 

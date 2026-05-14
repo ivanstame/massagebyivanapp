@@ -898,7 +898,14 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       return res.status(400).json({ message: 'End time must be after start time' });
     }
 
-    // Check for existing availability blocks that overlap with the new one
+    // Check for existing availability blocks that overlap with the new
+    // one. Same-kind overlap is rejected (genuinely a mistake — you
+    // can't be doing mobile work in two places at once). DIFFERENT-kind
+    // overlap is ALLOWED so a provider can offer "either mobile or
+    // in-studio" within the same hours — clients pick at booking time
+    // and the slot picker handles which slots stay free for the other
+    // mode after a booking lands.
+    const incomingKind = availabilityData.kind === 'static' ? 'static' : 'mobile';
     const existingBlocks = await Availability.find({
       provider: req.user._id,
       localDate: laDate.toFormat('yyyy-MM-dd'),
@@ -921,11 +928,14 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       ]
     });
 
-    if (existingBlocks.length > 0) {
-      console.log('POST /api/availability - Overlapping blocks found:', existingBlocks.length);
+    const sameKindConflicts = existingBlocks.filter(
+      b => (b.kind || 'mobile') === incomingKind
+    );
+    if (sameKindConflicts.length > 0) {
+      console.log('POST /api/availability - Same-kind overlap rejected:', sameKindConflicts.length);
       return res.status(400).json({
-        message: 'This time block overlaps with existing availability',
-        conflicts: existingBlocks.map(block => {
+        message: `This time block overlaps with an existing ${incomingKind === 'static' ? 'in-studio' : 'mobile'} block`,
+        conflicts: sameKindConflicts.map(block => {
           const blockTz = block.timezone || DEFAULT_TZ;
           return {
             id: block._id,
@@ -938,7 +948,6 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
 
     console.log('POST /api/availability - Creating new availability object');
-    const incomingKind = availabilityData.kind === 'static' ? 'static' : 'mobile';
     const newAvailability = new Availability({
       provider: req.user._id,
       timezone: providerTz,
@@ -1241,7 +1250,10 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       });
     }
 
-    // Check for overlapping with other availability blocks
+    // Check for overlapping with other availability blocks. Same-kind
+    // overlap rejected; different-kind allowed so mobile + in-studio
+    // can share hours. Mirrors the POST endpoint's logic.
+    const editedKind = availability.kind || 'mobile';
     const existingBlocks = await Availability.find({
       provider: req.user._id,
       localDate: laDate.toFormat('yyyy-MM-dd'),
@@ -1265,10 +1277,13 @@ router.put('/:id', ensureAuthenticated, async (req, res) => {
       ]
     });
 
-    if (existingBlocks.length > 0) {
+    const sameKindConflicts = existingBlocks.filter(
+      b => (b.kind || 'mobile') === editedKind
+    );
+    if (sameKindConflicts.length > 0) {
       return res.status(400).json({
-        message: 'This time block overlaps with existing availability',
-        conflicts: existingBlocks.map(block => ({
+        message: `This time block overlaps with an existing ${editedKind === 'static' ? 'in-studio' : 'mobile'} block`,
+        conflicts: sameKindConflicts.map(block => ({
           id: block._id,
           start: DateTime.fromJSDate(block.start)
             .setZone(DEFAULT_TZ)
