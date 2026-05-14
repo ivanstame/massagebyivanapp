@@ -1836,6 +1836,89 @@ router.patch('/:id/tip', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// PATCH /:id/price — Adjust the actual charged amount on a booking.
+// Provider-only. Used when what the client paid differs from the
+// listed price for any reason. Stores the new amount + a free-form
+// reason; original pricing.totalPrice stays untouched so we can
+// always surface the delta in the UI and audit log.
+//
+// Guardrail: for partial-package-redeemed bookings the adjusted total
+// must be at least the package-recognized portion (per-minute rate of
+// the original purchase × minutes applied). Charging below that would
+// mean the client paid less than the prepaid package value — that's
+// a refund, not a price adjustment.
+router.patch('/:id/price', ensureAuthenticated, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (req.user.accountType !== 'PROVIDER' || !booking.provider.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the provider can adjust price' });
+    }
+
+    const { actualChargedAmount, priceAdjustmentReason } = req.body;
+
+    // null/undefined or empty string clears the override.
+    if (actualChargedAmount === null || actualChargedAmount === undefined || actualChargedAmount === '') {
+      const previousAmount = booking.actualChargedAmount;
+      booking.actualChargedAmount = null;
+      booking.priceAdjustmentReason = '';
+      await booking.save();
+      audit({
+        userId: booking.client,
+        action: 'update', resource: 'booking_price_adjustment',
+        resourceId: booking._id,
+        details: { from: previousAmount, to: null, cleared: true },
+        req,
+      });
+      return res.json(booking);
+    }
+
+    const amount = Number(actualChargedAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return res.status(400).json({ message: 'actualChargedAmount must be a non-negative number' });
+    }
+
+    // Guardrail: protect against undercutting a redeemed package's
+    // already-recognized revenue. The package's per-minute rate was
+    // fixed at purchase; charging below the redeemed portion's value
+    // is functionally a refund.
+    if (booking.packageRedemption?.minutesApplied && booking.packageRedemption.packagePurchase) {
+      const pkg = await PackagePurchase.findById(booking.packageRedemption.packagePurchase).lean();
+      if (pkg) {
+        const split = computeBookingPaymentBreakdown(booking.toObject(), pkg);
+        const packageDollars = split.fromPackageCents / 100;
+        if (amount < packageDollars) {
+          return res.status(400).json({
+            message: `Adjusted amount ($${amount.toFixed(2)}) is less than the package portion already redeemed ($${packageDollars.toFixed(2)}). Use Refund instead if you need to return value to the client.`,
+          });
+        }
+      }
+    }
+
+    const previousAmount = booking.actualChargedAmount;
+    booking.actualChargedAmount = Math.round(amount * 100) / 100;
+    booking.priceAdjustmentReason = (priceAdjustmentReason || '').toString().trim().slice(0, 500);
+    await booking.save();
+
+    audit({
+      userId: booking.client,
+      action: 'update', resource: 'booking_price_adjustment',
+      resourceId: booking._id,
+      details: {
+        from: previousAmount,
+        to: booking.actualChargedAmount,
+        listedPrice: booking.pricing?.totalPrice,
+        reason: booking.priceAdjustmentReason,
+      },
+      req,
+    });
+    res.json(booking);
+  } catch (error) {
+    console.error('Error adjusting price:', error);
+    res.status(500).json({ message: 'Error adjusting price' });
+  }
+});
+
 // POST /:id/refund — Record a refund on a booking.
 // Provider-only. Records the amount + timestamp; doesn't move money on
 // Stripe (that's a separate manual action in the Stripe dashboard for

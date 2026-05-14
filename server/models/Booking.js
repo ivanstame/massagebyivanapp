@@ -145,6 +145,23 @@ const BookingSchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  // When the provider needs to charge something other than the listed
+  // price (any reason — discount, comp adjustment, change-of-scope at
+  // the door, etc.). Null means "use pricing.totalPrice as-is."
+  // Income reports and the per-minute breakdown use this value when
+  // set, falling back to pricing.totalPrice otherwise. The original
+  // pricing block stays intact so we can always show "originally $Y."
+  actualChargedAmount: {
+    type: Number,
+    default: null,
+    min: 0,
+  },
+  priceAdjustmentReason: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 500,
+  },
   // When the client paid the service via card/check/app but tipped in
   // cash on top (very common — the card terminal is closed by tip
   // time, so the tip's whatever's in their pocket). When true, the

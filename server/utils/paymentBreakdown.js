@@ -13,9 +13,13 @@
 // value is attributed to "other".
 
 function getBookingValueCents(booking) {
-  // pricing.totalPrice is in dollars; revert to integer cents to dodge
-  // float drift on sums across many bookings.
-  const total = (booking?.pricing?.totalPrice || 0);
+  // Provider-set actualChargedAmount overrides the listed price when
+  // present — captures any reason the client ended up paying a
+  // different amount (discount, comp, scope change, etc.). Falls back
+  // to pricing.totalPrice for the unadjusted normal case.
+  const total = (booking?.actualChargedAmount != null)
+    ? booking.actualChargedAmount
+    : (booking?.pricing?.totalPrice || 0);
   return Math.round(total * 100);
 }
 

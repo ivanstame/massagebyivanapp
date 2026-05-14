@@ -133,6 +133,9 @@ const AppointmentDetail = () => {
   const [tipInCashOverride, setTipInCashOverride] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundInput, setRefundInput] = useState('');
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
+  const [priceReasonInput, setPriceReasonInput] = useState('');
 
   const openTipModal = () => {
     setTipInput(booking?.tipAmount ? String(booking.tipAmount) : '');
@@ -155,6 +158,44 @@ const AppointmentDetail = () => {
       setShowTipModal(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save tip');
+    }
+  };
+
+  const openPriceModal = () => {
+    const currentActual = booking?.actualChargedAmount != null
+      ? booking.actualChargedAmount
+      : (booking?.pricing?.totalPrice || 0);
+    setPriceInput(String(currentActual));
+    setPriceReasonInput(booking?.priceAdjustmentReason || '');
+    setShowPriceModal(true);
+  };
+  const savePrice = async () => {
+    try {
+      const amt = parseFloat(priceInput);
+      if (!Number.isFinite(amt) || amt < 0) {
+        setError('Price must be a non-negative number');
+        return;
+      }
+      const res = await axios.patch(`/api/bookings/${id}/price`,
+        {
+          actualChargedAmount: amt,
+          priceAdjustmentReason: priceReasonInput,
+        }, { withCredentials: true });
+      setBooking(res.data);
+      setShowPriceModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to adjust price');
+    }
+  };
+  const clearPriceAdjustment = async () => {
+    if (!window.confirm('Remove the price adjustment? The booking will revert to its listed price.')) return;
+    try {
+      const res = await axios.patch(`/api/bookings/${id}/price`,
+        { actualChargedAmount: null }, { withCredentials: true });
+      setBooking(res.data);
+      setShowPriceModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clear adjustment');
     }
   };
 
@@ -519,16 +560,49 @@ const AppointmentDetail = () => {
           {/* Pricing */}
           {booking.pricing && booking.pricing.totalPrice > 0 && (
             <div className="p-4">
-              <div className="flex items-center gap-3">
-                <DollarSign className="w-5 h-5 text-[#B07A4E]" />
-                <div>
-                  <p className="text-sm text-slate-500">Total Price</p>
-                  <p className="font-medium text-slate-900 text-lg">${booking.pricing.totalPrice.toFixed(2)}</p>
-                  {booking.pricing.addonsPrice > 0 && (
-                    <p className="text-xs text-slate-500">
-                      Base: ${booking.pricing.basePrice.toFixed(2)} + Add-ons: ${booking.pricing.addonsPrice.toFixed(2)}
-                    </p>
-                  )}
+              <div className="flex items-start gap-3">
+                <DollarSign className="w-5 h-5 text-[#B07A4E] flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-slate-500">Total Price</p>
+                      {booking.actualChargedAmount != null && booking.actualChargedAmount !== booking.pricing.totalPrice ? (
+                        // Adjusted: show actual prominently, original
+                        // smaller + struck through.
+                        <p className="font-medium text-slate-900 text-lg">
+                          ${Number(booking.actualChargedAmount).toFixed(2)}
+                          <span className="ml-2 text-sm text-slate-400 line-through font-normal">
+                            ${booking.pricing.totalPrice.toFixed(2)}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="font-medium text-slate-900 text-lg">${booking.pricing.totalPrice.toFixed(2)}</p>
+                      )}
+                      {booking.pricing.addonsPrice > 0 && (
+                        <p className="text-xs text-slate-500">
+                          Base: ${booking.pricing.basePrice.toFixed(2)} + Add-ons: ${booking.pricing.addonsPrice.toFixed(2)}
+                        </p>
+                      )}
+                      {booking.actualChargedAmount != null && booking.priceAdjustmentReason && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Adjusted: {booking.priceAdjustmentReason}
+                        </p>
+                      )}
+                      {booking.actualChargedAmount != null && !booking.priceAdjustmentReason && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Price adjusted (no reason on file)
+                        </p>
+                      )}
+                    </div>
+                    {isProvider && booking.status !== 'cancelled' && (
+                      <button
+                        onClick={openPriceModal}
+                        className="text-xs font-medium text-[#B07A4E] hover:text-[#8A5D36] px-2 py-1 rounded-lg hover:bg-[#B07A4E]/10 whitespace-nowrap"
+                      >
+                        {booking.actualChargedAmount != null ? 'Edit' : 'Adjust price'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -746,6 +820,56 @@ const AppointmentDetail = () => {
               <div className="flex justify-end gap-2 mt-4">
                 <button onClick={() => setShowRefundModal(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
                 <button onClick={saveRefund} className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-medium">Record refund</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Price adjustment modal — set the actual charged amount when
+            it diverges from the listed price. Reason is optional but
+            strongly suggested for the audit trail. */}
+        {showPriceModal && (
+          <div className="fixed inset-0 bg-slate-600/50 flex items-center justify-center z-50 p-4" onClick={() => setShowPriceModal(false)}>
+            <div className="bg-paper-elev rounded-xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">Adjust price</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Listed price: <span className="font-medium">${booking.pricing?.totalPrice?.toFixed(2) || '0.00'}</span>.
+                Enter what the client actually paid for the session.
+                Income reports and CSV exports will use this amount.
+              </p>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Actual amount charged</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                value={priceInput}
+                onChange={(e) => setPriceInput(e.target.value)}
+                placeholder="0.00"
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent text-lg mb-3"
+              />
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Reason <span className="text-slate-400 font-normal">(optional, but recommended)</span>
+              </label>
+              <textarea
+                value={priceReasonInput}
+                onChange={(e) => setPriceReasonInput(e.target.value.slice(0, 500))}
+                placeholder="What happened? (For your records — appears on the appointment and in the audit log.)"
+                rows={3}
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent text-sm resize-none"
+              />
+              <p className="text-xs text-slate-400 mt-1">{priceReasonInput.length}/500</p>
+              <div className="flex items-center justify-between gap-2 mt-4">
+                {booking.actualChargedAmount != null ? (
+                  <button onClick={clearPriceAdjustment} className="text-xs text-slate-500 hover:text-red-700 px-2 py-2">
+                    Clear adjustment
+                  </button>
+                ) : <span />}
+                <div className="flex gap-2">
+                  <button onClick={() => setShowPriceModal(false)} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg text-sm">Cancel</button>
+                  <button onClick={savePrice} className="px-4 py-2 bg-[#B07A4E] hover:bg-[#8A5D36] text-white rounded-lg text-sm font-medium">Save</button>
+                </div>
               </div>
             </div>
           </div>

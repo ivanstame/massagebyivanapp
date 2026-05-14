@@ -424,8 +424,12 @@ const AppointmentRow = ({ booking, provider }) => {
   // client's current tier. Falls back to the booking's stored
   // pricing.totalPrice only if we can't compute live (missing
   // duration in tier, etc) — better to show old data than nothing.
+  // Provider-set actualChargedAmount overrides everything — captures
+  // what was actually charged when it diverged from the listed price.
   const livePrice = computeLivePrice(booking, provider);
-  const displayPrice = livePrice != null ? livePrice : (booking.pricing?.totalPrice || 0);
+  const displayPrice = booking.actualChargedAmount != null
+    ? booking.actualChargedAmount
+    : (livePrice != null ? livePrice : (booking.pricing?.totalPrice || 0));
   const formatTime = (hhmm) => moment(hhmm, 'HH:mm').format('h:mm A');
   const recipient = booking.recipientType === 'other' && booking.recipientInfo?.name
     ? booking.recipientInfo.name
