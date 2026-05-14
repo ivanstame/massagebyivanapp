@@ -14,7 +14,7 @@ const BlockedTimeSchema = new mongoose.Schema({
   end: { type: Date, required: true },
   source: {
     type: String,
-    enum: ['manual', 'google_calendar'],
+    enum: ['manual', 'google_calendar', 'external_ical'],
     default: 'manual'
   },
   googleEventId: {
@@ -30,6 +30,23 @@ const BlockedTimeSchema = new mongoose.Schema({
   // currently being synced and leaves the others alone.
   googleCalendarId: {
     type: String,
+    default: null
+  },
+  // Stable event identifier from an external iCal feed (RFC 5545 UID).
+  // Combined with externalCalendarFeed (below) it uniquely identifies
+  // an event across polls so subsequent fetches upsert rather than
+  // duplicate. Day-slices of multi-day events get the slice's localDate
+  // appended to keep their identifiers distinct.
+  externalEventId: {
+    type: String,
+    default: null
+  },
+  // Which ExternalCalendarFeed this block came from. Scopes stale
+  // cleanup to one feed at a time so syncing feed A doesn't nuke
+  // events from feed B.
+  externalCalendarFeed: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ExternalCalendarFeed',
     default: null
   },
   // Location for Google Calendar events that have one (affects travel time calc)
@@ -78,5 +95,6 @@ BlockedTimeSchema.pre('validate', function(next) {
 
 BlockedTimeSchema.index({ provider: 1, localDate: 1 });
 BlockedTimeSchema.index({ provider: 1, googleEventId: 1 }, { sparse: true });
+BlockedTimeSchema.index({ externalCalendarFeed: 1, externalEventId: 1 }, { sparse: true });
 
 module.exports = mongoose.model('BlockedTime', BlockedTimeSchema);

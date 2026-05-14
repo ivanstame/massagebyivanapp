@@ -91,6 +91,13 @@ mongoose.connect(process.env.MONGODB_URI, {
   // Start Google Calendar sync scheduler
   const { startGoogleCalendarScheduler } = require('./services/googleCalendarSync');
   startGoogleCalendarScheduler();
+
+  // External iCal feed scheduler — polls subscribed feeds every 5 min.
+  // Used for systems that publish iCal but not OAuth push (Jane, etc.),
+  // skipping the Google-polled-iCal-subscription middleman that adds
+  // hours of lag.
+  const { startExternalCalendarScheduler } = require('./services/externalCalendarFeedService');
+  startExternalCalendarScheduler();
 }).catch(err => {
   console.error('MongoDB Atlas connection error:', err);
   process.exit(1); // Exit process on connection failure
@@ -293,6 +300,7 @@ app.use('/api/claim', require('./routes/claim'));
 app.use('/api/packages', require('./routes/packages'));
 app.use('/api/recurring-series', require('./routes/recurring-series'));
 app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/external-calendar-feeds', require('./routes/external-calendar-feeds'));
 
 // Provider-specific routes and rate limiting
 const providerApiLimiter = rateLimit({

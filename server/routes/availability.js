@@ -13,6 +13,7 @@ const { DEFAULT_TZ, TIME_FORMATS } = require('../../src/utils/timeConstants');
 const LuxonService = require('../../src/utils/LuxonService');
 const { tzForProviderId } = require('../utils/providerTz');
 const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
+const { ensureFreshExternalFeeds } = require('../services/externalCalendarFeedService');
 
 /**
  * Generate availability from weekly template for a specific date and provider.
@@ -337,7 +338,10 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
     // sync if the cache is stale. Catches webhook-miss / scheduled-
     // sync-skip / auth-flap cases that would otherwise serve stale
     // availability and let clients book over GCal conflicts.
-    await ensureFreshGcalSync(query.provider);
+    await Promise.all([
+      ensureFreshGcalSync(query.provider),
+      ensureFreshExternalFeeds(query.provider),
+    ]);
 
     // Fetch availability + bookings + blocks for the month in parallel.
     // Need the full window times to compute viability — projecting to
@@ -638,7 +642,10 @@ router.get('/available/:date', validateAvailabilityInput, async (req, res) => {
     // generation, so we don't offer a time the provider has blocked
     // in their personal calendar.
     if (templateProviderId) {
-      await ensureFreshGcalSync(templateProviderId);
+      await Promise.all([
+        ensureFreshGcalSync(templateProviderId),
+        ensureFreshExternalFeeds(templateProviderId),
+      ]);
     }
 
     // Fetch blocked times for this date

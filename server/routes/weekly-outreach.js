@@ -128,7 +128,11 @@ async function buildAvailabilityBody(providerId, weekStart) {
   // has a doctor's appointment on their Google Calendar that the sync
   // missed — and the client books over it.
   const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
-  await ensureFreshGcalSync(providerId);
+  const { ensureFreshExternalFeeds } = require('../services/externalCalendarFeedService');
+  await Promise.all([
+    ensureFreshGcalSync(providerId),
+    ensureFreshExternalFeeds(providerId),
+  ]);
 
   for (let i = 0; i < 7; i++) {
     const dayLA = weekStart.plus({ days: i });

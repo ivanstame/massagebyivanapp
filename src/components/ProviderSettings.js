@@ -36,6 +36,17 @@ const ProviderSettings = () => {
   const [gcalSyncing, setGcalSyncing] = useState(false);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
+  // External iCal feed state — for Jane, SimplePractice, Acuity, any
+  // system that publishes a feed URL. Direct polling skips Google's
+  // 8-24h iCal-subscription cadence.
+  const [externalFeeds, setExternalFeeds] = useState([]);
+  const [feedFormName, setFeedFormName] = useState('');
+  const [feedFormUrl, setFeedFormUrl] = useState('');
+  const [feedAdding, setFeedAdding] = useState(false);
+  const [feedRefreshingId, setFeedRefreshingId] = useState(null);
+  const [feedError, setFeedError] = useState(null);
+  const [showAddFeed, setShowAddFeed] = useState(false);
+
   const [settings, setSettings] = useState({
     businessName: '',
     logoUrl: null,
@@ -124,9 +135,76 @@ const ProviderSettings = () => {
     }
   };
 
+  // External iCal feeds — list + add + refresh + delete + toggle.
+  const fetchExternalFeeds = async () => {
+    try {
+      const res = await axios.get('/api/external-calendar-feeds', { withCredentials: true });
+      setExternalFeeds(res.data || []);
+    } catch (err) {
+      console.error('Error fetching external calendar feeds:', err);
+    }
+  };
+
+  const handleAddFeed = async () => {
+    setFeedError(null);
+    if (!feedFormName.trim() || !feedFormUrl.trim()) {
+      setFeedError('Name and URL are both required');
+      return;
+    }
+    setFeedAdding(true);
+    try {
+      await axios.post('/api/external-calendar-feeds',
+        { name: feedFormName.trim(), url: feedFormUrl.trim() },
+        { withCredentials: true });
+      setFeedFormName('');
+      setFeedFormUrl('');
+      setShowAddFeed(false);
+      await fetchExternalFeeds();
+    } catch (err) {
+      setFeedError(err.response?.data?.message || 'Failed to add feed');
+    } finally {
+      setFeedAdding(false);
+    }
+  };
+
+  const handleRefreshFeed = async (id) => {
+    setFeedRefreshingId(id);
+    try {
+      await axios.post(`/api/external-calendar-feeds/${id}/refresh`, {},
+        { withCredentials: true });
+      await fetchExternalFeeds();
+    } catch (err) {
+      setFeedError(err.response?.data?.message || 'Refresh failed');
+    } finally {
+      setFeedRefreshingId(null);
+    }
+  };
+
+  const handleToggleFeed = async (feed) => {
+    try {
+      await axios.patch(`/api/external-calendar-feeds/${feed._id}`,
+        { isActive: !feed.isActive }, { withCredentials: true });
+      await fetchExternalFeeds();
+    } catch (err) {
+      setFeedError(err.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const handleDeleteFeed = async (feed) => {
+    if (!window.confirm(`Remove "${feed.name}"? Any blocked time from this feed will also be removed.`)) return;
+    try {
+      await axios.delete(`/api/external-calendar-feeds/${feed._id}`,
+        { withCredentials: true });
+      await fetchExternalFeeds();
+    } catch (err) {
+      setFeedError(err.response?.data?.message || 'Delete failed');
+    }
+  };
+
   useEffect(() => {
     if (user?.accountType === 'PROVIDER') {
       fetchGcalStatus();
+      fetchExternalFeeds();
     }
     if (searchParams.get('gcal') === 'success') {
       fetchGcalStatus();
@@ -779,6 +857,154 @@ const ProviderSettings = () => {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* External Calendar Feeds — for Jane, SimplePractice, Acuity,
+            and anything else that publishes an iCal URL but not OAuth.
+            Avayble polls the URL directly every 5 minutes instead of
+            relying on Google Calendar to refresh its subscription
+            (Google's polling is the 8-24h bottleneck we sidestep here). */}
+        <div className="bg-paper-elev rounded-xl p-6 shadow-sm border border-line mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-5 h-5 text-[#B07A4E]" />
+            <h3 className="font-medium text-slate-900">External Calendar Feeds (iCal)</h3>
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Subscribe to iCal feed URLs from Jane, SimplePractice, Acuity,
+            or any system that publishes one. We poll every 5 minutes —
+            way faster than Google Calendar's iCal-subscription cadence.
+          </p>
+
+          {feedError && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{feedError}</span>
+            </div>
+          )}
+
+          {/* Existing feeds list */}
+          {externalFeeds.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {externalFeeds.map(feed => {
+                const isRefreshing = feedRefreshingId === feed._id;
+                const hasError = feed.lastFetchError && feed.lastFetchError.message;
+                return (
+                  <div
+                    key={feed._id}
+                    className={`p-3 rounded-lg border ${hasError ? 'border-red-200 bg-red-50/30' : 'border-line bg-paper-deep'}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900">{feed.name}</p>
+                          {!feed.isActive && (
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">Paused</span>
+                          )}
+                          {feed.isActive && !hasError && (
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-green-100 text-green-700">Active</span>
+                          )}
+                          {hasError && (
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-100 text-red-700">Error</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5" title={feed.url}>
+                          {feed.url}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {feed.eventCount || 0} event{feed.eventCount === 1 ? '' : 's'} ·
+                          {feed.lastSuccessfulFetchAt
+                            ? ` last synced ${new Date(feed.lastSuccessfulFetchAt).toLocaleString()}`
+                            : ' not yet synced'}
+                        </p>
+                        {hasError && (
+                          <p className="text-xs text-red-700 mt-1">
+                            {feed.lastFetchError.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleRefreshFeed(feed._id)}
+                          disabled={isRefreshing}
+                          className="p-1.5 text-slate-500 hover:text-[#B07A4E] rounded transition-colors disabled:opacity-50"
+                          title="Refresh now"
+                        >
+                          {isRefreshing
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <RefreshCw className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => handleToggleFeed(feed)}
+                          className="text-xs text-slate-600 hover:text-[#B07A4E] px-2 py-1 rounded"
+                        >
+                          {feed.isActive ? 'Pause' : 'Resume'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFeed(feed)}
+                          className="p-1.5 text-slate-500 hover:text-red-700 rounded"
+                          title="Remove feed"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add a feed */}
+          {showAddFeed ? (
+            <div className="p-3 border border-line rounded-lg bg-paper-deep space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={feedFormName}
+                  onChange={(e) => setFeedFormName(e.target.value)}
+                  placeholder="Jane Appointments"
+                  className="w-full px-3 py-2 text-sm border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">iCal URL</label>
+                <input
+                  type="url"
+                  value={feedFormUrl}
+                  onChange={(e) => setFeedFormUrl(e.target.value)}
+                  placeholder="https://yourpractice.janeapp.com/ical/..."
+                  className="w-full px-3 py-2 text-sm border border-line rounded-lg focus:ring-2 focus:ring-[#B07A4E] focus:border-transparent"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  In Jane: Profile → Calendar Subscriptions → copy the "Appointments calendar feed" URL.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => { setShowAddFeed(false); setFeedFormName(''); setFeedFormUrl(''); setFeedError(null); }}
+                  className="px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddFeed}
+                  disabled={feedAdding}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#B07A4E] hover:bg-[#8A5D36] text-white rounded font-medium disabled:opacity-50"
+                >
+                  {feedAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Add feed
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddFeed(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-[#B07A4E]/30 text-[#B07A4E] rounded-lg hover:bg-[#B07A4E]/5"
+            >
+              <Calendar className="w-4 h-4" /> Add a feed
+            </button>
           )}
         </div>
 

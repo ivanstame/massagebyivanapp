@@ -146,7 +146,11 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     // booking form rendered a stale slot, the inline sync here catches
     // it before we persist a conflict.
     const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
-    await ensureFreshGcalSync(providerId);
+    const { ensureFreshExternalFeeds } = require('../services/externalCalendarFeedService');
+    await Promise.all([
+      ensureFreshGcalSync(providerId),
+      ensureFreshExternalFeeds(providerId),
+    ]);
 
     // Fetch blocked times for this date
     const blockedTimes = await BlockedTime.find({
@@ -2296,11 +2300,15 @@ router.put('/:id/reschedule', ensureAuthenticated, async (req, res) => {
     const startOfDay = bookingDateLA.startOf('day').toUTC().toJSDate();
     const endOfDay = bookingDateLA.endOf('day').toUTC().toJSDate();
 
-    // GCal freshness gate before the reschedule conflict check —
-    // mirror the booking-creation gate so reschedules also can't slip
-    // past a GCal event the cache hasn't picked up yet.
+    // Freshness gates before the reschedule conflict check — mirror
+    // the booking-creation gates so reschedules also can't slip past
+    // a calendar event the cache hasn't picked up yet.
     const { ensureFreshGcalSync } = require('../services/googleCalendarSync');
-    await ensureFreshGcalSync(providerId);
+    const { ensureFreshExternalFeeds } = require('../services/externalCalendarFeedService');
+    await Promise.all([
+      ensureFreshGcalSync(providerId),
+      ensureFreshExternalFeeds(providerId),
+    ]);
 
     const otherBookings = await Booking.find({
       provider: providerId,
