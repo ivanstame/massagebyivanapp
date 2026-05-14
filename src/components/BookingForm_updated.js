@@ -50,8 +50,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const [targetClientLoading, setTargetClientLoading] = useState(false);
   const [showClientPicker, setShowClientPicker] = useState(false);
 
-  // Provider services (fetched from API)
-  const [durationOptions, setDurationOptions] = useState([]);
+  // Provider services (fetched from API). `baseDurationOptions` is
+  // the source of truth from the provider's pricing tiers — what
+  // applies for mobile bookings. The effective `durationOptions` used
+  // by the wizard is derived below, swapping in a venue's override
+  // pricing when the client has picked a venue with one.
+  const [baseDurationOptions, setBaseDurationOptions] = useState([]);
   const [availableAddons, setAvailableAddons] = useState([]);
   const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState(['cash']);
 
@@ -219,7 +223,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
           }
 
           if (basePricing && basePricing.length > 0) {
-            setDurationOptions(basePricing);
+            setBaseDurationOptions(basePricing);
             // Auto-select first package if none selected — set both
             // the duration AND the label so the disambiguated highlight
             // and pricing lookup land on the right tier from the start.
@@ -278,7 +282,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
         if (cancelled) return;
         const tieredPricing = res.data?.basePricing;
         if (Array.isArray(tieredPricing) && tieredPricing.length > 0) {
-          setDurationOptions(tieredPricing);
+          setBaseDurationOptions(tieredPricing);
         }
       } catch (err) {
         console.error('Failed to resolve client tier pricing:', err);
@@ -608,6 +612,31 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const flexibleVenuesForDay = dayBlocks
     .filter(b => b.kind === 'flexible' && b.staticLocation)
     .map(b => b.staticLocation);
+
+  // Effective duration options for the current booking context. When
+  // the client has picked a venue (via the address picker) AND that
+  // venue has a non-mobile pricing override configured, the wizard
+  // shows the override pricing on the duration step — so the price
+  // displayed matches what they'll be charged. Otherwise falls back
+  // to the provider's base pricing (mobile rates).
+  //
+  // The venue is looked up by savedLocationId in the union of today's
+  // flexibleVenues (relevant to both providers and clients) and the
+  // provider's full savedLocations list (only populated for provider
+  // bookings).
+  const chosenVenueForPricing = location?.savedLocationId
+    ? [...flexibleVenuesForDay, ...providerSavedLocations]
+        .find(v => String(v?._id) === String(location.savedLocationId))
+    : null;
+  const venuePricingOverride = chosenVenueForPricing
+    && chosenVenueForPricing.isStaticLocation
+    && chosenVenueForPricing.staticConfig
+    && chosenVenueForPricing.staticConfig.useMobilePricing === false
+    && Array.isArray(chosenVenueForPricing.staticConfig.pricing)
+    && chosenVenueForPricing.staticConfig.pricing.length > 0
+    ? chosenVenueForPricing.staticConfig.pricing
+    : null;
+  const durationOptions = venuePricingOverride || baseDurationOptions;
 
   // Auto-fill location with the studio's coords when the day is
   // purely in-studio AND a CLIENT is self-booking. Provider-on-
@@ -1150,8 +1179,12 @@ const BookingForm = ({ googleMapsLoaded }) => {
     setSelectedTime(null);
     setFullAddress('');
     setLocation(null);
-    setSelectedDuration(durationOptions.length > 0 ? durationOptions[0].duration : 60);
-    setSelectedTierLabel(durationOptions[0]?.label || '');
+    // Reset to base pricing — location is being cleared in this same
+    // tick, so the derived durationOptions would resolve to base on
+    // the next render anyway. Read from base directly to avoid any
+    // stale-venue confusion.
+    setSelectedDuration(baseDurationOptions.length > 0 ? baseDurationOptions[0].duration : 60);
+    setSelectedTierLabel(baseDurationOptions[0]?.label || '');
     setSelectedAddons([]);
     setSelectedPaymentMethod(acceptedPaymentMethods[0] || 'cash');
     setRecipientType('self');
