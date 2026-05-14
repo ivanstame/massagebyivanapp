@@ -137,8 +137,16 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
               const containerColors = isStatic
                 ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
                 : isFlexible
-                  ? 'bg-gradient-to-br from-green-50 to-blue-50 border-emerald-300 hover:from-green-100 hover:to-blue-100'
+                  ? 'border-emerald-300'
                   : 'bg-green-50 border-green-200 hover:bg-green-100';
+              // Flexible block — hard 50/50 diagonal split, same as
+              // the calendar cell shading above. emerald-100 / sky-100
+              // hex codes for a sharp transition. Inline-styled because
+              // Tailwind's gradient utilities don't support hard stops
+              // at a fixed midpoint.
+              const flexibleStyle = isFlexible
+                ? { background: 'linear-gradient(135deg, #d1fae5 0%, #d1fae5 50%, #bae6fd 50%, #bae6fd 100%)' }
+                : null;
               const badgeColors = isStatic
                 ? 'bg-blue-100 text-blue-800'
                 : isFlexible
@@ -154,6 +162,7 @@ const DaySchedule = ({ date, availabilityBlocks, bookings, blockedTimes = [], on
                   style={{
                     top: `${blockStart}px`,
                     height: `${blockEnd - blockStart}px`,
+                    ...(flexibleStyle || {}),
                   }}
                 >
                   <div className="p-2 flex flex-col h-full justify-between">
