@@ -73,7 +73,12 @@ async function generateFromTemplate(providerId, laDate) {
     end: endLA.toUTC().toJSDate(),
     source: 'template',
     kind: template.kind || 'mobile',
-    staticLocation: template.kind === 'static' ? template.staticLocation : null
+    // staticLocation carried for both 'static' AND 'flexible' kinds —
+    // static uses it as the entire window's location, flexible uses
+    // it as an extra address option surfaced at booking time.
+    staticLocation: (template.kind === 'static' || template.kind === 'flexible')
+      ? template.staticLocation
+      : null
   };
 
   const availability = new Availability(availData);
@@ -410,7 +415,9 @@ router.get('/month/:year/:month', ensureAuthenticated, async (req, res) => {
     for (const a of availabilityRows) {
       if (!viableByDate.get(a.localDate)) continue;
       const set = kindsByDate.get(a.localDate) || new Set();
-      set.add(a.kind === 'static' ? 'static' : 'mobile');
+      const k = a.kind === 'static' ? 'static'
+        : a.kind === 'flexible' ? 'flexible' : 'mobile';
+      set.add(k);
       kindsByDate.set(a.localDate, set);
     }
     const seen = new Set();
@@ -905,7 +912,14 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     // in-studio" within the same hours — clients pick at booking time
     // and the slot picker handles which slots stay free for the other
     // mode after a booking lands.
-    const incomingKind = availabilityData.kind === 'static' ? 'static' : 'mobile';
+    // Accept 'static', 'flexible', or fall back to 'mobile' as the
+    // default. 'flexible' is behaviorally a mobile block + an extra
+    // venue surfaced at booking time (see Availability.kind comment).
+    const incomingKind = (
+      availabilityData.kind === 'static' ? 'static'
+      : availabilityData.kind === 'flexible' ? 'flexible'
+      : 'mobile'
+    );
     const existingBlocks = await Availability.find({
       provider: req.user._id,
       localDate: laDate.toFormat('yyyy-MM-dd'),
@@ -933,8 +947,10 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     );
     if (sameKindConflicts.length > 0) {
       console.log('POST /api/availability - Same-kind overlap rejected:', sameKindConflicts.length);
+      const kindLabel = incomingKind === 'static' ? 'in-studio'
+        : incomingKind === 'flexible' ? 'flexible' : 'mobile';
       return res.status(400).json({
-        message: `This time block overlaps with an existing ${incomingKind === 'static' ? 'in-studio' : 'mobile'} block`,
+        message: `This time block overlaps with an existing ${kindLabel} block`,
         conflicts: sameKindConflicts.map(block => {
           const blockTz = block.timezone || DEFAULT_TZ;
           return {
@@ -957,10 +973,12 @@ router.post('/', ensureAuthenticated, async (req, res) => {
       localDate: laDate.toFormat('yyyy-MM-dd'),
       source: 'manual',
       kind: incomingKind,
-      // Caller is responsible for sending a valid StaticLocation _id when
-      // kind=static. We don't fail the request if the id is bogus — the
-      // ref will just dangle and the booking flow can warn.
-      staticLocation: incomingKind === 'static' && availabilityData.staticLocation
+      // staticLocation is required for 'static' (the entire window IS
+      // at that location) AND for 'flexible' (the venue surfaced as
+      // an extra address option at booking time). Mobile windows
+      // don't carry one.
+      staticLocation: (incomingKind === 'static' || incomingKind === 'flexible')
+        && availabilityData.staticLocation
         ? availabilityData.staticLocation
         : null
     });

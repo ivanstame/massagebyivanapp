@@ -599,6 +599,16 @@ const BookingForm = ({ googleMapsLoaded }) => {
   const dayIsPurelyStatic = dayBlocks.length > 0 && dayBlocks.every(b => b.kind === 'static' && b.staticLocation);
   const studioForDay = dayIsPurelyStatic ? dayBlocks[0].staticLocation : null;
 
+  // Venues offered today via a 'flexible' availability block — provider
+  // marked the day as "either come to me OR I'll come to you," with the
+  // venue being the in-studio fallback. Surfaced in the address picker
+  // so the booker can choose the venue as the destination address.
+  // Pricing override resolution (mobile vs venue's static config) uses
+  // these too.
+  const flexibleVenuesForDay = dayBlocks
+    .filter(b => b.kind === 'flexible' && b.staticLocation)
+    .map(b => b.staticLocation);
+
   // Auto-fill location with the studio's coords when the day is
   // purely in-studio AND a CLIENT is self-booking. Provider-on-
   // behalf bookings keep the target client's address — the provider
@@ -699,10 +709,28 @@ const BookingForm = ({ googleMapsLoaded }) => {
       // For static slots the booking happens at the provider's studio,
       // not the client's address — pricing may also come from the
       // location's override instead of the provider's mobile tiers.
+      // For FLEXIBLE-block bookings, the slot is mobile-kind but the
+      // chosen address may still be a venue with an override — when
+      // that's the case we apply the venue's pricing too (the user
+      // came to the studio, so they pay the studio rate).
       const isStaticSlot = selectedTime.kind === 'static';
-      const staticOverridePricing = isStaticSlot && !selectedTime.useMobilePricing && Array.isArray(selectedTime.pricing)
-        ? selectedTime.pricing
+      const chosenVenue = location?.savedLocationId
+        ? [...flexibleVenuesForDay, ...providerSavedLocations]
+            .find(v => String(v?._id) === String(location.savedLocationId))
         : null;
+      const venueOverridePricing = chosenVenue
+        && chosenVenue.isStaticLocation
+        && chosenVenue.staticConfig
+        && chosenVenue.staticConfig.useMobilePricing === false
+        && Array.isArray(chosenVenue.staticConfig.pricing)
+        && chosenVenue.staticConfig.pricing.length > 0
+        ? chosenVenue.staticConfig.pricing
+        : null;
+      const staticOverridePricing = (
+        (isStaticSlot && !selectedTime.useMobilePricing && Array.isArray(selectedTime.pricing) && selectedTime.pricing)
+        || venueOverridePricing
+        || null
+      );
 
       // Calculate pricing from provider data — preferring the static
       // location's override when applicable.
@@ -1404,6 +1432,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   currentAddress={location}
                   onAddressChange={handleAddressConfirmed}
                   savedLocations={providerSavedLocations}
+                  flexibleVenues={flexibleVenuesForDay}
                   isComplete={fullAddress !== ''}
                 />
               )}
@@ -1747,6 +1776,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   currentAddress={location}
                   onAddressChange={handleAddressConfirmed}
                   savedLocations={providerSavedLocations}
+                  flexibleVenues={flexibleVenuesForDay}
                   isComplete={fullAddress !== ''}
                 />
               )}

@@ -13,6 +13,12 @@ const AddressSection = ({
   currentAddress,
   onAddressChange,
   savedLocations = [],
+  // Venues attached to TODAY's availability via a 'flexible' block —
+  // the provider opened up this date for either mobile OR in-studio
+  // at this specific venue. Surfaced for everyone (provider + client)
+  // because anyone booking this day can choose to come to the venue.
+  // Merged with savedLocations for display, deduped by _id.
+  flexibleVenues = [],
   isComplete
 }) => {
   // Three modes:
@@ -125,10 +131,21 @@ const AddressSection = ({
   // clearer header. The "Different address" branding only makes sense
   // when there's a default sitting next to it for contrast.
   const hasSaved = !!savedAddress;
-  const hasVenues = Array.isArray(savedLocations) && savedLocations.length > 0;
-  // Show the picker (button row + maybe venue list) whenever there's
-  // ANY default to choose against — client's home OR provider's
-  // saved venues.
+  // Merge provider-side savedLocations with today's flexibleVenues,
+  // dedup by _id so a venue that's both saved AND attached to a
+  // flexible block doesn't appear twice. flexibleVenues take priority
+  // for the merged record (they include staticConfig populated for
+  // pricing-override resolution).
+  const venuesById = new Map();
+  for (const v of savedLocations || []) {
+    if (v && v._id) venuesById.set(String(v._id), v);
+  }
+  for (const v of flexibleVenues || []) {
+    if (v && v._id) venuesById.set(String(v._id), v);
+  }
+  const mergedVenues = Array.from(venuesById.values());
+  const hasVenues = mergedVenues.length > 0;
+  // Show the picker whenever there's any default to choose against.
   const showPicker = hasSaved || hasVenues;
 
   return (
@@ -271,12 +288,13 @@ const AddressSection = ({
         </div>
       )}
 
-      {/* Saved-venue picker — list of provider's saved locations. */}
+      {/* Venue picker — provider's saved locations + today's flexible
+          venues, merged. */}
       {locationType === 'venue' && hasVenues && (
         <div className="mt-6 p-4 bg-paper-deep rounded-lg border border-line">
           <h4 className="font-medium text-slate-900 mb-3">Pick a venue</h4>
           <div className="space-y-2">
-            {savedLocations.map(loc => {
+            {mergedVenues.map(loc => {
               const isSelected = selectedVenueId === loc._id;
               return (
                 <button

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { AlertCircle, Navigation, Home, Building2 } from 'lucide-react';
+import { AlertCircle, Navigation, Home, Building2, Shuffle } from 'lucide-react';
 import { DateTime } from 'luxon';
 import { TIME_FORMATS, tzOf } from '../utils/timeConstants';
 import api from '../services/api';
@@ -70,8 +70,12 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
       return;
     }
 
-    if (kind === 'static' && !selectedStaticLocationId) {
-      setError('Please pick the in-studio location for this window');
+    if ((kind === 'static' || kind === 'flexible') && !selectedStaticLocationId) {
+      setError(
+        kind === 'flexible'
+          ? 'Pick the venue clients can choose as their address'
+          : 'Please pick the in-studio location for this window'
+      );
       return;
     }
 
@@ -80,7 +84,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
       start: startTime,
       end: endTime,
       kind,
-      ...(kind === 'static' ? { staticLocation: selectedStaticLocationId } : {}),
+      ...((kind === 'static' || kind === 'flexible') ? { staticLocation: selectedStaticLocationId } : {}),
     };
 
     onAdd(availability);
@@ -138,10 +142,10 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             </div>
           </div>
 
-          {/* Mobile vs Static toggle. */}
+          {/* Kind picker — Mobile / In-studio / Flexible. */}
           <div className="border-t border-line pt-4">
             <p className="text-sm font-medium text-slate-700 mb-2">What kind of availability is this?</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setKind('mobile')}
@@ -155,7 +159,7 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                   <Navigation className={`w-4 h-4 ${kind === 'mobile' ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
                   <span className="text-sm font-medium text-slate-900">Mobile</span>
                 </div>
-                <span className="text-xs text-slate-500">You travel to clients (departing from home base)</span>
+                <span className="text-xs text-slate-500">You travel to clients</span>
               </button>
               <button
                 type="button"
@@ -176,6 +180,25 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                   {staticLocations.length === 0 ? 'No locations yet' : 'Clients come to you'}
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => setKind('flexible')}
+                disabled={staticLocations.length === 0}
+                className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                  kind === 'flexible'
+                    ? 'border-[#B07A4E] bg-[#B07A4E]/5'
+                    : 'border-line hover:border-line-soft'
+                } ${staticLocations.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={staticLocations.length === 0 ? 'Add an in-studio location first' : ''}
+              >
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Shuffle className={`w-4 h-4 ${kind === 'flexible' ? 'text-[#B07A4E]' : 'text-slate-500'}`} />
+                  <span className="text-sm font-medium text-slate-900">Flexible</span>
+                </div>
+                <span className="text-xs text-slate-500">
+                  {staticLocations.length === 0 ? 'No venues yet' : 'Mobile, OR venue option'}
+                </span>
+              </button>
             </div>
             {staticLocations.length === 0 && (
               <p className="text-xs text-slate-500 mt-2">
@@ -187,11 +210,11 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
             )}
           </div>
 
-          {/* Static-location picker (only when kind === 'static') */}
-          {kind === 'static' && staticLocations.length > 0 && (
+          {/* Venue picker — required for both static and flexible. */}
+          {(kind === 'static' || kind === 'flexible') && staticLocations.length > 0 && (
             <div>
               <label htmlFor="staticLocation" className="block text-sm font-medium text-slate-700 mb-1">
-                In-studio location
+                {kind === 'flexible' ? 'Venue option' : 'In-studio location'}
               </label>
               <div className="relative">
                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
@@ -210,7 +233,9 @@ const AddAvailabilityModal = ({ date, onAdd, onClose }) => {
                 </select>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Bookings within this window will be at this location. Turnover buffer comes from the location settings.
+                {kind === 'flexible'
+                  ? 'Clients can choose to come here OR have you come to them. Venue pricing override (if set on the location) kicks in only when the client picks the venue.'
+                  : 'Bookings within this window will be at this location. Turnover buffer comes from the location settings.'}
               </p>
             </div>
           )}

@@ -25,9 +25,16 @@ const AvailabilitySchema = new mongoose.Schema({
   // location for this entire window — no per-booking drive-time math
   // inside the window, static buffer for turnover instead, surrounding
   // mobile bookings travel from staticLocation.address.
+  // 'flexible' = behaviorally identical to mobile (provider travels
+  // out), but the block carries a staticLocation reference that the
+  // booking form surfaces as an additional address option. Lets the
+  // provider offer "I can come to you OR you can come to {venue}"
+  // without juggling two overlapping availability blocks. Pricing +
+  // slot generation + turnover all use the mobile path — the venue
+  // is just another valid destination address.
   kind: {
     type: String,
-    enum: ['mobile', 'static'],
+    enum: ['mobile', 'static', 'flexible'],
     default: 'mobile'
   },
   staticLocation: {

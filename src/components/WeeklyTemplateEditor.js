@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink, Building2, Navigation } from 'lucide-react';
+import { Clock, Save, CheckCircle, AlertCircle, MapPin, ExternalLink, Building2, Navigation, Shuffle } from 'lucide-react';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -120,8 +120,9 @@ const WeeklyTemplateEditor = () => {
   const handleKindChange = (dayIndex, newKind) => {
     setDays(prev => prev.map(d => {
       if (d.dayOfWeek !== dayIndex) return d;
-      if (newKind === 'static') {
-        return { ...d, kind: 'static' };
+      // static + flexible both require a venue; mobile clears it.
+      if (newKind === 'static' || newKind === 'flexible') {
+        return { ...d, kind: newKind };
       }
       return { ...d, kind: 'mobile', staticLocation: null };
     }));
@@ -143,8 +144,12 @@ const WeeklyTemplateEditor = () => {
         setError(`${DAY_NAMES[day.dayOfWeek]}: End time must be after start time`);
         return;
       }
-      if (day.kind === 'static' && !day.staticLocation) {
-        setError(`${DAY_NAMES[day.dayOfWeek]}: Pick an in-studio location for this day.`);
+      if ((day.kind === 'static' || day.kind === 'flexible') && !day.staticLocation) {
+        setError(
+          day.kind === 'flexible'
+            ? `${DAY_NAMES[day.dayOfWeek]}: Pick the venue clients can choose for flexible days.`
+            : `${DAY_NAMES[day.dayOfWeek]}: Pick an in-studio location for this day.`
+        );
         return;
       }
     }
@@ -341,15 +346,30 @@ const WeeklyTemplateEditor = () => {
                     >
                       <Building2 className="w-3 h-3" /> In-studio
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => handleKindChange(day.dayOfWeek, 'flexible')}
+                      disabled={staticLocations.length === 0}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        day.kind === 'flexible'
+                          ? 'border-[#B07A4E] bg-[#B07A4E]/10 text-[#B07A4E] font-medium'
+                          : 'border-line text-slate-600 hover:bg-paper-deep'
+                      } ${staticLocations.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={staticLocations.length === 0 ? 'Add a saved location first' : 'Mobile + venue option'}
+                    >
+                      <Shuffle className="w-3 h-3" /> Flexible
+                    </button>
                   </div>
 
                   {/* Mode-specific config row */}
-                  {day.kind === 'static' ? (
+                  {(day.kind === 'static' || day.kind === 'flexible') ? (
                     <div className="pl-3 border-l-2 border-line">
                       <div className="flex items-center gap-2">
-                        <Building2 className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
+                        {day.kind === 'flexible'
+                          ? <Shuffle className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />
+                          : <Building2 className="w-3.5 h-3.5 text-[#B07A4E] flex-shrink-0" />}
                         <span className="text-xs font-medium text-slate-600 flex-shrink-0">
-                          In-studio at:
+                          {day.kind === 'flexible' ? 'Venue option:' : 'In-studio at:'}
                         </span>
                         {staticLocations.length > 0 ? (
                           <select

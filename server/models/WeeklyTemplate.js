@@ -24,11 +24,12 @@ const WeeklyTemplateSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  // Mode: mirrors Availability.kind. When 'static', materialized
-  // availability rows for this template inherit kind+staticLocation.
+  // Mode: mirrors Availability.kind. When 'static' or 'flexible',
+  // materialized availability rows for this template inherit
+  // kind+staticLocation. See Availability.js for what each kind means.
   kind: {
     type: String,
-    enum: ['mobile', 'static'],
+    enum: ['mobile', 'static', 'flexible'],
     default: 'mobile'
   },
   staticLocation: {

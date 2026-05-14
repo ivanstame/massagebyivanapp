@@ -65,13 +65,19 @@ router.put('/', ensureAuthenticated, async (req, res) => {
         isActive: day.isActive !== undefined ? day.isActive : false
       };
 
-      // Static-mode wiring. When kind=static, the day's whole window is
-      // a fixed-location commitment; staticLocation must reference a
-      // valid StaticLocation owned by the provider (the booking flow
-      // populates it when computing slots).
-      const incomingKind = day.kind === 'static' ? 'static' : 'mobile';
+      // Kind wiring. 'static' = whole day fixed at staticLocation.
+      // 'flexible' = mobile day + staticLocation surfaced as an
+      // additional address option at booking time. Both require
+      // staticLocation to reference a valid SavedLocation owned by
+      // the provider.
+      const incomingKind = (
+        day.kind === 'static' ? 'static'
+        : day.kind === 'flexible' ? 'flexible'
+        : 'mobile'
+      );
       update.kind = incomingKind;
-      update.staticLocation = incomingKind === 'static' && day.staticLocation
+      update.staticLocation = (incomingKind === 'static' || incomingKind === 'flexible')
+        && day.staticLocation
         ? day.staticLocation
         : null;
 
