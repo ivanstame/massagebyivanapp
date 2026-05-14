@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Check, Home, Navigation, AlertCircle } from 'lucide-react';
+import { MapPin, Check, Home, Navigation, AlertCircle, Building2 } from 'lucide-react';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
@@ -12,9 +12,17 @@ const AddressSection = ({
   savedAddress,
   currentAddress,
   onAddressChange,
+  savedLocations = [],
   isComplete
 }) => {
+  // Three modes:
+  //   'saved'  — client's home address on file (default when present)
+  //   'venue'  — one of the provider's saved locations (Peters
+  //              Chiropractic, studio, etc.). Provider-only path,
+  //              gated on savedLocations being non-empty.
+  //   'other'  — manual entry, falls through to geocoding
   const [locationType, setLocationType] = useState(savedAddress ? 'saved' : 'other');
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [otherAddress, setOtherAddress] = useState({
     street: '',
     unit: '',
@@ -43,6 +51,27 @@ const AddressSection = ({
   const handleUseOther = () => {
     setLocationType('other');
     setVerifyError(null);
+  };
+
+  const handleUseVenue = () => {
+    setLocationType('venue');
+    setVerifyError(null);
+  };
+
+  // Pick a specific saved location. lat/lng/address are already on the
+  // doc (geocoded at save-time), so no /api/geocode round-trip needed.
+  const handleSelectVenue = (loc) => {
+    setSelectedVenueId(loc._id);
+    setVerifyError(null);
+    onAddressChange({
+      fullAddress: loc.address,
+      lat: loc.lat,
+      lng: loc.lng,
+      // Tag for downstream: tells the booking summary this address
+      // came from a saved venue, not from the client's profile.
+      savedLocationId: loc._id,
+      savedLocationName: loc.name,
+    });
   };
 
   const handleFieldChange = (field, value) => {
@@ -96,6 +125,11 @@ const AddressSection = ({
   // clearer header. The "Different address" branding only makes sense
   // when there's a default sitting next to it for contrast.
   const hasSaved = !!savedAddress;
+  const hasVenues = Array.isArray(savedLocations) && savedLocations.length > 0;
+  // Show the picker (button row + maybe venue list) whenever there's
+  // ANY default to choose against — client's home OR provider's
+  // saved venues.
+  const showPicker = hasSaved || hasVenues;
 
   return (
     <div className="bg-paper-elev rounded-lg shadow-sm p-6 border border-line">
@@ -121,42 +155,84 @@ const AddressSection = ({
       {/* Location Options — only when there's a default to choose
           against. With no default, skip the picker and show the form
           directly below. */}
-      {hasSaved && (
+      {showPicker && (
         <div className="space-y-3">
-          <button
-            type="button"
-            onClick={handleUseSaved}
-            className={`
-              w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
-              hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
-              ${locationType === 'saved'
-                ? 'border-teal-600 bg-teal-50'
-                : 'border-line bg-paper-elev hover:border-teal-300'
-              }
-            `}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center
-                  ${locationType === 'saved' ? 'bg-teal-600' : 'bg-teal-100'}
-                `}>
-                  <Home className={`w-5 h-5 ${locationType === 'saved' ? 'text-white' : 'text-teal-700'}`} />
-                </div>
-                <div>
-                  <div className={`font-medium text-lg ${locationType === 'saved' ? 'text-teal-900' : 'text-slate-900'}`}>
-                    Default address
+          {hasSaved && (
+            <button
+              type="button"
+              onClick={handleUseSaved}
+              className={`
+                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                ${locationType === 'saved'
+                  ? 'border-teal-600 bg-teal-50'
+                  : 'border-line bg-paper-elev hover:border-teal-300'
+                }
+              `}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center
+                    ${locationType === 'saved' ? 'bg-teal-600' : 'bg-teal-100'}
+                  `}>
+                    <Home className={`w-5 h-5 ${locationType === 'saved' ? 'text-white' : 'text-teal-700'}`} />
                   </div>
-                  <div className="text-sm text-slate-600">
-                    {savedAddress.fullAddress}
+                  <div>
+                    <div className={`font-medium text-lg ${locationType === 'saved' ? 'text-teal-900' : 'text-slate-900'}`}>
+                      Default address
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      {savedAddress.fullAddress}
+                    </div>
                   </div>
                 </div>
+                {locationType === 'saved' && (
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                )}
               </div>
-              {locationType === 'saved' && (
-                <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
-              )}
-            </div>
-          </button>
+            </button>
+          )}
+
+          {/* Provider's saved venues — Peters Chiropractic, studio,
+              home base, etc. Only surfaces for provider bookings (the
+              parent only fetches savedLocations in that case). */}
+          {hasVenues && (
+            <button
+              type="button"
+              onClick={handleUseVenue}
+              className={`
+                w-full p-4 rounded-lg border-2 transition-all duration-200 text-left
+                hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                ${locationType === 'venue'
+                  ? 'border-teal-600 bg-teal-50'
+                  : 'border-line bg-paper-elev hover:border-teal-300'
+                }
+              `}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center
+                    ${locationType === 'venue' ? 'bg-teal-600' : 'bg-teal-100'}
+                  `}>
+                    <Building2 className={`w-5 h-5 ${locationType === 'venue' ? 'text-white' : 'text-teal-700'}`} />
+                  </div>
+                  <div>
+                    <div className={`font-medium text-lg ${locationType === 'venue' ? 'text-teal-900' : 'text-slate-900'}`}>
+                      Saved venue
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      Pick one of your saved locations
+                    </div>
+                  </div>
+                </div>
+                {locationType === 'venue' && (
+                  <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                )}
+              </div>
+            </button>
+          )}
 
           <button
             type="button"
@@ -180,7 +256,7 @@ const AddressSection = ({
                 </div>
                 <div>
                   <div className={`font-medium text-lg ${locationType === 'other' ? 'text-teal-900' : 'text-slate-900'}`}>
-                    Different address
+                    {hasSaved ? 'Different address' : 'Custom address'}
                   </div>
                   <div className="text-sm text-slate-600">
                     Enter a different location
@@ -192,6 +268,51 @@ const AddressSection = ({
               )}
             </div>
           </button>
+        </div>
+      )}
+
+      {/* Saved-venue picker — list of provider's saved locations. */}
+      {locationType === 'venue' && hasVenues && (
+        <div className="mt-6 p-4 bg-paper-deep rounded-lg border border-line">
+          <h4 className="font-medium text-slate-900 mb-3">Pick a venue</h4>
+          <div className="space-y-2">
+            {savedLocations.map(loc => {
+              const isSelected = selectedVenueId === loc._id;
+              return (
+                <button
+                  key={loc._id}
+                  type="button"
+                  onClick={() => handleSelectVenue(loc)}
+                  className={`w-full p-3 rounded-lg border-2 text-left transition-all
+                    ${isSelected
+                      ? 'border-teal-600 bg-teal-50'
+                      : 'border-line bg-paper-elev hover:border-teal-300'
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {loc.isHomeBase
+                        ? <Home className="w-4 h-4 text-slate-600" />
+                        : <Building2 className="w-4 h-4 text-slate-600" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-slate-900 truncate">
+                        {loc.name}
+                        {loc.isHomeBase && (
+                          <span className="ml-1.5 text-xs font-normal text-slate-500">(home base)</span>
+                        )}
+                        {loc.isStaticLocation && !loc.isHomeBase && (
+                          <span className="ml-1.5 text-xs font-normal text-blue-700">(in-studio)</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">{loc.address}</div>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-teal-600 flex-shrink-0" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

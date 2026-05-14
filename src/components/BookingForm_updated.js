@@ -88,6 +88,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // in the booking payload so the server can atomically reserve the credit.
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [redeemablePackages, setRedeemablePackages] = useState([]);
+  // Provider's saved locations (Peters Chiropractic, home base, etc.).
+  // Only fetched when this is a provider-on-behalf-of booking — gives
+  // the provider one-tap selection of venues they frequent instead of
+  // typing the address every time.
+  const [providerSavedLocations, setProviderSavedLocations] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedTime, setSelectedTime] = useState(null);
   // When the chain expands (added session, added addon) and the user's
@@ -235,6 +240,25 @@ const BookingForm = ({ googleMapsLoaded }) => {
       fetchProviderInfo();
     }
   }, [user]);
+
+  // Provider's saved locations — fetched only when this is a provider
+  // booking on behalf of someone, so the provider can one-tap select
+  // Peters Chiropractic / studio / etc. instead of retyping the
+  // address. Clients don't have saved locations of their own (the
+  // endpoint is provider-scoped server-side anyway).
+  useEffect(() => {
+    if (!isProviderBooking) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/saved-locations');
+        if (!cancelled) setProviderSavedLocations(res.data || []);
+      } catch (err) {
+        console.error('Error fetching saved locations:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isProviderBooking]);
 
   // When a provider books on behalf of a target client, the client's
   // pricing tier may differ from Standard. Re-resolve pricing through
@@ -1379,6 +1403,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   })()}
                   currentAddress={location}
                   onAddressChange={handleAddressConfirmed}
+                  savedLocations={providerSavedLocations}
                   isComplete={fullAddress !== ''}
                 />
               )}
@@ -1721,6 +1746,7 @@ const BookingForm = ({ googleMapsLoaded }) => {
                   })()}
                   currentAddress={location}
                   onAddressChange={handleAddressConfirmed}
+                  savedLocations={providerSavedLocations}
                   isComplete={fullAddress !== ''}
                 />
               )}
