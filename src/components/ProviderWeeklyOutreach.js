@@ -134,7 +134,7 @@ const ProviderWeeklyOutreach = () => {
 
   if (!state) return null;
 
-  const { recipients: allRecipients, lastSentAt, canSendNow, canSendAt } = state;
+  const { recipients: allRecipients, lastSentAt, canSendNow, canSendAt, excludedCount, excludedReasons, rosterCount } = state;
   const totalCount = allRecipients.length;
   const quietCount = allRecipients.filter(r => r.isQuiet).length;
   const selectedCount = selectedIds.size;
@@ -245,6 +245,32 @@ const ProviderWeeklyOutreach = () => {
                   <strong className="text-slate-900">{selectedCount}</strong> of {totalCount} selected
                 </span>
               </div>
+
+              {/* Excluded-clients banner — explains why the recipient
+                  count is smaller than the provider's actual roster.
+                  Per TCPA, managed clients land with smsConsent=false
+                  by default and aren't reachable via SMS until they
+                  claim their account and opt in themselves. */}
+              {excludedCount > 0 && (
+                <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+                  <p className="text-amber-900">
+                    <strong>{excludedCount}</strong> of your <strong>{rosterCount}</strong> client{rosterCount === 1 ? '' : 's'} {excludedCount === 1 ? 'is' : 'are'} hidden — they can't be texted yet.
+                  </p>
+                  <ul className="text-xs text-amber-800 mt-1.5 space-y-0.5">
+                    {excludedReasons?.optedOut > 0 && (
+                      <li>
+                        • <strong>{excludedReasons.optedOut}</strong> haven't opted into SMS reminders. Managed clients (the ones you create on their behalf) default to off until they claim their account.
+                      </li>
+                    )}
+                    {excludedReasons?.noPhone > 0 && (
+                      <li>• <strong>{excludedReasons.noPhone}</strong> have no phone number on file.</li>
+                    )}
+                  </ul>
+                  <p className="text-xs text-amber-700 mt-1.5">
+                    Send these clients a claim link → they opt in during registration → they show up here on the next outreach.
+                  </p>
+                </div>
+              )}
 
               {/* Quick-select shortcuts */}
               <div className="flex flex-wrap gap-1.5 mb-3">

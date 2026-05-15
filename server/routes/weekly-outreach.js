@@ -426,6 +426,34 @@ router.get('/', ensureAuthenticated, async (req, res) => {
 
     const recipients = await getRecipients(req.user._id);
 
+    // Also count clients EXCLUDED from outreach so the UI can explain
+    // the count gap. Two reasons a client is hidden:
+    //   - smsConsent === false (TCPA-compliant default for managed
+    //     clients until they claim their account and opt in)
+    //   - no phone number on file
+    // Roster count vs eligible count is otherwise opaque to the
+    // provider; showing the delta avoids "why are 18 of my clients
+    // missing" head-scratching.
+    const [rosterCount, noPhoneCount, optedOutCount] = await Promise.all([
+      User.countDocuments({ providerId: req.user._id, accountType: 'CLIENT' }),
+      User.countDocuments({
+        providerId: req.user._id,
+        accountType: 'CLIENT',
+        smsConsent: { $ne: false },
+        $or: [
+          { 'profile.phoneNumber': { $exists: false } },
+          { 'profile.phoneNumber': null },
+          { 'profile.phoneNumber': '' },
+        ],
+      }),
+      User.countDocuments({
+        providerId: req.user._id,
+        accountType: 'CLIENT',
+        smsConsent: false,
+      }),
+    ]);
+    const excludedCount = Math.max(0, rosterCount - recipients.length);
+
     res.json({
       template: {
         openingLine: template.openingLine || 'Hey {firstName}, quick heads-up on this week:',
@@ -435,6 +463,10 @@ router.get('/', ensureAuthenticated, async (req, res) => {
       canSendNow,
       canSendAt,
       recipients, // [{ _id, fullName, firstName, phoneNumber, lastBookingAt, isQuiet }]
+      eligibleCount: recipients.length,
+      rosterCount,
+      excludedCount,
+      excludedReasons: { noPhone: noPhoneCount, optedOut: optedOutCount },
       providerName: provider.providerProfile?.businessName || provider.profile?.fullName || '',
     });
   } catch (err) {
