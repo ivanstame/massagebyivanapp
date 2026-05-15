@@ -28,11 +28,12 @@ const {
   sendBookingCompletedEmail,
 } = require('../utils/email');
 
-// Calculate price helper (fallback when provider has no pricing configured)
-const calculatePrice = (duration) => {
-  const BASE_RATE = 120; // $120 per hour
-  return Math.ceil((duration / 60) * BASE_RATE);
-};
+// No fallback rate. Earlier versions used a silent $120/hr fallback
+// when a provider hadn't configured basePricing, which meant clients
+// could be charged a made-up number the provider never agreed to.
+// Booking creation now requires the request body to carry an explicit
+// pricing object with a positive totalPrice — the provider's services
+// page is the source of truth.
 
 // Reservation logic lives in services/packageReservation.js — same helper
 // used by chainBookingService and recurring-series materialization, so
@@ -120,7 +121,30 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }).sort({ start: 1 });
 
     if (availabilityBlocks.length === 0) {
-      return res.status(400).json({ message: 'No availability for the selected date' });
+      // Surface as a structured error so the client-side booking form
+      // can deep-link the provider to /provider/schedule-template
+      // instead of leaving them puzzled by a vague string.
+      return res.status(400).json({
+        message: 'No availability for the selected date',
+        errorCode: 'NO_AVAILABILITY'
+      });
+    }
+
+    // Pricing safety net. Provider must have at least one entry in
+    // basePricing OR the client must submit a pricing object with a
+    // positive totalPrice. We never invent prices. If a provider
+    // skipped the services page entirely and a booking somehow lands
+    // here with $0, reject with a specific code the UI can intercept.
+    const providerPricing = await User.findById(providerId)
+      .select('providerProfile.basePricing providerProfile.pricingTiers')
+      .lean();
+    const hasBasePricing = (providerPricing?.providerProfile?.basePricing || []).length > 0;
+    const submittedPrice = Number(req.body.pricing?.totalPrice) || 0;
+    if (!hasBasePricing && submittedPrice <= 0) {
+      return res.status(400).json({
+        message: 'Set your services and pricing before taking bookings.',
+        errorCode: 'NO_PRICING_CONFIGURED'
+      });
     }
 
     // Get existing bookings for this provider on this date
@@ -331,12 +355,15 @@ router.post('/', ensureAuthenticated, async (req, res) => {
           extraTime: addon.extraTime || 0
         }))
       }),
-      // Add pricing if provided
+      // Add pricing if provided. No fallback — the guard at the top
+      // of this handler rejects bookings that would land here with
+      // missing pricing. We trust whatever the form computed against
+      // the provider's current basePricing.
       ...(req.body.pricing && {
         pricing: {
-          basePrice: req.body.pricing.basePrice || calculatePrice(duration),
-          addonsPrice: req.body.pricing.addonsPrice || 0,
-          totalPrice: req.body.pricing.totalPrice || calculatePrice(duration)
+          basePrice: Number(req.body.pricing.basePrice) || 0,
+          addonsPrice: Number(req.body.pricing.addonsPrice) || 0,
+          totalPrice: Number(req.body.pricing.totalPrice) || 0
         }
       }),
       // Add recipient information if provided

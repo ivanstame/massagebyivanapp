@@ -7,7 +7,14 @@ export const bookingService = {
       const response = await api.post('/api/bookings', bookingData);
       return response.data;
     } catch (error) {
-      throw error.response?.data?.message || 'Error creating booking';
+      const data = error.response?.data;
+      // Throw an Error so the booking form can inspect .errorCode and
+      // deep-link to the right setup page (services, schedule, etc.)
+      // for known onboarding gaps. Falls back to a plain string for
+      // back-compat with older catch blocks that read err directly.
+      const err = new Error(data?.message || 'Error creating booking');
+      if (data?.errorCode) err.errorCode = data.errorCode;
+      throw err;
     }
   },
 

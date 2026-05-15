@@ -133,6 +133,10 @@ const BookingForm = ({ googleMapsLoaded }) => {
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Server-supplied error code, when present, lets us render a
+  // deep-link to the right setup page instead of a dead-end string.
+  // Cleared on retry / step change alongside setError(null).
+  const [errorCode, setErrorCode] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [newBookingId, setNewBookingId] = useState(null);
   const [showStripeCheckout, setShowStripeCheckout] = useState(false);
@@ -989,10 +993,11 @@ const BookingForm = ({ googleMapsLoaded }) => {
     } catch (err) {
       console.error('Error creating booking:', err);
       // err can be an Error instance (with .alternatives for chain
-      // failures) or a plain string (single-booking createBooking still
-      // throws strings). Read both shapes safely.
+      // failures, .errorCode for onboarding gaps) or a plain string
+      // for back-compat. Read both shapes safely.
       const message = (err && err.message) || (typeof err === 'string' ? err : null) || 'Failed to create booking';
       setError(message);
+      setErrorCode(err?.errorCode || null);
       // If the server returned chain alternatives, drop the user's
       // selection so the slot picker re-prompts them; the alternatives
       // are already a subset of the slot list, so picking from the
@@ -1987,9 +1992,24 @@ const BookingForm = ({ googleMapsLoaded }) => {
               )}
 
               {error && (
-                <div className="p-4 border border-red-200 rounded-card flex items-start gap-2"
+                <div className="p-4 border border-red-200 rounded-card"
                   style={{ background: 'rgba(165,70,65,0.08)' }}>
                   <p className="text-red-700 text-sm">{error}</p>
+                  {/* Onboarding-gap deep-links. Only shown when the
+                      server tagged the error with a known code AND the
+                      current user is the provider — clients can't fix
+                      their provider's pricing or schedule, so a link
+                      would mislead them. */}
+                  {isProviderBooking && errorCode === 'NO_PRICING_CONFIGURED' && (
+                    <a href="/provider/services" className="inline-block mt-2 text-sm font-medium text-red-700 underline">
+                      Set your services and pricing →
+                    </a>
+                  )}
+                  {isProviderBooking && errorCode === 'NO_AVAILABILITY' && (
+                    <a href="/provider/schedule-template" className="inline-block mt-2 text-sm font-medium text-red-700 underline">
+                      Set your weekly hours →
+                    </a>
+                  )}
                 </div>
               )}
 

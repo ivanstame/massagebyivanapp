@@ -118,13 +118,214 @@ router.put('/profile', ensureAuthenticated, async (req, res) => {
     }
 
     await user.save();
-    res.json({ 
-      message: 'Profile updated successfully', 
-      user: user.getPublicProfile() 
+
+    // White-glove onboarding commit. When the provider completes
+    // ProfileSetup, the request carries an onboardingWeeklyTemplate
+    // payload (selected days, start/end time, work mode). We use it
+    // to materialize the things that would otherwise leave them
+    // staring at empty surfaces on the dashboard:
+    //
+    //   - Home SavedLocation (with isStaticLocation flag for
+    //     static/flexible modes, so they can take in-studio bookings
+    //     at their address immediately).
+    //   - One WeeklyTemplate row per selected day, with the right
+    //     kind + (for static/flexible) the home location reference.
+    //
+    // Gated on registrationStep < 3 so a re-submit (which shouldn't
+    // happen via RegistrationGuard but might via a stale tab) can't
+    // wipe a provider's existing schedule. basePricing and
+    // acceptedPaymentMethods were already committed above via the
+    // providerProfile spread.
+    if (
+      user.accountType === 'PROVIDER'
+      && req.body.onboardingWeeklyTemplate
+      && req.body.registrationStep === 3
+    ) {
+      try {
+        const { days, startTime, endTime, kind } = req.body.onboardingWeeklyTemplate;
+
+        // Geocode the address so we have lat/lng for the home
+        // SavedLocation. Non-fatal: if geocoding fails, we skip the
+        // SavedLocation + WeeklyTemplate creation and the provider
+        // can add hours / locations manually after signup. We don't
+        // want a Google API hiccup to break their signup.
+        const addr = user.profile?.address;
+        let homeLocationId = null;
+        if (addr?.street && addr?.city && addr?.state && process.env.GOOGLE_MAPS_API_KEY) {
+          const addressStr = [addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+          try {
+            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressStr)}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+            const geocodeRes = await fetch(geocodeUrl);
+            const geocodeData = await geocodeRes.json();
+            if (geocodeData.results?.length > 0) {
+              const { lat, lng } = geocodeData.results[0].geometry.location;
+              const formatted = geocodeData.results[0].formatted_address;
+
+              // Mark home as in-studio location when provider chose
+              // static/flexible. Booking flow uses isStaticLocation
+              // to enforce same-address turnover differently.
+              const needsStatic = kind === 'static' || kind === 'flexible';
+              const home = await SavedLocation.findOneAndUpdate(
+                { provider: user._id, isHomeBase: true },
+                {
+                  $set: {
+                    name: 'Home',
+                    address: formatted,
+                    lat,
+                    lng,
+                    isHomeBase: true,
+                    isStaticLocation: needsStatic,
+                  }
+                },
+                { upsert: true, new: true }
+              );
+              homeLocationId = home._id;
+
+              // Keep the formatted address on the user profile so the
+              // booking form's "departure point" pill renders correctly.
+              if (user.profile?.address) {
+                user.profile.address.formatted = formatted;
+                await user.save();
+              }
+            }
+          } catch (geoErr) {
+            console.error('Onboarding geocode failed (non-fatal):', geoErr.message);
+          }
+        }
+
+        // Create one WeeklyTemplate per selected day. Upsert in case
+        // of an idempotent retry; the unique {provider, dayOfWeek}
+        // index makes plain insert risky.
+        if (Array.isArray(days) && days.length > 0 && startTime && endTime) {
+          const safeKind = ['mobile', 'static', 'flexible'].includes(kind) ? kind : 'mobile';
+          const staticLocationRef = (safeKind === 'static' || safeKind === 'flexible')
+            ? homeLocationId
+            : null;
+
+          // Skip static/flexible WeeklyTemplate creation if we
+          // couldn't get a home location — those kinds require a
+          // staticLocation. Fall back to mobile so the schedule
+          // doesn't end up empty.
+          const finalKind = staticLocationRef ? safeKind : 'mobile';
+
+          await Promise.all(days.map(d => WeeklyTemplate.findOneAndUpdate(
+            { provider: user._id, dayOfWeek: d },
+            {
+              $set: {
+                startTime,
+                endTime,
+                kind: finalKind,
+                staticLocation: staticLocationRef,
+                isActive: true,
+              }
+            },
+            { upsert: true, new: true }
+          )));
+        }
+      } catch (onboardErr) {
+        // Onboarding commit is best-effort. If anything fails we
+        // surface the profile save anyway so the provider isn't
+        // stuck — they can complete the missing pieces in-app.
+        console.error('Onboarding commit failed (non-fatal):', onboardErr);
+      }
+    }
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: user.getPublicProfile()
     });
   } catch (error) {
     console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Error updating profile' });
+  }
+});
+
+// @route   GET /api/users/onboarding-state
+// @desc    Provider-only. Returns whether the dashboard helper card
+//          should appear and which onboarding items are still open.
+//          The frontend dashboard reads this once on mount.
+// @access  Private (provider)
+router.get('/onboarding-state', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+
+    const user = await User.findById(req.user._id).lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const pp = user.providerProfile || {};
+    const acceptsCard = (pp.acceptedPaymentMethods || []).includes('card');
+    const stripeConnected = pp.stripeAccountStatus === 'active';
+    const needsStripe = acceptsCard && !stripeConnected;
+
+    const gcalConnected = !!(pp.googleCalendar?.connected);
+    let externalFeedCount = 0;
+    try {
+      const ExternalCalendarFeed = require('../models/ExternalCalendarFeed');
+      externalFeedCount = await ExternalCalendarFeed.countDocuments({
+        provider: req.user._id,
+        isActive: true
+      });
+    } catch {
+      // Model may not be present in some deployments; treat as zero.
+    }
+    const needsCalendar = !gcalConnected && externalFeedCount === 0;
+
+    // Derive completion of the ProfileSetup-committed pieces from the
+    // actual data, not a flag. If a provider clears their pricing
+    // later, this still reads correctly.
+    const hasPricing = (pp.basePricing || []).length > 0;
+    const hasPaymentMethods = (pp.acceptedPaymentMethods || []).length > 0;
+
+    // Weekly hours = any active WeeklyTemplate doc.
+    const hasWeeklyHours = (await WeeklyTemplate.countDocuments({
+      provider: req.user._id,
+      isActive: true
+    })) > 0;
+
+    const dismissedAt = pp.onboarding?.dashboardCardDismissedAt || null;
+
+    res.json({
+      dashboardCardDismissedAt: dismissedAt,
+      needsStripe,
+      needsCalendar,
+      hasPricing,
+      hasWeeklyHours,
+      hasPaymentMethods,
+      // Convenience: whether the card has anything left to show.
+      // Frontend can short-circuit on this.
+      hasOpenItems: !dismissedAt && (needsStripe || needsCalendar)
+    });
+  } catch (error) {
+    console.error('Error fetching onboarding state:', error);
+    res.status(500).json({ message: 'Error fetching onboarding state' });
+  }
+});
+
+// @route   POST /api/users/onboarding/dismiss-card
+// @desc    Provider taps "Got it" on the dashboard helper card.
+//          Stamps the dismissal time so the card never returns —
+//          even if Stripe / calendar items remain open. We don't
+//          want to nag.
+// @access  Private (provider)
+router.post('/onboarding/dismiss-card', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user.accountType !== 'PROVIDER') {
+      return res.status(403).json({ message: 'Provider access required' });
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.providerProfile) user.providerProfile = {};
+    if (!user.providerProfile.onboarding) user.providerProfile.onboarding = {};
+    user.providerProfile.onboarding.dashboardCardDismissedAt = new Date();
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error dismissing onboarding card:', error);
+    res.status(500).json({ message: 'Error dismissing onboarding card' });
   }
 });
 

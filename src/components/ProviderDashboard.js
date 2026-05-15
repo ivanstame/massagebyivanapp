@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Users, Settings, MapPin, Clock, DollarSign, Sparkles, Plus, Ban, ArrowRight, CheckCircle, AlertTriangle, Loader2, ChevronDown, ChevronUp, CreditCard, RefreshCw, X as XIcon } from 'lucide-react';
 import api from '../services/api';
 import { DateTime } from 'luxon';
 import { tzOf } from '../utils/timeConstants';
@@ -176,6 +176,53 @@ const ActionCard = ({ to, icon: Icon, title, sub }) => (
   </Link>
 );
 
+// Quiet onboarding card. Only renders when there's something the
+// system can't auto-complete for the provider — connect Stripe
+// (when they accept card payments) or sync a calendar feed. Once
+// the provider taps the X, the backend stamps a dismissal time and
+// the card never returns, even if items remain open. We trust the
+// provider's dismissal.
+const OnboardingCard = ({ items, onDismiss }) => {
+  if (!items.length) return null;
+  return (
+    <div className="bg-paper-elev border border-line rounded-card shadow-atelier-sm p-5 mb-6 relative">
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="absolute top-3 right-3 p-1 rounded hover:bg-paper-deep transition text-ink-3 hover:text-ink-2"
+        aria-label="Dismiss"
+      >
+        <XIcon className="w-4 h-4" />
+      </button>
+      <div className="av-eyebrow text-accent mb-1">
+        {items.length === 1 ? 'One thing left' : `${items.length} things left`}
+      </div>
+      <div className="font-display text-ink mb-1" style={{ fontSize: '1.125rem', fontWeight: 500 }}>
+        Finish the optional pieces when you&rsquo;re ready.
+      </div>
+      <p className="text-[13px] text-ink-2 mb-4">
+        Your schedule, services, and payment preferences are set. These last bits unlock card payments and calendar sync.
+      </p>
+      <div className="flex flex-col gap-2">
+        {items.map(item => (
+          <Link
+            key={item.id}
+            to={item.to}
+            className="flex items-center gap-3 p-3 rounded-card border border-line bg-paper-deep hover:bg-white hover:shadow-atelier-sm transition group"
+          >
+            <item.icon className="w-4 h-4 text-accent flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-ink">{item.title}</div>
+              <div className="text-xs text-ink-2 mt-0.5">{item.sub}</div>
+            </div>
+            <ArrowRight className="w-3.5 h-3.5 text-ink-3 group-hover:text-accent transition flex-shrink-0" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ProviderDashboard = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -201,16 +248,20 @@ const ProviderDashboard = () => {
   // their wall clock.
   const [now, setNow] = useState(() => DateTime.now().setZone(viewerTz));
   const [markingId, setMarkingId] = useState(null);
+  // Onboarding state. null until the fetch resolves so we don't render
+  // the helper card on a flash of empty data.
+  const [onboarding, setOnboarding] = useState(null);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         const today = DateTime.now().setZone(viewerTz).toFormat('yyyy-MM-dd');
-        const [statsRes, revRes, bookRes, actRes] = await Promise.allSettled([
+        const [statsRes, revRes, bookRes, actRes, onboardRes] = await Promise.allSettled([
           api.get('/api/bookings?stats=today'),
           api.get('/api/bookings/revenue'),
           api.get(`/api/bookings?date=${today}`),
           api.get('/api/bookings/recent-activity?days=7'),
+          api.get('/api/users/onboarding-state'),
         ]);
         if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
         if (revRes.status === 'fulfilled') setRevenue(revRes.value.data);
@@ -221,6 +272,7 @@ const ProviderDashboard = () => {
           setTodayBookings(sorted);
         }
         if (actRes.status === 'fulfilled') setActivity(actRes.value.data);
+        if (onboardRes.status === 'fulfilled') setOnboarding(onboardRes.value.data);
       } catch (err) {
         console.error('Dashboard fetch failed:', err);
       } finally {
@@ -233,6 +285,40 @@ const ProviderDashboard = () => {
     };
     fetchAll();
   }, []); // eslint-disable-line
+
+  const handleDismissOnboarding = async () => {
+    setOnboarding(prev => prev ? { ...prev, dashboardCardDismissedAt: new Date().toISOString(), hasOpenItems: false } : prev);
+    api.post('/api/users/onboarding/dismiss-card').catch(err => {
+      console.error('Dismiss onboarding card failed:', err);
+    });
+  };
+
+  // Build the list of open items from the onboarding state. Order
+  // matters — Stripe first because it directly unlocks revenue, then
+  // calendar sync because it prevents double-bookings.
+  const onboardingItems = (() => {
+    if (!onboarding || onboarding.dashboardCardDismissedAt) return [];
+    const items = [];
+    if (onboarding.needsStripe) {
+      items.push({
+        id: 'stripe',
+        icon: CreditCard,
+        title: 'Connect Stripe to take card payments',
+        sub: 'You picked card during signup — Stripe takes a few minutes to set up.',
+        to: '/provider/settings',
+      });
+    }
+    if (onboarding.needsCalendar) {
+      items.push({
+        id: 'calendar',
+        icon: RefreshCw,
+        title: 'Sync your calendar',
+        sub: 'Google Calendar or an iCal feed from Jane, Acuity, SimplePractice — keeps conflicts out.',
+        to: '/provider/settings',
+      });
+    }
+    return items;
+  })();
 
   useEffect(() => {
     const id = setInterval(
@@ -423,6 +509,12 @@ const ProviderDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* Quiet onboarding card — only renders when there's an open
+            item AND the provider hasn't dismissed it. Sits above
+            Today's Rhythm so a brand-new provider sees it on first
+            login but it never crowds an established provider's day. */}
+        <OnboardingCard items={onboardingItems} onDismiss={handleDismissOnboarding} />
 
         {/* Today's rhythm + side */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 mb-8">

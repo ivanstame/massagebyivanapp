@@ -250,7 +250,26 @@ const UserSchema = new mongoose.Schema({
     // When the provider last opened their dashboard. Used to compute
     // the "X new since you last checked" badge on the activity feed —
     // any booking createdAt / cancelledAt newer than this counts.
-    lastDashboardVisitAt: { type: Date, default: null }
+    lastDashboardVisitAt: { type: Date, default: null },
+    // Onboarding state. ProfileSetup commits weekly template, base
+    // pricing, and accepted payment methods directly — completion of
+    // those is read from the actual data, not flagged here. This
+    // sub-doc only tracks UI dismissals so the dashboard helper card
+    // and one-time inline hints fire once and stay quiet.
+    onboarding: {
+      // Stamped when the provider dismisses the dashboard's "two
+      // things left" card. Card never returns once set. Null means
+      // it can still appear (if Stripe or calendar still un-connected).
+      dashboardCardDismissedAt: { type: Date, default: null },
+      // Keyed by hint id (e.g. 'emptyClients', 'emptyAppointments').
+      // Each value is the timestamp the hint was first surfaced.
+      // Presence of a key = hint already fired; never shows again.
+      hintsShown: {
+        type: Map,
+        of: Date,
+        default: new Map()
+      }
+    }
   },
   // Add the new clientProfile field here
   clientProfile: {
