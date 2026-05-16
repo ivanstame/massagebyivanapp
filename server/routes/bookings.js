@@ -679,28 +679,36 @@ router.post('/bulk', ensureAuthenticated, async (req, res) => {
 router.get('/', ensureAuthenticated, async (req, res) => {
   try {
     if (req.query.stats === 'today') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      // Resolve "today" in the provider's timezone, not the server's.
+      // Heroku runs UTC; computing day boundaries with `new Date()`
+      // would count Saturday's bookings as "today" for an LA provider
+      // looking at the dashboard after 4pm PT (when UTC has already
+      // rolled to the next day). Match the rest of the codebase by
+      // querying the localDate string field directly.
+      const { tzForProviderId } = require('../utils/providerTz');
+      const providerTz = await tzForProviderId(req.user._id);
+      const nowProvider = DateTime.now().setZone(providerTz);
+      const todayStr = nowProvider.toFormat('yyyy-MM-dd');
 
       const appointments = await Booking.find({
         provider: req.user._id,
-        date: {
-          $gte: today,
-          $lt: tomorrow
-        },
+        localDate: todayStr,
         status: { $ne: 'cancelled' }
       });
 
-      const now = new Date();
       const stats = {
         total: appointments.length,
         completed: appointments.filter(appt => {
-          const endTime = new Date(appt.date);
-          const [hours, minutes] = appt.endTime.split(':');
-          endTime.setHours(parseInt(hours), parseInt(minutes));
-          return endTime < now;
+          // Completed = end time has passed in the booking's own TZ
+          // (a booking made in a different TZ before the provider
+          // moved should still resolve correctly).
+          const bookingTz = appt.timezone || providerTz;
+          const endDt = DateTime.fromFormat(
+            `${appt.localDate} ${appt.endTime}`,
+            'yyyy-MM-dd HH:mm',
+            { zone: bookingTz }
+          );
+          return endDt.isValid && endDt < nowProvider;
         }).length
       };
       stats.upcoming = stats.total - stats.completed;
