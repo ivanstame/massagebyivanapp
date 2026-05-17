@@ -30,6 +30,7 @@ import TreatmentPreferences from './components/TreatmentPreferences';
 import ClientPreferences from './components/ClientPreferences';
 import Header from './components/Navigation/Header';
 import Home from './components/Home';
+import Landing from './components/Landing';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import ProfileSetup from './components/ProfileSetup';
@@ -405,13 +406,23 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Home/Default Route */}
+          {/* Root route — splits by auth state.
+              - Logged-out visitors land on the public marketing page (Landing).
+              - Authenticated providers go straight to their dashboard.
+              - Authenticated admins go to admin.
+              - Authenticated clients see Home (their personal next-booking page). */}
           <Route
             path="/"
             element={
-              <ProtectedRoute>
-                {user?.accountType === 'PROVIDER' ? <Navigate to="/provider" /> : <Home />}
-              </ProtectedRoute>
+              !user ? (
+                <Landing />
+              ) : user.isAdmin ? (
+                <Navigate to="/admin" />
+              ) : user.accountType === 'PROVIDER' ? (
+                <Navigate to="/provider" />
+              ) : (
+                <Home />
+              )
             }
           />
 
